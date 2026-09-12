@@ -11,7 +11,11 @@ import {
   Edit3, 
   X, 
   Check, 
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  Layers,
+  CheckSquare,
+  Filter
 } from 'lucide-react';
 
 interface StudentsViewProps {
@@ -19,6 +23,7 @@ interface StudentsViewProps {
   onAddStudent: (student: Omit<Student, 'id'>) => void;
   onUpdateStudent: (student: Student) => void;
   onDeleteStudent: (id: string) => void;
+  onBulkDeleteStudents: (ids: string[]) => void;
   onBulkImport: (newStudents: Omit<Student, 'id'>[]) => void;
   onRegenerateNumbers: () => void;
   onClearAll: () => void;
@@ -29,6 +34,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   onAddStudent,
   onUpdateStudent,
   onDeleteStudent,
+  onBulkDeleteStudents,
   onBulkImport,
   onRegenerateNumbers,
   onClearAll,
@@ -37,6 +43,13 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
   const [selectedClass, setSelectedClass] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<'ALL' | 'ASSIGNED' | 'UNASSIGNED'>('ALL');
   
+  // Selection states for collective actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [bulkDeleteType, setBulkDeleteType] = useState<'SELECTED' | 'CLASS' | 'UNASSIGNED' | 'FILTERED' | 'ALL'>('SELECTED');
+  const [selectedClassToDelete, setSelectedClassToDelete] = useState<string>('');
+  const [confirmDeleteInput, setConfirmDeleteInput] = useState('');
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -79,6 +92,102 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
 
   const maleCount = students.filter((s) => s.gender === 'L').length;
   const femaleCount = students.filter((s) => s.gender === 'P').length;
+  const unassignedCount = students.filter((s) => !s.roomId).length;
+
+  // Collective Selection Handlers
+  const handleToggleSelectStudent = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllFiltered = () => {
+    const allFilteredSelected =
+      filteredStudents.length > 0 && filteredStudents.every((s) => selectedIds.has(s.id));
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredStudents.forEach((s) => next.delete(s.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        filteredStudents.forEach((s) => next.add(s.id));
+        return next;
+      });
+    }
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filteredStudents.forEach((s) => next.add(s.id));
+      return next;
+    });
+  };
+
+  const handleSelectAllTotal = () => {
+    setSelectedIds(new Set(students.map((s) => s.id)));
+  };
+
+  const handleExecuteBulkDelete = () => {
+    if (bulkDeleteType === 'SELECTED') {
+      if (selectedIds.size === 0) return;
+      const idsToDelete = Array.from(selectedIds);
+      onBulkDeleteStudents(idsToDelete);
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+    } else if (bulkDeleteType === 'CLASS') {
+      const targetClass = selectedClassToDelete || classes[0];
+      if (!targetClass) return;
+      const targets = students.filter((s) => s.className === targetClass);
+      if (targets.length === 0) return;
+      onBulkDeleteStudents(targets.map((s) => s.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        targets.forEach((s) => next.delete(s.id));
+        return next;
+      });
+      setShowBulkDeleteModal(false);
+    } else if (bulkDeleteType === 'UNASSIGNED') {
+      const targets = students.filter((s) => !s.roomId);
+      if (targets.length === 0) return;
+      onBulkDeleteStudents(targets.map((s) => s.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        targets.forEach((s) => next.delete(s.id));
+        return next;
+      });
+      setShowBulkDeleteModal(false);
+    } else if (bulkDeleteType === 'FILTERED') {
+      if (filteredStudents.length === 0) return;
+      const idsToDelete = filteredStudents.map((s) => s.id);
+      onBulkDeleteStudents(idsToDelete);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        idsToDelete.forEach((id) => next.delete(id));
+        return next;
+      });
+      setShowBulkDeleteModal(false);
+    } else if (bulkDeleteType === 'ALL') {
+      if (confirmDeleteInput.trim().toUpperCase() !== 'HAPUS') {
+        alert('Silakan ketik "HAPUS" untuk mengonfirmasi penghapusan seluruh peserta.');
+        return;
+      }
+      onClearAll();
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+      setConfirmDeleteInput('');
+    }
+  };
+
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,6 +375,26 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           </button>
 
           <button
+            onClick={() => {
+              setBulkDeleteType(selectedIds.size > 0 ? 'SELECTED' : 'CLASS');
+              if (classes.length > 0 && !selectedClassToDelete) {
+                setSelectedClassToDelete(classes[0]);
+              }
+              setShowBulkDeleteModal(true);
+            }}
+            title="Menu Hapus Kolektif (per rombel, terpilih, atau seluruh data)"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+            <span>Hapus Kolektif</span>
+            {selectedIds.size > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-rose-600 text-white rounded-full text-[10px] font-bold">
+                {selectedIds.size}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setShowAddModal(true)}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors"
           >
@@ -274,6 +403,62 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Quick Selection Active Bar */}
+      {selectedIds.size > 0 && (
+        <div className="bg-rose-50/90 border border-rose-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+              {selectedIds.size}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900">
+                {selectedIds.size} Peserta Terpilih
+              </div>
+              <div className="text-[11px] text-slate-500">
+                {selectedIds.size === filteredStudents.length
+                  ? `Seluruh ${filteredStudents.length} peserta pada filter ini terpilih`
+                  : `Dari ${filteredStudents.length} peserta yang sedang tampil`}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {filteredStudents.length > selectedIds.size && (
+              <button
+                onClick={handleSelectAllFiltered}
+                className="px-2.5 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-colors"
+              >
+                Pilih Semua Tampilan ({filteredStudents.length})
+              </button>
+            )}
+            {students.length > selectedIds.size && (
+              <button
+                onClick={handleSelectAllTotal}
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white hover:bg-slate-100 rounded-lg border border-slate-300 transition-colors"
+              >
+                Pilih Seluruh Siswa ({students.length})
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              Batalkan
+            </button>
+            <button
+              onClick={() => {
+                setBulkDeleteType('SELECTED');
+                setShowBulkDeleteModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Hapus {selectedIds.size} Siswa Terpilih</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filter and Search Toolbar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center gap-3">
@@ -338,7 +523,23 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="py-3 px-4 w-12 text-center">No</th>
+                <th className="py-3 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredStudents.length > 0 && filteredStudents.every((s) => selectedIds.has(s.id))}
+                    ref={(input) => {
+                      if (input) {
+                        const someSelected = filteredStudents.some((s) => selectedIds.has(s.id));
+                        const allSelected = filteredStudents.length > 0 && filteredStudents.every((s) => selectedIds.has(s.id));
+                        input.indeterminate = someSelected && !allSelected;
+                      }
+                    }}
+                    onChange={handleToggleSelectAllFiltered}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                    title="Pilih / Batalkan semua peserta yang sedang ditampilkan"
+                  />
+                </th>
+                <th className="py-3 px-3 w-12 text-center">No</th>
                 <th className="py-3 px-4">No. Peserta</th>
                 <th className="py-3 px-4">NISN / NIS</th>
                 <th className="py-3 px-4">Nama Lengkap</th>
@@ -351,69 +552,83 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     Tidak ada data siswa yang cocok dengan filter.
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((student, idx) => (
-                  <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2.5 px-4 text-center text-slate-400 font-medium">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2.5 px-4 font-mono font-bold text-indigo-700">
-                      {student.examNumber}
-                    </td>
-                    <td className="py-2.5 px-4 text-slate-600 font-mono">
-                      <div>{student.nisn}</div>
-                      <div className="text-[10px] text-slate-400">NIS: {student.nis}</div>
-                    </td>
-                    <td className="py-2.5 px-4 font-semibold text-slate-900">
-                      {student.name}
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
-                        {student.className}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4 text-center font-bold">
-                      <span className={student.gender === 'L' ? 'text-blue-600' : 'text-pink-600'}>
-                        {student.gender}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      {student.roomName ? (
-                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium border border-emerald-200">
-                          <span className="font-bold">{student.roomName}</span>
-                          <span>•</span>
-                          <span>Meja {String(student.seatNumber).padStart(2, '0')}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                          Belum Terbagi
+                filteredStudents.map((student, idx) => {
+                  const isSelected = selectedIds.has(student.id);
+                  return (
+                    <tr
+                      key={student.id}
+                      className={`transition-colors ${isSelected ? 'bg-indigo-50/70 hover:bg-indigo-50' : 'hover:bg-slate-50/80'}`}
+                    >
+                      <td className="py-2.5 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectStudent(student.id)}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 text-center text-slate-400 font-medium">
+                        {idx + 1}
+                      </td>
+                      <td className="py-2.5 px-4 font-mono font-bold text-indigo-700">
+                        {student.examNumber}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-600 font-mono">
+                        <div>{student.nisn}</div>
+                        <div className="text-[10px] text-slate-400">NIS: {student.nis}</div>
+                      </td>
+                      <td className="py-2.5 px-4 font-semibold text-slate-900">
+                        {student.name}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200">
+                          {student.className}
                         </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => setEditingStudent(student)}
-                          title="Edit Siswa"
-                          className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteStudent(student.id)}
-                          title="Hapus Siswa"
-                          className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-2.5 px-4 text-center font-bold">
+                        <span className={student.gender === 'L' ? 'text-blue-600' : 'text-pink-600'}>
+                          {student.gender}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        {student.roomName ? (
+                          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-800 text-[11px] font-medium border border-emerald-200">
+                            <span className="font-bold">{student.roomName}</span>
+                            <span>•</span>
+                            <span>Meja {String(student.seatNumber).padStart(2, '0')}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Belum Terbagi
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setEditingStudent(student)}
+                            title="Edit Siswa"
+                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onDeleteStudent(student.id)}
+                            title="Hapus Siswa"
+                            className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -732,6 +947,319 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
               >
                 <Check className="w-3.5 h-3.5" />
                 <span>Tambahkan {importPreview.length} Siswa</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Menu Hapus Kolektif */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center font-bold">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Menu Hapus Kolektif Peserta Ujian
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Pilih metode penghapusan massal data siswa secara aman
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowBulkDeleteModal(false);
+                  setConfirmDeleteInput('');
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Delete Mode Selector Tabs */}
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-600 mb-2 uppercase tracking-wider">
+                Pilih Kriteria Penghapusan:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteType('SELECTED')}
+                  className={`p-2.5 rounded-xl border text-left transition-all text-xs font-semibold flex flex-col justify-between ${
+                    bulkDeleteType === 'SELECTED'
+                      ? 'border-rose-600 bg-rose-50 text-rose-900 shadow-xs'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Pilihan Centang</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-1 font-normal">
+                    {selectedIds.size} siswa terpilih
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkDeleteType('CLASS');
+                    if (classes.length > 0 && !selectedClassToDelete) {
+                      setSelectedClassToDelete(classes[0]);
+                    }
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all text-xs font-semibold flex flex-col justify-between ${
+                    bulkDeleteType === 'CLASS'
+                      ? 'border-rose-600 bg-rose-50 text-rose-900 shadow-xs'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Per Kelas / Rombel</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-1 font-normal">
+                    {classes.length} rombel tersedia
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteType('UNASSIGNED')}
+                  className={`p-2.5 rounded-xl border text-left transition-all text-xs font-semibold flex flex-col justify-between ${
+                    bulkDeleteType === 'UNASSIGNED'
+                      ? 'border-rose-600 bg-rose-50 text-rose-900 shadow-xs'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Belum Ada Ruang</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-1 font-normal">
+                    {unassignedCount} siswa
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteType('FILTERED')}
+                  className={`p-2.5 rounded-xl border text-left transition-all text-xs font-semibold flex flex-col justify-between ${
+                    bulkDeleteType === 'FILTERED'
+                      ? 'border-rose-600 bg-rose-50 text-rose-900 shadow-xs'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Filter className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Hasil Filter / Cari</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-1 font-normal">
+                    {filteredStudents.length} siswa tampil
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteType('ALL')}
+                  className={`p-2.5 rounded-xl border text-left transition-all text-xs font-semibold flex flex-col justify-between col-span-2 sm:col-span-2 ${
+                    bulkDeleteType === 'ALL'
+                      ? 'border-rose-600 bg-rose-50 text-rose-900 shadow-xs'
+                      : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-rose-700">
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Kosongkan Semua Data Peserta</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 mt-1 font-normal">
+                    Total {students.length} seluruh siswa di sistem
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Dynamic Content Panel */}
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs">
+              {bulkDeleteType === 'SELECTED' && (
+                <div className="space-y-3">
+                  <div className="font-bold text-slate-900 flex items-center justify-between">
+                    <span>Hapus Siswa yang Telah Dicentang</span>
+                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-mono">
+                      {selectedIds.size} Siswa
+                    </span>
+                  </div>
+                  {selectedIds.size === 0 ? (
+                    <div className="text-slate-500 text-xs leading-relaxed py-2">
+                      Belum ada siswa yang dicentang di tabel. Silakan centang kotak di sebelah kiri nama siswa pada tabel, atau pilih opsi <strong>Per Kelas / Rombel</strong> di atas.
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-slate-600 leading-relaxed mb-2">
+                        Anda akan menghapus <strong>{selectedIds.size} peserta</strong> yang telah Anda tandai. Siswa berikut termasuk di dalamnya:
+                      </p>
+                      <div className="max-h-32 overflow-y-auto bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+                        {students
+                          .filter((s) => selectedIds.has(s.id))
+                          .slice(0, 5)
+                          .map((s) => (
+                            <div key={s.id} className="text-[11px] text-slate-800 flex justify-between">
+                              <span className="font-semibold">{s.name}</span>
+                              <span className="text-slate-500">{s.className} • {s.examNumber}</span>
+                            </div>
+                          ))}
+                        {selectedIds.size > 5 && (
+                          <div className="text-[10px] text-slate-400 text-center pt-1 border-t border-slate-100">
+                            ...dan {selectedIds.size - 5} siswa lainnya.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bulkDeleteType === 'CLASS' && (
+                <div className="space-y-3">
+                  <div className="font-bold text-slate-900">
+                    Hapus Seluruh Siswa Berdasarkan Kelas / Rombel
+                  </div>
+                  <p className="text-slate-600 leading-relaxed text-[11px]">
+                    Pilih kelas yang seluruh siswanya ingin dihapus sekaligus (misal saat rotasi tahun ajaran atau rombel keliru).
+                  </p>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Pilih Rombel / Kelas Target:
+                    </label>
+                    <select
+                      value={selectedClassToDelete || classes[0] || ''}
+                      onChange={(e) => setSelectedClassToDelete(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none bg-white font-semibold"
+                    >
+                      {classes.map((cls) => {
+                        const count = students.filter((s) => s.className === cls).length;
+                        return (
+                          <option key={cls} value={cls}>
+                            Kelas {cls} ({count} siswa)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  {selectedClassToDelete && (
+                    <div className="text-[11px] text-rose-700 bg-rose-50 p-2 rounded border border-rose-200">
+                      Akan menghapus <strong>{students.filter((s) => s.className === selectedClassToDelete).length} peserta</strong> di kelas <strong>{selectedClassToDelete}</strong>.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bulkDeleteType === 'UNASSIGNED' && (
+                <div className="space-y-2">
+                  <div className="font-bold text-slate-900 flex items-center justify-between">
+                    <span>Hapus Siswa yang Belum Memiliki Ruang</span>
+                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] font-mono font-bold">
+                      {unassignedCount} Siswa
+                    </span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed text-[11px]">
+                    Opsi ini berguna jika Anda sudah mendistribusikan siswa ke ruangan ujian dan ingin membersihkan sisa peserta yang tidak terdistribusi atau batal mengikuti ujian.
+                  </p>
+                  {unassignedCount === 0 && (
+                    <div className="text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200 text-[11px]">
+                      Semua siswa ({students.length}) telah teralokasi ke ruang ujian masing-masing.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {bulkDeleteType === 'FILTERED' && (
+                <div className="space-y-2">
+                  <div className="font-bold text-slate-900 flex items-center justify-between">
+                    <span>Hapus Siswa Hasil Filter Saat Ini</span>
+                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[11px] font-mono font-bold">
+                      {filteredStudents.length} Siswa
+                    </span>
+                  </div>
+                  <p className="text-slate-600 leading-relaxed text-[11px]">
+                    Akan menghapus semua siswa yang cocok dengan filter pencarian dan filter rombel aktif saat ini.
+                  </p>
+                  <div className="bg-white p-2.5 rounded border border-slate-200 space-y-1 text-[11px]">
+                    <div><strong>Kata Kunci:</strong> {searchTerm ? `"${searchTerm}"` : 'Semua'}</div>
+                    <div><strong>Filter Rombel:</strong> {selectedClass}</div>
+                    <div><strong>Filter Status:</strong> {selectedStatus}</div>
+                  </div>
+                </div>
+              )}
+
+              {bulkDeleteType === 'ALL' && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-rose-700 font-bold">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span>Peringatan Kritis: Kosongkan Seluruh Peserta</span>
+                  </div>
+                  <p className="text-slate-700 text-[11px] leading-relaxed">
+                    Tindakan ini akan <strong>menghapus permanen seluruh {students.length} peserta ujian</strong> dari memori dan database Cloud Firestore. Semua penempatan kursi di ruang ujian akan di-reset.
+                  </p>
+                  <div className="bg-white p-3 rounded-lg border border-rose-200 space-y-2">
+                    <label className="block text-[11px] font-semibold text-slate-700">
+                      Ketik kata <strong className="text-rose-600">HAPUS</strong> untuk konfirmasi:
+                    </label>
+                    <input
+                      type="text"
+                      value={confirmDeleteInput}
+                      onChange={(e) => setConfirmDeleteInput(e.target.value)}
+                      placeholder="Ketik HAPUS"
+                      className="w-full px-3 py-1.5 text-xs border border-rose-300 rounded-md focus:ring-2 focus:ring-rose-500 focus:outline-none uppercase font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBulkDeleteModal(false);
+                  setConfirmDeleteInput('');
+                }}
+                className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBulkDelete}
+                disabled={
+                  (bulkDeleteType === 'SELECTED' && selectedIds.size === 0) ||
+                  (bulkDeleteType === 'UNASSIGNED' && unassignedCount === 0) ||
+                  (bulkDeleteType === 'FILTERED' && filteredStudents.length === 0) ||
+                  (bulkDeleteType === 'CLASS' && (!selectedClassToDelete || students.filter((s) => s.className === selectedClassToDelete).length === 0)) ||
+                  (bulkDeleteType === 'ALL' && confirmDeleteInput.trim().toUpperCase() !== 'HAPUS')
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-xl shadow-xs transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {bulkDeleteType === 'SELECTED'
+                    ? `Hapus ${selectedIds.size} Siswa Terpilih`
+                    : bulkDeleteType === 'CLASS'
+                    ? `Hapus Siswa Kelas ${selectedClassToDelete || ''}`
+                    : bulkDeleteType === 'UNASSIGNED'
+                    ? `Hapus ${unassignedCount} Siswa Belum Ada Ruang`
+                    : bulkDeleteType === 'FILTERED'
+                    ? `Hapus ${filteredStudents.length} Siswa Terfilter`
+                    : `Kosongkan Seluruh ${students.length} Peserta`}
+                </span>
               </button>
             </div>
           </div>

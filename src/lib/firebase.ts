@@ -245,6 +245,41 @@ export async function deleteStudentFromCloud(studentId: string): Promise<void> {
   }
 }
 
+export async function deleteStudentsBatchFromCloud(studentIds: string[]): Promise<void> {
+  if (!db || studentIds.length === 0) return;
+  try {
+    const batchSize = 400;
+    for (let i = 0; i < studentIds.length; i += batchSize) {
+      const chunk = studentIds.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach((id) => {
+        batch.delete(doc(db, 'students', id));
+      });
+      await batch.commit();
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, 'students');
+  }
+}
+
+export async function clearAllStudentsFromCloud(): Promise<void> {
+  if (!db) return;
+  try {
+    const snap = await getDocs(collection(db, 'students'));
+    const batchSize = 400;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const chunk = docs.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, 'students');
+  }
+}
+
+
 export async function syncStudentsToCloud(students: Student[]): Promise<void> {
   try {
     const batchSize = 400;

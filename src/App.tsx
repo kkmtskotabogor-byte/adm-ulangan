@@ -23,6 +23,8 @@ import {
   subscribeToStudents,
   saveStudentToCloud,
   deleteStudentFromCloud,
+  deleteStudentsBatchFromCloud,
+  clearAllStudentsFromCloud,
   syncStudentsToCloud,
   subscribeToProctors,
   saveProctorToCloud,
@@ -343,6 +345,21 @@ export default function App() {
     setStudents((prev) => prev.filter((s) => s.id !== id));
     deleteStudentFromCloud(id).catch((err) => console.warn('Cloud student delete note:', err));
     showToast('Siswa berhasil dihapus.');
+  };
+
+  const handleBulkDeleteStudents = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idsSet = new Set(ids);
+    const updated = students.filter((s) => !idsSet.has(s.id));
+    setStudents(updated);
+    deleteStudentsBatchFromCloud(ids).catch((err) => console.warn('Cloud batch delete note:', err));
+    showToast(`Berhasil menghapus ${ids.length} data peserta secara kolektif.`);
+  };
+
+  const handleClearAllStudents = () => {
+    setStudents([]);
+    clearAllStudentsFromCloud().catch((err) => console.warn('Cloud clear students note:', err));
+    showToast('Seluruh data peserta ujian berhasil dikosongkan.');
   };
 
   const handleBulkImport = (newStudents: Omit<Student, 'id'>[]) => {
@@ -699,9 +716,10 @@ export default function App() {
             onAddStudent={handleAddStudent}
             onUpdateStudent={handleUpdateStudent}
             onDeleteStudent={handleDeleteStudent}
+            onBulkDeleteStudents={handleBulkDeleteStudents}
             onBulkImport={handleBulkImport}
             onRegenerateNumbers={handleRegenerateNumbers}
-            onClearAll={() => setStudents([])}
+            onClearAll={handleClearAllStudents}
           />
         )}
 
