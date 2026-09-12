@@ -59,8 +59,8 @@ export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
   path: string | null
-): never {
-  const currentUser = auth.currentUser;
+): void {
+  const currentUser = auth?.currentUser;
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -77,9 +77,9 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.error('Firestore Error:', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn(`Firestore [${operationType}] note on ${path}:`, errInfo.error);
 }
+
 
 // Connection Validation on Boot
 export async function testConnection(): Promise<boolean> {

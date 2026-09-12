@@ -453,7 +453,7 @@ const AttendanceSheet: React.FC<{
           <div className="font-semibold text-slate-800">Ketua Panitia Ujian</div>
           <div className="h-16"></div>
           <div className="font-bold underline text-slate-950">
-            {config.committeeLeader || '(..................................................)'}
+            {config.committeeHeadName || '(..................................................)'}
           </div>
           <div className="text-[10px] text-slate-500">NIP. .........................................</div>
         </div>
@@ -639,7 +639,7 @@ const ExamMinutesSheet: React.FC<{
           <div className="font-semibold text-slate-800">Ketua Panitia Ujian,</div>
           <div className="h-16"></div>
           <div className="font-bold underline text-slate-950">
-            {config.committeeLeader || '(..................................................)'}
+            {config.committeeHeadName || '(..................................................)'}
           </div>
           <div className="text-[10px] text-slate-500">NIP. .........................................</div>
         </div>
@@ -1193,12 +1193,15 @@ const DocProctorAttendanceSheet: React.FC<{
   selectedRoomId: string;
   includeStampAndSignature: boolean;
 }> = ({ config, rooms, schedules, selectedSubject, selectedRoomId, includeStampAndSignature }) => {
-  const currentSchedule = schedules.find((s) => s.subject === selectedSubject) || schedules[0] || {
-    day: 'Senin',
+  const fallbackSchedule: ExamScheduleItem = {
+    id: 'fallback-sch',
+    dayName: 'Senin',
     date: '17 Maret 2025',
-    time: '07.30 - 09.30',
-    subject: selectedSubject,
+    sessionTime: '07.30 - 09.30',
+    subject: selectedSubject || 'Mata Pelajaran',
+    targetLevel: 'Semua Tingkat',
   };
+  const currentSchedule: ExamScheduleItem = schedules.find((s) => s.subject === selectedSubject) || schedules[0] || fallbackSchedule;
 
   const displayedRooms = selectedRoomId
     ? rooms.filter((r) => r.id === selectedRoomId)
@@ -1223,7 +1226,7 @@ const DocProctorAttendanceSheet: React.FC<{
       <div className="border border-slate-900 bg-slate-50/50 p-2.5 rounded font-sans text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
         <div>
           <span className="text-slate-500 text-[10px] block uppercase font-medium">Hari / Tanggal</span>
-          <span className="font-bold text-slate-900">{currentSchedule.day}, {currentSchedule.date}</span>
+          <span className="font-bold text-slate-900">{currentSchedule.dayName}, {currentSchedule.date}</span>
         </div>
         <div>
           <span className="text-slate-500 text-[10px] block uppercase font-medium">Mata Pelajaran</span>
@@ -1231,7 +1234,7 @@ const DocProctorAttendanceSheet: React.FC<{
         </div>
         <div>
           <span className="text-slate-500 text-[10px] block uppercase font-medium">Waktu Ujian</span>
-          <span className="font-bold text-slate-900">{currentSchedule.time} WIB</span>
+          <span className="font-bold text-slate-900">{currentSchedule.sessionTime} WIB</span>
         </div>
         <div>
           <span className="text-slate-500 text-[10px] block uppercase font-medium">Cakupan Ruang</span>

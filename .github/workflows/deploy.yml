@@ -30,10 +30,14 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build Vite App
-        run: npm run build
+        run: |
+          npm run build
+          touch dist/.nojekyll
+          cp dist/index.html dist/404.html || true
+
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
