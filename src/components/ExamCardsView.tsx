@@ -28,7 +28,8 @@ import {
   Type,
   Sliders,
   FileSignature,
-  Stamp
+  Stamp,
+  Armchair
 } from 'lucide-react';
 import { 
   processLogoFile, 
@@ -37,6 +38,7 @@ import {
   PRESET_LOGO_TUTWURI 
 } from '../utils/logoUtils';
 import { SignatureStampModal } from './SignatureStampModal';
+import { getDeskPlacement, DeskRoomMode, DeskPlacementInfo } from './DeskLabelsSheet';
 
 export interface CardFontSizes {
   nameSize: number; // 0 for auto/default, or in px (7 - 16)
@@ -217,22 +219,47 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showSignatureStampModal, setShowSignatureStampModal] = useState(false);
 
+  // Desk identification settings on cards
+  const [showDeskInfo, setShowDeskInfo] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('exam_card_show_desk_info');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [deskRoomMode, setDeskRoomMode] = useState<DeskRoomMode>(() => {
+    try {
+      const saved = localStorage.getItem('exam_card_desk_room_mode');
+      return (saved === 'single_20' || saved === 'double_40') ? saved : 'double_40';
+    } catch {
+      return 'double_40';
+    }
+  });
+
   // All unique classes
   const classes = useMemo(() => {
     return Array.from(new Set(students.map((s) => s.className))).sort();
   }, [students]);
 
-  // Filter students for printing
+  // Filter students for printing (sorted by seatNumber if in same room for logical desk order)
   const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
-      const matchRoom = selectedRoom === 'ALL' || s.roomId === selectedRoom;
-      const matchClass = selectedClass === 'ALL' || s.className === selectedClass;
-      const matchSearch =
-        s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.examNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.nisn.includes(searchTerm);
-      return matchRoom && matchClass && matchSearch;
-    });
+    return students
+      .filter((s) => {
+        const matchRoom = selectedRoom === 'ALL' || s.roomId === selectedRoom;
+        const matchClass = selectedClass === 'ALL' || s.className === selectedClass;
+        const matchSearch =
+          s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.examNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          s.nisn.includes(searchTerm);
+        return matchRoom && matchClass && matchSearch;
+      })
+      .sort((a, b) => {
+        if (a.roomId === b.roomId && a.seatNumber && b.seatNumber) {
+          return a.seatNumber - b.seatNumber;
+        }
+        return 0;
+      });
   }, [students, selectedRoom, selectedClass, searchTerm]);
 
   // iFrame preview detection (in sandbox iframes, browsers often suppress window.print modal)
@@ -826,6 +853,15 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
                       01
                     </span>
                   </div>
+                  <div className="border-l border-amber-200 pl-3">
+                    <span className="text-[8.5px] text-slate-400 block font-sans">Meja:</span>
+                    <span 
+                      className="font-extrabold text-slate-900 font-mono"
+                      style={fontSizes.roomSize ? { fontSize: `${Math.min(fontSizes.roomSize, 18)}px`, lineHeight: 1 } : { fontSize: '16px' }}
+                    >
+                      01 (Kiri)
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1059,6 +1095,90 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
               <option value="committee">Tanda Tangan: Ketua Pelaksana / Panitia</option>
               <option value="principal">Tanda Tangan: Kepala Sekolah</option>
             </select>
+          </div>
+        </div>
+
+        {/* Identifikasi Meja / Tempat Duduk di Kartu */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-indigo-50/70 border border-indigo-200/80 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 font-bold text-slate-900 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showDeskInfo}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setShowDeskInfo(val);
+                  try {
+                    localStorage.setItem('exam_card_show_desk_info', String(val));
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              />
+              <span className="flex items-center gap-1.5">
+                <Armchair className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span>Identifikasi Tempat Duduk (Nomor Meja) di Kartu</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                  showDeskInfo ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {showDeskInfo ? 'Aktif' : 'Nonaktif'}
+                </span>
+              </span>
+            </label>
+
+            {showDeskInfo && (
+              <div className="flex items-center gap-1.5 pl-2 sm:border-l sm:border-indigo-200">
+                <span className="text-slate-600 font-semibold text-[11px] shrink-0">Model Susunan:</span>
+                <div className="inline-flex rounded-md shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeskRoomMode('double_40');
+                      try {
+                        localStorage.setItem('exam_card_desk_room_mode', 'double_40');
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-l-md border cursor-pointer transition-colors ${
+                      deskRoomMode === 'double_40'
+                        ? 'bg-indigo-600 text-white border-indigo-700'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                    title="1 Meja diisi 2 Peserta (Standar PAT/STS 40 Siswa: Meja 01 s/d 20 Sisi Kiri & Kanan)"
+                  >
+                    1 Meja 2 Siswa (Double 40)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeskRoomMode('single_20');
+                      try {
+                        localStorage.setItem('exam_card_desk_room_mode', 'single_20');
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-r-md border-t border-b border-r cursor-pointer transition-colors ${
+                      deskRoomMode === 'single_20'
+                        ? 'bg-indigo-600 text-white border-indigo-700'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                    title="1 Meja diisi 1 Peserta (Mandiri 20 Siswa)"
+                  >
+                    1 Meja 1 Siswa (Single 20)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="text-[11px] text-slate-600 flex items-center gap-1.5 shrink-0">
+            <span className="font-semibold text-slate-700">Tampilan di Kartu:</span>
+            <span className="font-mono bg-white px-2 py-0.5 rounded border border-indigo-200 text-indigo-950 font-bold">
+              Meja 01 (Sisi Kiri) • Lajur 4 Baris 5
+            </span>
           </div>
         </div>
 
@@ -1305,6 +1425,8 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
                         cardDensity={cardLayout === '4_per_page' ? '4_cards' : cardLayout === '3_per_page' ? '3_cards' : 'standard'}
                         isF4ThreeCards={cardLayout === '3_per_page'}
                         fontSizes={fontSizes}
+                        deskRoomMode={deskRoomMode}
+                        showDeskInfo={showDeskInfo}
                       />
                     ) : (
                       <CompactExamCardItem
@@ -1313,6 +1435,8 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
                         signatory={signatory}
                         isCompactDense={cardLayout === '6_per_page'}
                         fontSizes={fontSizes}
+                        deskRoomMode={deskRoomMode}
+                        showDeskInfo={showDeskInfo}
                       />
                     )}
 
@@ -1824,6 +1948,8 @@ interface ScheduleExamCardItemProps {
   isF4ThreeCards?: boolean;
   cardDensity?: '4_cards' | '3_cards' | 'standard';
   fontSizes?: CardFontSizes;
+  deskRoomMode?: DeskRoomMode;
+  showDeskInfo?: boolean;
 }
 
 const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
@@ -1837,6 +1963,8 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
   isF4ThreeCards = false,
   cardDensity,
   fontSizes,
+  deskRoomMode = 'double_40',
+  showDeskInfo = true,
 }) => {
   const effectiveSigner = config.signatureSigner || signatory;
   const isPrincipal = effectiveSigner === 'principal';
@@ -1850,6 +1978,12 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
     cardDensity || (isF4ThreeCards ? '3_cards' : 'standard');
   const isFour = density === '4_cards';
   const isThree = density === '3_cards';
+
+  // Desk placement calculation
+  const deskPlacement = useMemo(() => {
+    if (!student.seatNumber || student.seatNumber <= 0) return null;
+    return getDeskPlacement(student.seatNumber, deskRoomMode);
+  }, [student.seatNumber, deskRoomMode]);
 
   const totalSessions = useMemo(() => {
     return groupedDays.reduce((acc, d) => acc + d.sessions.length, 0);
@@ -1989,28 +2123,101 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
                   {student.examNumber}
                 </span>
               </div>
+              {showDeskInfo && (
+                <div className="flex items-baseline">
+                  <span className={`${isFour ? 'w-16 text-[8px]' : isThree ? 'w-18 sm:w-20 text-[8.5px]' : 'w-24 text-[11px] sm:text-xs'} font-normal text-black shrink-0`}>Tempat Duduk</span>
+                  <span className="w-2 text-center shrink-0">:</span>
+                  <span className={`font-bold flex-1 truncate ${isFour ? 'text-[8px] sm:text-[8.5px]' : isThree ? 'text-[8.5px] sm:text-[9px]' : 'text-[11px] sm:text-xs'}`}>
+                    {deskPlacement ? (
+                      <span>
+                        <span className="font-mono text-black font-black">Meja {String(deskPlacement.deskNumber).padStart(2, '0')}</span>
+                        {deskPlacement.side !== 'TUNGGAL' && (
+                          <span className="font-bold text-black"> ({deskPlacement.sideBadge})</span>
+                        )}
+                        <span className="font-medium text-black/75 text-[90%]"> • {deskPlacement.positionTitle}</span>
+                      </span>
+                    ) : (
+                      <span className="font-mono text-black font-semibold">
+                        {student.seatNumber ? `Meja ${String(student.seatNumber).padStart(2, '0')}` : 'Belum Diatur'}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Bottom section: Ruang Box & Signature */}
           <div className={`${isFour ? 'mt-0.5' : isThree ? 'mt-0.5' : 'mt-2'}`}>
-            <div className="flex items-end justify-between gap-2">
-              {/* Ruang Box */}
-              <div className={`border border-black text-center shrink-0 ${isFour ? 'w-14 sm:w-16' : isThree ? 'w-16 sm:w-18' : 'w-24 sm:w-28'}`}>
-                <div className={`border-b border-black font-medium text-black bg-white ${isFour ? 'py-0 text-[7px]' : isThree ? 'py-0 text-[8px]' : 'py-0.5 text-[11px]'}`}>
-                  Ruang
+            <div className="flex items-end justify-between gap-1.5 sm:gap-2">
+              {/* Ruang & Meja Box */}
+              {showDeskInfo ? (
+                <div className="flex items-stretch border border-black shrink-0 text-center bg-white shadow-2xs">
+                  {/* Ruang Box */}
+                  <div className={`border-r border-black flex flex-col justify-between ${
+                    isFour ? 'w-10 sm:w-11' : isThree ? 'w-12 sm:w-13' : 'w-16 sm:w-18'
+                  }`}>
+                    <div className={`border-b border-black font-semibold text-black bg-slate-100 ${
+                      isFour ? 'py-0 text-[6.5px]' : isThree ? 'py-0 text-[7px]' : 'py-0.5 text-[10px]'
+                    }`}>
+                      Ruang
+                    </div>
+                    <div 
+                      className={`font-black text-black leading-none font-sans my-auto ${
+                        fontSizes?.roomSize 
+                          ? 'py-0.5' 
+                          : isFour ? 'py-0.5 text-xs sm:text-sm' : isThree ? 'py-0.5 text-base sm:text-lg' : 'py-1 text-2xl sm:text-3xl'
+                      }`}
+                      style={fontSizes?.roomSize ? { fontSize: `${fontSizes.roomSize}px`, lineHeight: 1 } : undefined}
+                    >
+                      {roomDisplayNumber}
+                    </div>
+                  </div>
+
+                  {/* No. Meja Box */}
+                  <div className={`flex flex-col justify-between bg-white ${
+                    isFour ? 'w-12 sm:w-14' : isThree ? 'w-15 sm:w-17' : 'w-20 sm:w-22'
+                  }`}>
+                    <div className={`border-b border-black font-bold text-black bg-slate-100 ${
+                      isFour ? 'py-0 text-[6.5px]' : isThree ? 'py-0 text-[7px]' : 'py-0.5 text-[10px]'
+                    }`}>
+                      No. Meja
+                    </div>
+                    <div className="my-auto py-0.5 px-0.5 flex flex-col items-center justify-center">
+                      <div className={`font-black font-mono text-black leading-none ${
+                        isFour ? 'text-xs sm:text-sm' : isThree ? 'text-base sm:text-lg' : 'text-2xl sm:text-3xl'
+                      }`}>
+                        {deskPlacement 
+                          ? String(deskPlacement.deskNumber).padStart(2, '0') 
+                          : (student.seatNumber ? String(student.seatNumber).padStart(2, '0') : '-')}
+                      </div>
+                      {deskPlacement && (
+                        <div className={`font-black uppercase tracking-tight text-black leading-none mt-0.5 ${
+                          isFour ? 'text-[5.5px]' : isThree ? 'text-[6.5px]' : 'text-[8px]'
+                        }`}>
+                          {deskPlacement.side === 'KIRI' ? 'SISI KIRI' : deskPlacement.side === 'KANAN' ? 'SISI KANAN' : 'TUNGGAL'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div 
-                  className={`font-extrabold text-black leading-none font-sans ${
-                    fontSizes?.roomSize 
-                      ? 'py-0.5' 
-                      : isFour ? 'py-0 text-base sm:text-lg' : isThree ? 'py-0.2 text-xl sm:text-[22px]' : 'py-1 sm:py-2 text-2xl sm:text-3xl'
-                  }`}
-                  style={fontSizes?.roomSize ? { fontSize: `${fontSizes.roomSize}px`, lineHeight: 1 } : undefined}
-                >
-                  {roomDisplayNumber}
+              ) : (
+                <div className={`border border-black text-center shrink-0 ${isFour ? 'w-14 sm:w-16' : isThree ? 'w-16 sm:w-18' : 'w-24 sm:w-28'}`}>
+                  <div className={`border-b border-black font-medium text-black bg-white ${isFour ? 'py-0 text-[7px]' : isThree ? 'py-0 text-[8px]' : 'py-0.5 text-[11px]'}`}>
+                    Ruang
+                  </div>
+                  <div 
+                    className={`font-extrabold text-black leading-none font-sans ${
+                      fontSizes?.roomSize 
+                        ? 'py-0.5' 
+                        : isFour ? 'py-0 text-base sm:text-lg' : isThree ? 'py-0.2 text-xl sm:text-[22px]' : 'py-1 sm:py-2 text-2xl sm:text-3xl'
+                    }`}
+                    style={fontSizes?.roomSize ? { fontSize: `${fontSizes.roomSize}px`, lineHeight: 1 } : undefined}
+                  >
+                    {roomDisplayNumber}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Tanda Tangan Block */}
               <div className={`text-right leading-tight text-black shrink-0 relative ${isFour ? 'text-[7.5px]' : isThree ? 'text-[8px] sm:text-[8.5px]' : 'text-[10px]'}`}>
@@ -2098,12 +2305,22 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
                 </p>
               </div>
 
-              {/* No. Absen */}
-              <div className="text-right shrink-0">
-                <span className={`font-medium block text-black leading-none ${isFour ? 'text-[7px]' : isThree ? 'text-[7.5px]' : 'text-[9.5px]'}`}>No. Absen</span>
-                <span className={`font-mono font-bold text-black block mt-0.5 leading-none ${isFour ? 'text-[10px] sm:text-[11px]' : isThree ? 'text-xs sm:text-[13px]' : 'text-xs sm:text-sm'}`}>
-                  {absenNumber}
-                </span>
+              {/* No. Absen & Meja */}
+              <div className="text-right shrink-0 flex items-center gap-1.5">
+                <div>
+                  <span className={`font-medium block text-black leading-none ${isFour ? 'text-[6.5px]' : isThree ? 'text-[7px]' : 'text-[9px]'}`}>No. Absen</span>
+                  <span className={`font-mono font-bold text-black block mt-0.5 leading-none ${isFour ? 'text-[9.5px] sm:text-[10px]' : isThree ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm'}`}>
+                    {absenNumber}
+                  </span>
+                </div>
+                {showDeskInfo && deskPlacement && (
+                  <div className="border-l border-black pl-1.5 text-left">
+                    <span className={`font-medium block text-black leading-none ${isFour ? 'text-[6.5px]' : isThree ? 'text-[7px]' : 'text-[9px]'}`}>No. Meja</span>
+                    <span className={`font-mono font-black text-black block mt-0.5 leading-none ${isFour ? 'text-[9.5px] sm:text-[10px]' : isThree ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm'}`}>
+                      {String(deskPlacement.deskNumber).padStart(2, '0')}{deskPlacement.side === 'KIRI' ? 'L' : deskPlacement.side === 'KANAN' ? 'R' : ''}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2239,6 +2456,8 @@ interface CompactExamCardItemProps {
   signatory: 'committee' | 'principal';
   isCompactDense?: boolean;
   fontSizes?: CardFontSizes;
+  deskRoomMode?: DeskRoomMode;
+  showDeskInfo?: boolean;
 }
 
 const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
@@ -2247,6 +2466,8 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
   signatory,
   isCompactDense = false,
   fontSizes,
+  deskRoomMode = 'double_40',
+  showDeskInfo = true,
 }) => {
   const effectiveSigner = config.signatureSigner || signatory;
   const isPrincipal = effectiveSigner === 'principal';
@@ -2255,6 +2476,12 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
   const signerTitle = isPrincipal 
     ? (['MTs', 'MA', 'MI'].includes(config.schoolLevel) ? 'Kepala Madrasah,' : 'Kepala Sekolah,')
     : 'Ketua Panitia Ujian,';
+
+  // Desk placement calculation
+  const deskPlacement = useMemo(() => {
+    if (!student.seatNumber || student.seatNumber <= 0) return null;
+    return getDeskPlacement(student.seatNumber, deskRoomMode);
+  }, [student.seatNumber, deskRoomMode]);
 
   // Placement & sizing for Signature and Stamp
   const scaleFactor = isCompactDense ? 0.75 : 1.0;
@@ -2317,9 +2544,17 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
           >
             {student.roomName || 'BELUM DIATUR'}
           </span>
-          <p className="text-[9px] text-slate-500 mt-1">
-            MEJA : <strong className="text-slate-900 font-mono font-bold text-[10px]">{student.seatNumber ? String(student.seatNumber).padStart(2, '0') : '-'}</strong>
-          </p>
+          <div className="mt-1 bg-slate-900 text-white px-2 py-0.5 rounded font-mono font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs">
+            <span className="text-[9px] text-slate-300">MEJA</span>
+            <span className="text-amber-300 font-black">
+              {deskPlacement ? String(deskPlacement.deskNumber).padStart(2, '0') : (student.seatNumber ? String(student.seatNumber).padStart(2, '0') : '-')}
+            </span>
+            {deskPlacement && deskPlacement.side !== 'TUNGGAL' && (
+              <span className="text-[8px] font-semibold text-emerald-300">
+                ({deskPlacement.side === 'KIRI' ? 'Kiri' : 'Kanan'})
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2358,6 +2593,25 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
             </span>
           </div>
 
+          {showDeskInfo && (
+            <div className="col-span-2 bg-slate-50 border border-slate-200 rounded px-2 py-1 flex items-center justify-between">
+              <div>
+                <span className="text-[7.5px] uppercase font-bold text-slate-500 tracking-wider block">Tempat Duduk Peserta</span>
+                <span className="font-bold text-slate-900 text-[10.5px]">
+                  {student.roomName || 'Ruang ?'} • Meja {deskPlacement ? String(deskPlacement.deskNumber).padStart(2, '0') : (student.seatNumber || '-')}
+                  {deskPlacement && deskPlacement.side !== 'TUNGGAL' && (
+                    <span className="text-slate-700 font-semibold"> ({deskPlacement.sideBadge})</span>
+                  )}
+                </span>
+              </div>
+              {deskPlacement && (
+                <span className="text-[8.5px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded">
+                  📍 {deskPlacement.positionTitle}
+                </span>
+              )}
+            </div>
+          )}
+
           <div>
             <span className="text-[7.5px] uppercase font-bold text-slate-400 tracking-wider block">NISN / NIS</span>
             <span className="font-semibold text-slate-700 font-mono text-[10.5px]">{student.nisn} / {student.nis}</span>
@@ -2381,7 +2635,9 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
       <div className={`border-t border-dashed border-slate-200 flex items-end justify-between ${isCompactDense ? 'pt-1.5 text-[8px]' : 'pt-2.5 text-[8.5px]'}`}>
         <div className="space-y-0.5">
           <p className="text-slate-400 italic font-medium">* Harap dibawa saat pelaksanaan ujian</p>
-          <p className="text-slate-400 italic font-medium">* Tempel pada sudut kiri atas meja ujian</p>
+          <p className="text-slate-400 italic font-medium">
+            * Tempel pada Meja {deskPlacement ? String(deskPlacement.deskNumber).padStart(2, '0') : (student.seatNumber ? String(student.seatNumber).padStart(2, '0') : '-')} {deskPlacement ? `(${deskPlacement.sideBadge})` : 'sesuai denah ruang'}
+          </p>
           <p className="text-slate-400 italic font-medium">* Dilarang membawa HP / perangkat digital</p>
         </div>
 
