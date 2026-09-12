@@ -1,0 +1,177 @@
+{
+  "entities": {
+    "ExamConfig": {
+      "title": "ExamConfig",
+      "description": "Identitas sekolah dan pengaturan administrasi ujian",
+      "type": "object",
+      "properties": {
+        "schoolName": { "type": "string", "maxLength": 150 },
+        "npsn": { "type": "string", "maxLength": 20 },
+        "address": { "type": "string", "maxLength": 250 },
+        "subdistrict": { "type": "string", "maxLength": 100 },
+        "district": { "type": "string", "maxLength": 100 },
+        "province": { "type": "string", "maxLength": 100 },
+        "postalCode": { "type": "string", "maxLength": 20 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "website": { "type": "string", "maxLength": 150 },
+        "academicYear": { "type": "string", "maxLength": 50 },
+        "semester": { "type": "string", "enum": ["Ganjil", "Genap"] },
+        "examType": { "type": "string", "enum": ["STS", "SAS", "SAT", "US"] },
+        "examTitle": { "type": "string", "maxLength": 150 },
+        "principalName": { "type": "string", "maxLength": 150 },
+        "principalNip": { "type": "string", "maxLength": 50 },
+        "committeeHeadName": { "type": "string", "maxLength": 150 },
+        "committeeHeadNip": { "type": "string", "maxLength": 50 },
+        "issueDate": { "type": "string", "maxLength": 50 },
+        "issuePlace": { "type": "string", "maxLength": 100 },
+        "stampEnabled": { "type": "boolean" },
+        "signatureEnabled": { "type": "boolean" },
+        "signatureUrl": { "type": "string", "maxLength": 500000 },
+        "stampUrl": { "type": "string", "maxLength": 500000 },
+        "signatureSigner": { "type": "string", "enum": ["principal", "committee"] },
+        "schoolLevel": { "type": "string", "enum": ["MTs", "MA", "MI", "SMP", "SMA", "SMK", "SD"] },
+        "codePrefix": { "type": "string", "maxLength": 20 },
+        "logoUrl": { "type": "string", "maxLength": 500000 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["schoolName", "academicYear", "examType", "examTitle"]
+    },
+    "ExamRoom": {
+      "title": "ExamRoom",
+      "description": "Ruang ujian sekolah beserta kapasitas dan pengawas ruang",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "roomCode": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 100 },
+        "location": { "type": "string", "maxLength": 150 },
+        "capacity": { "type": "number" },
+        "proctor1": { "type": "string", "maxLength": 150 },
+        "proctor2": { "type": "string", "maxLength": 150 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "roomCode", "name", "capacity"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Data peserta ujian sekolah",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "examNumber": { "type": "string", "maxLength": 100 },
+        "nisn": { "type": "string", "maxLength": 50 },
+        "nis": { "type": "string", "maxLength": 50 },
+        "name": { "type": "string", "maxLength": 150 },
+        "className": { "type": "string", "maxLength": 50 },
+        "gender": { "type": "string", "enum": ["L", "P"] },
+        "session": { "type": "number" },
+        "roomId": { "type": "string", "maxLength": 100 },
+        "roomName": { "type": "string", "maxLength": 100 },
+        "seatNumber": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "examNumber", "name", "className", "gender"]
+    },
+    "Proctor": {
+      "title": "Proctor",
+      "description": "Data guru pengawas ujian",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 150 },
+        "nip": { "type": "string", "maxLength": 50 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["Pengawas Ruang", "Pengawas Cadangan", "Koordinator"] },
+        "phone": { "type": "string", "maxLength": 50 },
+        "assignedRoomId": { "type": "string", "maxLength": 100 },
+        "assignedRoomCode": { "type": "string", "maxLength": 50 },
+        "assignedPosition": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "name"]
+    },
+    "ExamScheduleItem": {
+      "title": "ExamScheduleItem",
+      "description": "Jadwal mata pelajaran ujian dan waktu pelaksanaan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "dayName": { "type": "string", "maxLength": 50 },
+        "date": { "type": "string", "maxLength": 50 },
+        "sessionTime": { "type": "string", "maxLength": 100 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "targetLevel": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "dayName", "date", "sessionTime", "subject"]
+    },
+    "ProctorAttendanceRecord": {
+      "title": "ProctorAttendanceRecord",
+      "description": "Catatan presensi digital pengawas ujian dan tanda tangan real-time",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "proctorId": { "type": "string", "maxLength": 100 },
+        "proctorName": { "type": "string", "maxLength": 150 },
+        "proctorNip": { "type": "string", "maxLength": 50 },
+        "scheduleId": { "type": "string", "maxLength": 100 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "examDate": { "type": "string", "maxLength": 50 },
+        "sessionTime": { "type": "string", "maxLength": 100 },
+        "roomId": { "type": "string", "maxLength": 100 },
+        "roomCode": { "type": "string", "maxLength": 50 },
+        "position": { "type": "number" },
+        "status": { "type": "string", "enum": ["Hadir", "Izin", "Sakit", "Digantikan"] },
+        "checkInTime": { "type": "string", "maxLength": 50 },
+        "checkOutTime": { "type": "string", "maxLength": 50 },
+        "signatureUrl": { "type": "string", "maxLength": 200000 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "timestamp": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "proctorId", "proctorName", "scheduleId", "subject", "examDate", "status"]
+    },
+    "ProctorMatrix": {
+      "title": "ProctorMatrix",
+      "description": "Alokasi pengawas ujian per sesi dan per ruang",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "data": { "type": "object" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/exam_config/{configId}": {
+      "schema": "ExamConfig",
+      "description": "Dokumen pengaturan identitas dan parameter ujian sekolah"
+    },
+    "/rooms/{roomId}": {
+      "schema": "ExamRoom",
+      "description": "Koleksi ruang ujian dan kapasitasnya"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Koleksi peserta ujian dan alokasi ruang/kursinya"
+    },
+    "/proctors/{proctorId}": {
+      "schema": "Proctor",
+      "description": "Koleksi guru pengawas ujian"
+    },
+    "/schedules/{scheduleId}": {
+      "schema": "ExamScheduleItem",
+      "description": "Koleksi jadwal dan mata pelajaran ujian"
+    },
+    "/attendance_records/{recordId}": {
+      "schema": "ProctorAttendanceRecord",
+      "description": "Koleksi presensi dan tanda tangan digital pengawas ujian"
+    },
+    "/proctor_matrix/{matrixId}": {
+      "schema": "ProctorMatrix",
+      "description": "Alokasi jadwal pengawas silang ruang dan sesi"
+    }
+  }
+}

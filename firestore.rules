@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Default Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Exam Config Validator
+    function isValidConfig(data) {
+      return data.schoolName is string && data.schoolName.size() <= 150 &&
+             data.academicYear is string && data.academicYear.size() <= 50 &&
+             data.examType is string && data.examType in ['STS', 'SAS', 'SAT', 'US'] &&
+             data.examTitle is string && data.examTitle.size() <= 150;
+    }
+
+    // Room Validator
+    function isValidRoom(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.roomCode is string && data.roomCode.size() <= 50 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.capacity is number && data.capacity >= 0 && data.capacity <= 100;
+    }
+
+    // Student Validator
+    function isValidStudent(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.examNumber is string && data.examNumber.size() <= 100 &&
+             data.name is string && data.name.size() <= 150 &&
+             data.className is string && data.className.size() <= 50 &&
+             data.gender is string && data.gender in ['L', 'P'];
+    }
+
+    // Proctor Validator
+    function isValidProctor(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.name is string && data.name.size() <= 150;
+    }
+
+    // Schedule Validator
+    function isValidSchedule(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.dayName is string && data.dayName.size() <= 50 &&
+             data.date is string && data.date.size() <= 50 &&
+             data.sessionTime is string && data.sessionTime.size() <= 100 &&
+             data.subject is string && data.subject.size() <= 100;
+    }
+
+    // Attendance Validator
+    function isValidAttendance(data) {
+      return data.id is string && data.id.size() <= 100 &&
+             data.proctorId is string && data.proctorId.size() <= 100 &&
+             data.proctorName is string && data.proctorName.size() <= 150 &&
+             data.scheduleId is string && data.scheduleId.size() <= 100 &&
+             data.subject is string && data.subject.size() <= 100 &&
+             data.examDate is string && data.examDate.size() <= 50 &&
+             data.status is string && data.status in ['Hadir', 'Izin', 'Sakit', 'Digantikan'];
+    }
+
+    // Match Rules for Collections
+    match /exam_config/{configId} {
+      allow read: if true;
+      allow write: if isValidId(configId) && isValidConfig(request.resource.data);
+    }
+
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow write: if isValidId(roomId) && isValidRoom(request.resource.data);
+      allow delete: if isValidId(roomId);
+    }
+
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isValidId(studentId) && isValidStudent(request.resource.data);
+      allow delete: if isValidId(studentId);
+    }
+
+    match /proctors/{proctorId} {
+      allow read: if true;
+      allow write: if isValidId(proctorId) && isValidProctor(request.resource.data);
+      allow delete: if isValidId(proctorId);
+    }
+
+    match /schedules/{scheduleId} {
+      allow read: if true;
+      allow write: if isValidId(scheduleId) && isValidSchedule(request.resource.data);
+      allow delete: if isValidId(scheduleId);
+    }
+
+    match /attendance_records/{recordId} {
+      allow read: if true;
+      allow write: if isValidId(recordId) && isValidAttendance(request.resource.data);
+      allow delete: if isValidId(recordId);
+    }
+
+    match /proctor_matrix/{matrixId} {
+      allow read: if true;
+      allow write: if isValidId(matrixId);
+      allow delete: if isValidId(matrixId);
+    }
+  }
+}

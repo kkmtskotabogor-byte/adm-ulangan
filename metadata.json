@@ -1,0 +1,8 @@
+{
+  "name": "Remix SIM Ujian Sekolah (STS, SAS \u0026 US)",
+  "description": "Sistem informasi manajemen ujian sekolah untuk STS, SAS, SAT, dan Ujian Sekolah. Mendukung distribusi peserta per ruang, denah tempat duduk, kartu ujian, stiker meja, daftar hadir, dan berita acara siap cetak.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

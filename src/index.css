@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #f8fafc;
+    color: #1e293b;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  }
+}
+
+/* Print Optimization for Indonesian School Exam Documents & Cards */
+@media print {
+  @page {
+    size: auto;
+    margin: 3mm 4mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /* Prevent awkward card splitting */
+  .page-break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .page-break-after-always {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  /* Card layouts for print */
+  .print-card-grid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 4mm !important;
+    width: 100% !important;
+  }
+
+  .print-card-grid-6 {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2.5mm !important;
+    width: 100% !important;
+  }
+
+  /* Use block layout in print instead of flex column to avoid Chromium flex fragmentation bugs */
+  .print-card-stack-2 {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .print-card-stack-3 {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  .print-card-stack-4 {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* 3 Cards per sheet (Strictly scaled & proportioned so 3 cards never spill onto a 2nd page) */
+  .f4-card-item-3 {
+    display: block !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 0.8mm !important;
+    max-height: 98mm !important;
+  }
+
+  .f4-cut-line-3 {
+    display: block !important;
+    margin-top: 0.4mm !important;
+    margin-bottom: 0.6mm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 4 Cards per sheet (Super-compact layout to fit exactly 4 cards on 1 F4 sheet) */
+  .f4-card-item-4 {
+    display: block !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 0.5mm !important;
+  }
+
+  .f4-cut-line-4 {
+    display: block !important;
+    margin-top: 0.3mm !important;
+    margin-bottom: 0.8mm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .f4-card-item {
+    display: block !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 1mm !important;
+  }
+
+  .f4-cut-line {
+    display: block !important;
+    margin-top: 0.5mm !important;
+    margin-bottom: 1mm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .f4-page-sheet {
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Force solid black borders on print */
+  table, th, td {
+    border-color: #000000 !important;
+  }
+
+  .print-card-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8mm !important;
+    width: 100% !important;
+  }
+}
+
+@media screen {
+  .print-only {
+    display: none;
+  }
+}

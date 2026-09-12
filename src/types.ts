@@ -1,0 +1,127 @@
+export type ExamCategory = 'STS' | 'SAS' | 'SAT' | 'US';
+
+export interface ExamConfig {
+  schoolName: string;
+  npsn: string;
+  address: string;
+  subdistrict: string;
+  district: string;
+  province: string;
+  postalCode: string;
+  phone: string;
+  email: string;
+  website: string;
+  academicYear: string;
+  semester: 'Ganjil' | 'Genap';
+  examType: ExamCategory;
+  examTitle: string;
+  principalName: string;
+  principalNip: string;
+  committeeHeadName: string;
+  committeeHeadNip: string;
+  issueDate: string;
+  issuePlace: string;
+  stampEnabled: boolean;
+  signatureEnabled?: boolean;
+  signatureUrl?: string; // Base64 data URI or SVG for Tanda Tangan
+  stampUrl?: string; // Base64 data URI or SVG for Stempel Sekolah / Madrasah
+  signatureSigner?: 'principal' | 'committee'; // Penandatangan: Kepala Sekolah atau Ketua Panitia
+  schoolLevel: 'MTs' | 'MA' | 'MI' | 'SMP' | 'SMA' | 'SMK' | 'SD';
+  codePrefix: string; // e.g. "26-04"
+  logoUrl?: string; // Base64 data URI or SVG string of school/madrasah logo
+}
+
+export interface Student {
+  id: string;
+  examNumber: string;
+  nisn: string;
+  nis: string;
+  name: string;
+  className: string;
+  gender: 'L' | 'P';
+  session: number;
+  roomId?: string;
+  roomName?: string;
+  seatNumber?: number;
+}
+
+export interface ExamRoom {
+  id: string;
+  roomCode: string;
+  name: string;
+  location: string;
+  capacity: number;
+  proctor1: string;
+  proctor2?: string;
+}
+
+export type DistributionMethod = 'cross_class' | 'sequential';
+
+export interface ExamScheduleItem {
+  id: string;
+  dayName: string;
+  date: string;
+  sessionTime: string;
+  subject: string;
+  targetLevel: string; // e.g., "Semua Kelas" or "Kelas X, XI, XII"
+}
+
+export type ActiveTab = 
+  | 'dashboard'
+  | 'config'
+  | 'students'
+  | 'rooms'
+  | 'proctors'
+  | 'seating'
+  | 'cards'
+  | 'documents';
+
+export interface Proctor {
+  id: string;
+  name: string;
+  nip: string;
+  subject: string;
+  role?: 'Pengawas Ruang' | 'Pengawas Cadangan' | 'Koordinator';
+  phone?: string;
+  assignedRoomId?: string;
+  assignedRoomCode?: string;
+  assignedPosition?: 1 | 2;
+}
+
+export interface ProctorAttendanceRecord {
+  id: string;
+  proctorId: string;
+  proctorName: string;
+  proctorNip: string;
+  scheduleId: string;
+  subject: string;
+  examDate: string;
+  sessionTime: string;
+  roomId?: string;
+  roomCode?: string;
+  position?: 1 | 2;
+  status: 'Hadir' | 'Izin' | 'Sakit' | 'Digantikan';
+  checkInTime: string;
+  checkOutTime?: string;
+  signatureUrl?: string; // base64 PNG data URL of drawn signature
+  notes?: string;
+  timestamp: number;
+}
+
+export type UserRole = 'admin' | 'proctor' | 'student';
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  name: string;
+  role: UserRole;
+  roleLabel: string;
+  nipOrNis?: string;
+  proctorId?: string;
+  studentId?: string;
+  roomCode?: string;
+  className?: string;
+  examNumber?: string;
+  avatar?: string;
+  loginTime: string;
+}
