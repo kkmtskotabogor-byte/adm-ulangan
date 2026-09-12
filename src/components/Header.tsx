@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   GraduationCap,
   Cloud,
-  Radio
+  Radio,
+  Calendar
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -55,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'config', label: 'Identitas & Ujian', icon: <Settings className="w-4 h-4" /> },
     { id: 'students', label: 'Data Peserta', icon: <Users className="w-4 h-4" /> },
+    { id: 'schedules', label: 'Jadwal Ujian', icon: <Calendar className="w-4 h-4" /> },
     { id: 'rooms', label: 'Ruang & Plotting', icon: <DoorOpen className="w-4 h-4" /> },
     { id: 'proctors', label: 'Pengawas & Absen', icon: <UserCheck className="w-4 h-4" /> },
     { id: 'seating', label: 'Denah Meja', icon: <Grid3X3 className="w-4 h-4" /> },

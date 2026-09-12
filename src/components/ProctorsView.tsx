@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ExamConfig, ExamRoom, ExamScheduleItem, Proctor, ProctorAttendanceRecord } from '../types';
 import { 
   UserCheck, 
@@ -67,8 +67,24 @@ export const ProctorsView: React.FC<ProctorsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'Pengawas Ruang' | 'Pengawas Cadangan' | 'Koordinator'>('all');
 
+  // Filter exam schedules (exclude breaks for proctor attendance)
+  const examSchedules = useMemo(() => {
+    return schedules.filter((s) => !s.isBreak && !s.subject.toLowerCase().includes('istirahat'));
+  }, [schedules]);
+
   // Daily attendance selection
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string>(schedules[0]?.id || '');
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>(() => {
+    return examSchedules[0]?.id || schedules[0]?.id || '';
+  });
+
+  // Keep in sync if schedules change
+  useEffect(() => {
+    if (!schedules.some((s) => s.id === selectedScheduleId)) {
+      const firstValid = examSchedules[0]?.id || schedules[0]?.id || '';
+      setSelectedScheduleId(firstValid);
+    }
+  }, [schedules, selectedScheduleId, examSchedules]);
+
   const [includeStampAndSig, setIncludeStampAndSig] = useState<boolean>(true);
   const [showDigitalSignatures, setShowDigitalSignatures] = useState<boolean>(true);
 
@@ -613,7 +629,7 @@ export const ProctorsView: React.FC<ProctorsViewProps> = ({
                   onChange={(e) => setSelectedScheduleId(e.target.value)}
                   className="px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 bg-white font-medium"
                 >
-                  {schedules.map((s) => (
+                  {examSchedules.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.dayName}, {s.date} — {s.subject} ({s.sessionTime})
                     </option>

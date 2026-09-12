@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActiveTab, ExamConfig, ExamRoom, Student } from '../types';
+import { ActiveTab, ExamConfig, ExamRoom, ExamScheduleItem, Student } from '../types';
 import { 
   Users, 
   DoorOpen, 
@@ -19,6 +19,7 @@ interface DashboardViewProps {
   config: ExamConfig;
   students: Student[];
   rooms: ExamRoom[];
+  schedules?: ExamScheduleItem[];
   setActiveTab: (tab: ActiveTab) => void;
   onDistributeCross: () => void;
   onDistributeSequential: () => void;
@@ -28,6 +29,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   config,
   students,
   rooms,
+  schedules = [],
   setActiveTab,
   onDistributeCross,
   onDistributeSequential,
@@ -336,6 +338,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 4
               </span>
               <div>
+                <div className="font-semibold text-slate-800 flex items-center justify-between">
+                  <span>Jadwal Ulangan &amp; Import Template</span>
+                  <button 
+                    onClick={() => setActiveTab('schedules')}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                  >
+                    Atur Jadwal &rarr;
+                  </button>
+                </div>
+                <p className="text-slate-500 text-[11px]">
+                  {schedules.length > 0
+                    ? `${schedules.length} sesi terdaftar (menjadi rujukan Kartu & Pengawas).`
+                    : 'Upload jadwal atau import CSV/Excel template.'}
+                </p>
+              </div>
+            </li>
+
+            <li className="flex gap-3 items-start">
+              <span className="flex-none w-5 h-5 rounded bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[11px] border border-slate-200">
+                5
+              </span>
+              <div>
                 <div className="font-semibold text-slate-800">Review Denah Tempat Duduk</div>
                 <p className="text-slate-500 text-[11px]">Tinjau susunan meja peserta dan posisi meja pengawas di tiap ruang.</p>
               </div>
@@ -343,7 +367,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <li className="flex gap-3 items-start">
               <span className="flex-none w-5 h-5 rounded bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-[11px] border border-indigo-200">
-                5
+                6
               </span>
               <div>
                 <div className="font-semibold text-indigo-900">Cetak Kartu Ujian Siswa</div>
@@ -353,7 +377,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <li className="flex gap-3 items-start">
               <span className="flex-none w-5 h-5 rounded bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[11px] border border-slate-200">
-                6
+                7
               </span>
               <div>
                 <div className="font-semibold text-slate-800">Cetak Dokumen Administrasi</div>

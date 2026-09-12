@@ -11,6 +11,7 @@ import { ProctorsView } from './components/ProctorsView';
 import { SeatingChartView } from './components/SeatingChartView';
 import { ExamCardsView } from './components/ExamCardsView';
 import { ExamDocumentsView } from './components/ExamDocumentsView';
+import { ScheduleManagementView } from './components/ScheduleManagementView';
 import { LoginPortal } from './components/LoginPortal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import {
@@ -107,7 +108,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab') as ActiveTab;
-      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'seating', 'cards', 'documents'].includes(tab)) {
+      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents'].includes(tab)) {
         return tab;
       }
     }
@@ -697,6 +698,7 @@ export default function App() {
             config={config}
             students={students}
             rooms={rooms}
+            schedules={schedules}
             setActiveTab={setActiveTab}
             onDistributeCross={handleDistributeCross}
             onDistributeSequential={handleDistributeSequential}
@@ -752,6 +754,22 @@ export default function App() {
             onBulkAddProctors={handleBulkAddProctors}
             onResetProctors={handleResetProctors}
             onSyncRoomsWithProctors={handleSyncRoomsWithProctors}
+          />
+        )}
+
+        {activeTab === 'schedules' && (
+          <ScheduleManagementView
+            config={config}
+            schedules={schedules}
+            students={students}
+            onUpdateSchedules={(updatedSchedules) => {
+              setSchedules(updatedSchedules);
+              syncSchedulesToCloud(updatedSchedules).catch((err) => {
+                console.warn('Failed to sync schedules to cloud:', err);
+              });
+              showToast(`Jadwal ujian berhasil diperbarui (${updatedSchedules.length} sesi)!`);
+            }}
+            setActiveTab={setActiveTab}
           />
         )}
 

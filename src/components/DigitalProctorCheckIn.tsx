@@ -45,9 +45,21 @@ export const DigitalProctorCheckIn: React.FC<DigitalProctorCheckInProps> = ({
   onResetSessionAttendance,
   onViewPrintSheet,
 }) => {
-  // Active schedule selection
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string>(schedules[0]?.id || '');
-  const currentSchedule = schedules.find((s) => s.id === selectedScheduleId) || schedules[0] || {
+  // Filter exam schedules (exclude breaks)
+  const examSchedules = schedules.filter((s) => !s.isBreak && !s.subject.toLowerCase().includes('istirahat'));
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>(() => {
+    return examSchedules[0]?.id || schedules[0]?.id || '';
+  });
+
+  // Keep in sync if schedules change
+  useEffect(() => {
+    if (!schedules.some((s) => s.id === selectedScheduleId)) {
+      const firstValid = examSchedules[0]?.id || schedules[0]?.id || '';
+      setSelectedScheduleId(firstValid);
+    }
+  }, [schedules, selectedScheduleId]);
+
+  const currentSchedule = schedules.find((s) => s.id === selectedScheduleId) || examSchedules[0] || schedules[0] || {
     id: 'sch-1',
     dayName: 'Senin',
     date: '17 Maret 2025',
@@ -238,7 +250,7 @@ export const DigitalProctorCheckIn: React.FC<DigitalProctorCheckInProps> = ({
             onChange={(e) => setSelectedScheduleId(e.target.value)}
             className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white font-medium text-slate-800"
           >
-            {schedules.map((s) => (
+            {examSchedules.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.dayName}, {s.date} — {s.subject} ({s.sessionTime})
               </option>

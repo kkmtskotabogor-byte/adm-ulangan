@@ -158,15 +158,19 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
   };
 
   // Schedule management
-  const [activePreset, setActivePreset] = useState<'sts' | 'sample_image' | 'mts' | 'custom'>('sts');
+  const [activePreset, setActivePreset] = useState<'sts' | 'sample_image' | 'mts' | 'custom'>(() => {
+    return propSchedules && propSchedules.length > 0 ? 'custom' : 'sts';
+  });
   const [localSchedules, setLocalSchedules] = useState<ExamScheduleItem[]>(() => {
     return propSchedules && propSchedules.length > 0 ? propSchedules : MTS_MANBAUL_ISLAM_STS_SCHEDULE;
   });
+  const [includeBreaksOnCard, setIncludeBreaksOnCard] = useState<boolean>(false);
 
   // Sync when propSchedules updates from parent
   React.useEffect(() => {
     if (propSchedules && propSchedules.length > 0) {
       setLocalSchedules(propSchedules);
+      setActivePreset('custom');
     }
   }, [propSchedules]);
 
@@ -287,7 +291,12 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
     const daysMap = new Map<string, GroupedScheduleDay>();
     let counter = 1;
 
-    localSchedules.forEach((item) => {
+    // By default, exclude break sessions on the student signature card so only actual exam subjects appear
+    const filteredSchedules = includeBreaksOnCard
+      ? localSchedules
+      : localSchedules.filter((s) => !s.isBreak && !s.subject.toLowerCase().includes('istirahat'));
+
+    filteredSchedules.forEach((item) => {
       const key = `${item.dayName}|${item.date}`;
       if (!daysMap.has(key)) {
         daysMap.set(key, {
@@ -307,7 +316,7 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
     });
 
     return Array.from(daysMap.values());
-  }, [localSchedules]);
+  }, [localSchedules, includeBreaksOnCard]);
 
   // Chunk students into pages based on selected paper layout
   const chunkSize = useMemo(() => {
@@ -431,14 +440,26 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
                   ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-indigo-300 ring-1 ring-indigo-300'
                   : 'bg-white hover:bg-slate-100 text-slate-800 border-slate-300'
               }`}
-              title="Upload atau atur tanda tangan dan stempel resmi madrasah/sekolah pada kartu ujian"
+              title="Upload atau atur posisi, ukuran, dan rotasi tanda tangan dan stempel resmi pada kartu ujian"
             >
               <FileSignature className="w-4 h-4 text-indigo-600 shrink-0" />
               <span>TTD &amp; Stempel</span>
               {((config.stampEnabled && config.stampUrl) || (config.signatureEnabled !== false && config.signatureUrl)) ? (
-                <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-emerald-600 text-white">
-                  Aktif
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-emerald-600 text-white">
+                    Aktif
+                  </span>
+                  {(config.stampSize !== undefined && config.stampSize !== 100) || 
+                   (config.stampOffsetX !== undefined && config.stampOffsetX !== 0) || 
+                   (config.stampOffsetY !== undefined && config.stampOffsetY !== 0) ||
+                   (config.signatureSize !== undefined && config.signatureSize !== 100) ||
+                   (config.signatureOffsetX !== undefined && config.signatureOffsetX !== 0) ||
+                   (config.signatureOffsetY !== undefined && config.signatureOffsetY !== 0) ? (
+                    <span className="text-[9px] px-1 py-0.2 rounded font-semibold bg-amber-200 text-amber-900" title="Ukuran atau posisi kustom aktif">
+                      Atur Posisi
+                    </span>
+                  ) : null}
+                </div>
               ) : (
                 <span className="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-slate-100 text-slate-500">
                   Atur
@@ -916,43 +937,60 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
           {/* Schedule Preset Switcher */}
           {cardFormat === 'schedule_card' && (
             <div className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
-              <span className="font-bold text-slate-700 shrink-0">Pilihan Jadwal:</span>
+              <span className="font-bold text-slate-700 shrink-0">Jadwal:</span>
+              
+              {propSchedules && propSchedules.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePreset('custom');
+                    setLocalSchedules(propSchedules);
+                  }}
+                  className={`flex-1 min-w-[130px] py-1.5 px-2.5 rounded font-bold text-center transition-all cursor-pointer truncate ${
+                    activePreset === 'custom'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-white text-indigo-700 hover:bg-indigo-50 border border-indigo-200'
+                  }`}
+                  title="Gunakan jadwal aktif dari menu Jadwal Ujian"
+                >
+                  ⚡ Jadwal Master ({propSchedules.length} Sesi)
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => handleSelectPreset('sts')}
-                className={`flex-1 min-w-[150px] py-1.5 px-2.5 rounded font-semibold text-center transition-all cursor-pointer truncate ${
+                className={`py-1.5 px-2.5 rounded font-semibold text-center transition-all cursor-pointer truncate ${
                   activePreset === 'sts'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
                 title="17 Sesi (Senin-Sabtu): B. Indo, IPS, TIK, Mat, Alquran Hadist, Prakarya, B. Ing, Fiqih, Seni Budaya, IPA, B. Sunda, SKI, PKn, B. Arab, Akidah, BTQ, Penjas"
               >
-                ⭐ STS Ganjil (17 Mapel)
+                STS (17 Mapel)
               </button>
               <button
                 type="button"
                 onClick={() => handleSelectPreset('mts')}
-                className={`flex-1 min-w-[140px] py-1.5 px-2.5 rounded font-semibold text-center transition-all cursor-pointer truncate ${
+                className={`py-1.5 px-2.5 rounded font-semibold text-center transition-all cursor-pointer truncate ${
                   activePreset === 'mts'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                 }`}
                 title="11 Sesi: Al-Qur'an Hadits, Akidah, Fikih, SKI, B. Arab, B. Indo, B. Ing, Mat, PPKn, IPA, IPS"
               >
-                SAS / AM (11 Mapel)
+                SAS (11 Mapel)
               </button>
-              <button
-                type="button"
-                onClick={() => handleSelectPreset('sample_image')}
-                className={`flex-1 min-w-[140px] py-1.5 px-2.5 rounded font-semibold text-center transition-all cursor-pointer truncate ${
-                  activePreset === 'sample_image'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-                }`}
-                title="12 Sesi: Matematika, PAI, IPA, PKn, B. Indonesia, SBK, B. Inggris, TIK, PLH, B. Jawa, IPS, BTQ"
-              >
-                Contoh Gambar (12 Mapel)
-              </button>
+              
+              <label className="flex items-center gap-1.5 px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-medium text-slate-700 cursor-pointer select-none shrink-0" title="Centang bila ingin mencantumkan baris jam istirahat pada tabel tanda tangan kartu peserta">
+                <input
+                  type="checkbox"
+                  checked={includeBreaksOnCard}
+                  onChange={(e) => setIncludeBreaksOnCard(e.target.checked)}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                />
+                <span>Cetak Istirahat</span>
+              </label>
             </div>
           )}
         </div>
@@ -1816,6 +1854,32 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
   }, [groupedDays]);
   const isDenseSchedule = totalSessions > 12;
 
+  // Placement & sizing for Signature and Stamp
+  const scaleFactor = isFour ? 0.65 : isThree ? 0.8 : 1.0;
+  const stampScale = (config.stampSize ?? 100) / 100;
+  const sigScale = (config.signatureSize ?? 100) / 100;
+  const stampOffsetX = (config.stampOffsetX ?? 0) * scaleFactor;
+  const stampOffsetY = (config.stampOffsetY ?? 0) * scaleFactor;
+  const sigOffsetX = (config.signatureOffsetX ?? 0) * scaleFactor;
+  const sigOffsetY = (config.signatureOffsetY ?? 0) * scaleFactor;
+  const stampRotation = config.stampRotation ?? -7;
+  const stampOpacity = (config.stampOpacity ?? 90) / 100;
+  const stampAboveSignature = config.stampAboveSignature !== false;
+
+  const baseStampW = isFour ? 28 : isThree ? 34 : 46;
+  const actualStampW = Math.round(baseStampW * stampScale);
+  const baseStampRight = isFour ? 28 : isThree ? 36 : 48;
+  const baseStampBottom = isFour ? -3 : isThree ? -4 : -6;
+  const actualStampRight = Math.round(baseStampRight - stampOffsetX);
+  const actualStampBottom = Math.round(baseStampBottom + stampOffsetY);
+
+  const baseSigH = isFour ? 18 : isThree ? 22 : 32;
+  const actualSigH = Math.round(baseSigH * sigScale);
+  const baseBoxH = isFour ? 20 : isThree ? 24 : 36;
+  const boxHeight = Math.max(baseBoxH, Math.round(actualSigH * 1.05));
+  const baseMinW = isFour ? 85 : isThree ? 100 : 130;
+  const boxMinW = Math.max(baseMinW, Math.round(baseMinW * Math.max(1, sigScale * 0.8, stampScale * 0.8)));
+
   return (
     <div
       className={`page-break-inside-avoid bg-white border-2 border-black text-black font-sans shadow-xs print:shadow-none w-full mx-auto select-text ${
@@ -1955,21 +2019,22 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
                 <div 
                   className="relative flex items-center justify-end my-0.5"
                   style={{
-                    height: isFour ? '20px' : isThree ? '24px' : '36px',
-                    minWidth: isFour ? '85px' : isThree ? '100px' : '130px'
+                    height: `${boxHeight}px`,
+                    minWidth: `${boxMinW}px`
                   }}
                 >
-                  {/* Stempel Sekolah / Madrasah (overlapping left with authentic tilt and opacity) */}
+                  {/* Stempel Sekolah / Madrasah */}
                   {config.stampEnabled && config.stampUrl && (
                     <div 
-                      className="absolute z-10 pointer-events-none select-none print:opacity-100"
+                      className="absolute pointer-events-none select-none print:opacity-100"
                       style={{
-                        right: isFour ? '28px' : isThree ? '36px' : '48px',
-                        bottom: isFour ? '-3px' : isThree ? '-4px' : '-6px',
-                        width: isFour ? '28px' : isThree ? '34px' : '46px',
-                        height: isFour ? '28px' : isThree ? '34px' : '46px',
-                        opacity: 0.9,
-                        transform: 'rotate(-7deg)',
+                        right: `${actualStampRight}px`,
+                        bottom: `${actualStampBottom}px`,
+                        width: `${actualStampW}px`,
+                        height: `${actualStampW}px`,
+                        opacity: stampOpacity,
+                        transform: `rotate(${stampRotation}deg)`,
+                        zIndex: stampAboveSignature ? 10 : 0,
                       }}
                     >
                       <img src={config.stampUrl} alt="Stempel" className="w-full h-full object-contain" />
@@ -1979,16 +2044,18 @@ const ScheduleExamCardItem: React.FC<ScheduleExamCardItemProps> = ({
                   {/* Tanda Tangan Digital (TTD) */}
                   {config.signatureEnabled !== false && config.signatureUrl && (
                     <div 
-                      className="relative z-0 flex items-center justify-end"
+                      className="relative flex items-center justify-end"
                       style={{
-                        height: isFour ? '18px' : isThree ? '22px' : '32px',
-                        maxHeight: isFour ? '18px' : isThree ? '22px' : '32px'
+                        height: `${actualSigH}px`,
+                        maxHeight: `${actualSigH}px`,
+                        transform: `translate(${sigOffsetX}px, ${-sigOffsetY}px)`,
+                        zIndex: stampAboveSignature ? 0 : 10,
                       }}
                     >
                       <img 
                         src={config.signatureUrl} 
                         alt="Tanda Tangan" 
-                        className="h-full w-auto object-contain max-w-[110px]" 
+                        className="h-full w-auto object-contain max-w-[130px]" 
                       />
                     </div>
                   )}
@@ -2187,6 +2254,31 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
     ? (['MTs', 'MA', 'MI'].includes(config.schoolLevel) ? 'Kepala Madrasah,' : 'Kepala Sekolah,')
     : 'Ketua Panitia Ujian,';
 
+  // Placement & sizing for Signature and Stamp
+  const scaleFactor = isCompactDense ? 0.75 : 1.0;
+  const stampScale = (config.stampSize ?? 100) / 100;
+  const sigScale = (config.signatureSize ?? 100) / 100;
+  const stampOffsetX = (config.stampOffsetX ?? 0) * scaleFactor;
+  const stampOffsetY = (config.stampOffsetY ?? 0) * scaleFactor;
+  const sigOffsetX = (config.signatureOffsetX ?? 0) * scaleFactor;
+  const sigOffsetY = (config.signatureOffsetY ?? 0) * scaleFactor;
+  const stampRotation = config.stampRotation ?? -7;
+  const stampOpacity = (config.stampOpacity ?? 90) / 100;
+  const stampAboveSignature = config.stampAboveSignature !== false;
+
+  const baseStampW = isCompactDense ? 28 : 36;
+  const actualStampW = Math.round(baseStampW * stampScale);
+  const baseStampRight = isCompactDense ? 28 : 38;
+  const actualStampRight = Math.round(baseStampRight - stampOffsetX);
+  const actualStampBottom = Math.round(-3 + stampOffsetY);
+
+  const baseSigH = isCompactDense ? 20 : 28;
+  const actualSigH = Math.round(baseSigH * sigScale);
+  const baseBoxH = isCompactDense ? 22 : 30;
+  const boxHeight = Math.max(baseBoxH, Math.round(actualSigH * 1.05));
+  const baseMinW = 105;
+  const boxMinW = Math.max(baseMinW, Math.round(baseMinW * Math.max(1, sigScale * 0.8, stampScale * 0.8)));
+
   return (
     <div className={`page-break-inside-avoid bg-white border-2 border-slate-900 rounded-lg shadow-xs print:shadow-none relative overflow-hidden flex flex-col justify-between text-slate-900 font-sans ${
       isCompactDense ? 'p-2.5 sm:p-3' : 'p-4 sm:p-5'
@@ -2297,19 +2389,20 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
           
           <div 
             className="relative flex items-center justify-end my-0.5"
-            style={{ height: isCompactDense ? '22px' : '30px', minWidth: '105px' }}
+            style={{ height: `${boxHeight}px`, minWidth: `${boxMinW}px` }}
           >
             {/* Stempel */}
             {config.stampEnabled && config.stampUrl && (
               <div 
-                className="absolute z-10 pointer-events-none select-none print:opacity-100"
+                className="absolute pointer-events-none select-none print:opacity-100"
                 style={{
-                  right: isCompactDense ? '28px' : '38px',
-                  bottom: '-3px',
-                  width: isCompactDense ? '28px' : '36px',
-                  height: isCompactDense ? '28px' : '36px',
-                  opacity: 0.88,
-                  transform: 'rotate(-7deg)'
+                  right: `${actualStampRight}px`,
+                  bottom: `${actualStampBottom}px`,
+                  width: `${actualStampW}px`,
+                  height: `${actualStampW}px`,
+                  opacity: stampOpacity,
+                  transform: `rotate(${stampRotation}deg)`,
+                  zIndex: stampAboveSignature ? 10 : 0,
                 }}
               >
                 <img src={config.stampUrl} alt="Stempel" className="w-full h-full object-contain" />
@@ -2319,10 +2412,15 @@ const CompactExamCardItem: React.FC<CompactExamCardItemProps> = ({
             {/* TTD */}
             {config.signatureEnabled !== false && config.signatureUrl ? (
               <div 
-                className="relative z-0 flex items-center justify-end"
-                style={{ height: isCompactDense ? '20px' : '28px' }}
+                className="relative flex items-center justify-end"
+                style={{
+                  height: `${actualSigH}px`,
+                  maxHeight: `${actualSigH}px`,
+                  transform: `translate(${sigOffsetX}px, ${-sigOffsetY}px)`,
+                  zIndex: stampAboveSignature ? 0 : 10,
+                }}
               >
-                <img src={config.signatureUrl} alt="TTD" className="h-full w-auto object-contain max-w-[100px]" />
+                <img src={config.signatureUrl} alt="TTD" className="h-full w-auto object-contain max-w-[120px]" />
               </div>
             ) : (
               <span className="font-serif italic text-slate-300 text-[9px] select-none mr-2">ttd &amp; cap</span>

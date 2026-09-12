@@ -73,12 +73,14 @@ export interface ExamScheduleItem {
   sessionTime: string;
   subject: string;
   targetLevel: string; // e.g., "Semua Kelas" or "Kelas X, XI, XII"
+  isBreak?: boolean; // true if this item is a break session (Istirahat)
 }
 
 export type ActiveTab = 
   | 'dashboard'
   | 'config'
   | 'students'
+  | 'schedules'
   | 'rooms'
   | 'proctors'
   | 'seating'

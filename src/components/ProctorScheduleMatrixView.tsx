@@ -90,6 +90,7 @@ export const ProctorScheduleMatrixView: React.FC<ProctorScheduleMatrixViewProps>
     const initial: ProctorScheduleMatrix = {};
     if (schedules.length > 0 && rooms.length > 0) {
       schedules.forEach((sch, schIdx) => {
+        if (sch.isBreak || sch.subject.toLowerCase().includes('istirahat')) return;
         rooms.forEach((rm, rmIdx) => {
           // Rolling assignment: pick proctor fairly
           const proctorIndex = (schIdx + rmIdx) % Math.max(1, proctors.length);
@@ -157,7 +158,35 @@ export const ProctorScheduleMatrixView: React.FC<ProctorScheduleMatrixViewProps>
       // Sort items by session time if available
       const sorted = [...items];
 
-      if (sorted.length === 3) {
+      // Check if day already has explicit break items (e.g. from user uploaded template)
+      const hasExplicitBreaks = sorted.some(
+        (s) => s.isBreak || s.subject.toLowerCase().includes('istirahat')
+      );
+
+      if (hasExplicitBreaks) {
+        let jamCounter = 1;
+        sorted.forEach((item) => {
+          const isBreak = item.isBreak || item.subject.toLowerCase().includes('istirahat');
+          if (isBreak) {
+            if (showBreakRow) {
+              rows.push({
+                type: 'break',
+                schedule: item,
+                time: item.sessionTime,
+                subject: item.subject,
+              });
+            }
+          } else {
+            rows.push({
+              type: 'session',
+              schedule: item,
+              time: item.sessionTime,
+              subject: item.subject,
+              jamKe: jamCounter++,
+            });
+          }
+        });
+      } else if (sorted.length === 3) {
         // Standard 3-session day (like Senin-Kamis, Sabtu in STS):
         // Session 1: 07.30-08.30
         rows.push({
