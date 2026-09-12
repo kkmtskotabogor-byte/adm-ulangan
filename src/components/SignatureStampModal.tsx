@@ -11,7 +11,11 @@ import {
   Eraser, 
   Eye, 
   ShieldCheck, 
-  AlertCircle 
+  AlertCircle,
+  Sliders,
+  RotateCcw,
+  Move,
+  Layers
 } from 'lucide-react';
 import { ExamConfig } from '../types';
 import { 
@@ -36,7 +40,7 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
   config,
   onSaveConfig,
 }) => {
-  const [activeTab, setActiveTab] = useState<'ttd' | 'stempel' | 'pejabat'>('ttd');
+  const [activeTab, setActiveTab] = useState<'ttd' | 'stempel' | 'penempatan' | 'pejabat'>('ttd');
   
   // Local working state
   const [signatureEnabled, setSignatureEnabled] = useState<boolean>(config.signatureEnabled ?? true);
@@ -48,6 +52,18 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
   const [signerType, setSignerType] = useState<'principal' | 'committee'>(
     config.signatureSigner || 'principal'
   );
+
+  // Placement and sizing states
+  const [stampSize, setStampSize] = useState<number>(config.stampSize ?? 100);
+  const [stampOffsetX, setStampOffsetX] = useState<number>(config.stampOffsetX ?? 0);
+  const [stampOffsetY, setStampOffsetY] = useState<number>(config.stampOffsetY ?? 0);
+  const [stampRotation, setStampRotation] = useState<number>(config.stampRotation ?? -7);
+  const [stampOpacity, setStampOpacity] = useState<number>(config.stampOpacity ?? 90);
+  const [stampAboveSignature, setStampAboveSignature] = useState<boolean>(config.stampAboveSignature ?? true);
+
+  const [signatureSize, setSignatureSize] = useState<number>(config.signatureSize ?? 100);
+  const [signatureOffsetX, setSignatureOffsetX] = useState<number>(config.signatureOffsetX ?? 0);
+  const [signatureOffsetY, setSignatureOffsetY] = useState<number>(config.signatureOffsetY ?? 0);
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -69,6 +85,15 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
       setStampEnabled(config.stampEnabled ?? true);
       setStampUrl(config.stampUrl);
       setSignerType(config.signatureSigner || 'principal');
+      setStampSize(config.stampSize ?? 100);
+      setStampOffsetX(config.stampOffsetX ?? 0);
+      setStampOffsetY(config.stampOffsetY ?? 0);
+      setStampRotation(config.stampRotation ?? -7);
+      setStampOpacity(config.stampOpacity ?? 90);
+      setStampAboveSignature(config.stampAboveSignature ?? true);
+      setSignatureSize(config.signatureSize ?? 100);
+      setSignatureOffsetX(config.signatureOffsetX ?? 0);
+      setSignatureOffsetY(config.signatureOffsetY ?? 0);
       setErrorMessage(null);
     }
   }, [isOpen, config]);
@@ -190,9 +215,31 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
       stampEnabled,
       stampUrl,
       signatureSigner: signerType,
+      stampSize,
+      stampOffsetX,
+      stampOffsetY,
+      stampRotation,
+      stampOpacity,
+      stampAboveSignature,
+      signatureSize,
+      signatureOffsetX,
+      signatureOffsetY,
     };
     onSaveConfig(updated);
     onClose();
+  };
+
+  // Reset to default sizing and positioning
+  const handleResetPlacement = () => {
+    setStampSize(100);
+    setStampOffsetX(0);
+    setStampOffsetY(0);
+    setStampRotation(-7);
+    setStampOpacity(90);
+    setStampAboveSignature(true);
+    setSignatureSize(100);
+    setSignatureOffsetX(0);
+    setSignatureOffsetY(0);
   };
 
   // Signer names for live preview
@@ -201,6 +248,12 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
   const signerTitle = signerType === 'principal' 
     ? (['MTs', 'MA', 'MI'].includes(config.schoolLevel) ? 'Kepala Madrasah,' : 'Kepala Sekolah,')
     : 'Ketua Panitia Ujian,';
+
+  // Preview sizing calculations
+  const previewStampW = Math.round(54 * (stampSize / 100));
+  const previewStampRight = 50 - stampOffsetX;
+  const previewStampBottom = -6 + stampOffsetY;
+  const previewSigH = Math.round(44 * (signatureSize / 100));
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs no-print overflow-y-auto">
@@ -215,7 +268,7 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
             <div>
               <h3 className="font-bold text-slate-900 text-sm">Pengaturan Tanda Tangan (TTD) &amp; Stempel Kartu</h3>
               <p className="text-[11px] text-slate-500">
-                Upload atau pilih stempel resmi dan tanda tangan digital untuk dicetak pada kartu ujian
+                Upload stempel &amp; tanda tangan, atur posisi pergeseran (X/Y), ukuran, dan rotasi kartu ujian
               </p>
             </div>
           </div>
@@ -237,11 +290,11 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
         )}
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 px-5 pt-3 border-b border-slate-100 shrink-0">
+        <div className="flex items-center gap-1 px-5 pt-3 border-b border-slate-100 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('ttd')}
-            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer transition-all ${
+            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all ${
               activeTab === 'ttd'
                 ? 'border-indigo-600 text-indigo-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -257,14 +310,14 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('stempel')}
-            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer transition-all ${
+            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all ${
               activeTab === 'stempel'
                 ? 'border-indigo-600 text-indigo-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Stamp className="w-3.5 h-3.5" />
-            <span>2. Stempel Sekolah / MTs</span>
+            <span>2. Stempel Sekolah</span>
             {stampUrl && stampEnabled && (
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             )}
@@ -272,15 +325,31 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('penempatan')}
+            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all ${
+              activeTab === 'penempatan'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>3. Ukuran &amp; Posisi</span>
+            {(stampSize !== 100 || stampOffsetX !== 0 || stampOffsetY !== 0 || signatureSize !== 100 || signatureOffsetX !== 0 || signatureOffsetY !== 0) && (
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('pejabat')}
-            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer transition-all ${
+            className={`pb-2.5 px-3 font-semibold text-xs border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap transition-all ${
               activeTab === 'pejabat'
                 ? 'border-indigo-600 text-indigo-700'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>3. Pilihan Pejabat</span>
+            <span>4. Pejabat</span>
           </button>
         </div>
 
@@ -633,6 +702,492 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
             </div>
           )}
 
+          {/* TAB 3: PENEMPATAN & UKURAN (STEMPEL & TTD) */}
+          {activeTab === 'penempatan' && (
+            <div className="space-y-4 animate-in fade-in">
+              {/* Top Banner with Reset Button */}
+              <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">
+                    <Sliders className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs">Penempatan &amp; Ukuran Stempel &amp; Tanda Tangan</h4>
+                    <p className="text-[11px] text-slate-600">
+                      Sesuaikan ukuran, pergeseran posisi (X/Y), rotasi sudut, dan tumpukan lapisan stempel &amp; TTD.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleResetPlacement}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-semibold rounded-lg border border-slate-300 text-xs shadow-2xs transition-colors cursor-pointer"
+                  title="Kembalikan semua nilai ukuran dan posisi ke setelan standar"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Bawaan</span>
+                </button>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                <span className="font-bold text-slate-700 text-[11px] flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Preset Cepat Penempatan:</span>
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleResetPlacement}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Standar Resmi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStampOffsetX(16);
+                      setStampOffsetY(-2);
+                      setStampAboveSignature(true);
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Stempel Menimpa TTD (+16px)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStampOffsetX(-22);
+                      setStampOffsetY(0);
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Stempel di Samping Kiri (-22px)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStampRotation(0)}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Stempel Tegak (0°)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStampSize(125);
+                      setSignatureSize(120);
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Ukuran Besar (+25%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStampSize(85);
+                      setSignatureSize(85);
+                    }}
+                    className="px-2.5 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 rounded-md border border-slate-200 text-[11px] font-medium transition-colors cursor-pointer"
+                  >
+                    Ukuran Ringkas (85%)
+                  </button>
+                </div>
+              </div>
+
+              {/* Two Column Form Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* STEMPEL CONTROLS */}
+                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                      <Stamp className="w-4 h-4 text-indigo-600" />
+                      <span>Pengaturan Stempel</span>
+                    </div>
+                    {stampUrl && stampEnabled ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Aktif
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('stempel')}
+                        className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+                      >
+                        + Pilih Stempel
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 1. Ukuran Stempel */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Ukuran Stempel</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setStampSize(Math.max(50, stampSize - 5))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-10 text-center">
+                          {stampSize}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setStampSize(Math.min(200, stampSize + 5))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={5}
+                      value={stampSize}
+                      onChange={(e) => setStampSize(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>50% (Kecil)</span>
+                      <span>100% (Normal)</span>
+                      <span>200% (Besar)</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Geser Horizontal (X) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Geser Horizontal (X)</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setStampOffsetX(Math.max(-60, stampOffsetX - 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-12 text-center">
+                          {stampOffsetX > 0 ? `+${stampOffsetX}` : stampOffsetX}px
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setStampOffsetX(Math.min(60, stampOffsetX + 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={-60}
+                      max={60}
+                      step={2}
+                      value={stampOffsetX}
+                      onChange={(e) => setStampOffsetX(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>← Kiri (-60px)</span>
+                      <span>Tengah (0)</span>
+                      <span>Kanan (+60px) →</span>
+                    </div>
+                  </div>
+
+                  {/* 3. Geser Vertikal (Y) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Geser Vertikal (Y)</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setStampOffsetY(Math.max(-40, stampOffsetY - 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-12 text-center">
+                          {stampOffsetY > 0 ? `+${stampOffsetY}` : stampOffsetY}px
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setStampOffsetY(Math.min(40, stampOffsetY + 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={-40}
+                      max={40}
+                      step={2}
+                      value={stampOffsetY}
+                      onChange={(e) => setStampOffsetY(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>↓ Bawah (-40px)</span>
+                      <span>Tengah (0)</span>
+                      <span>Atas (+40px) ↑</span>
+                    </div>
+                  </div>
+
+                  {/* 4. Sudut Kemiringan (Rotasi) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Kemiringan (Rotasi)</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setStampRotation(Math.max(-45, stampRotation - 1))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-12 text-center">
+                          {stampRotation}°
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setStampRotation(Math.min(45, stampRotation + 1))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={-45}
+                      max={45}
+                      step={1}
+                      value={stampRotation}
+                      onChange={(e) => setStampRotation(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>-45° (Miring Kiri)</span>
+                      <span>0° (Tegak)</span>
+                      <span>+45° (Miring Kanan)</span>
+                    </div>
+                  </div>
+
+                  {/* 5. Kepekatan / Transparansi */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Kepekatan Stempel</label>
+                      <span className="font-mono font-bold text-indigo-950 text-xs">
+                        {stampOpacity}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={40}
+                      max={100}
+                      step={5}
+                      value={stampOpacity}
+                      onChange={(e) => setStampOpacity(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>40% (Transparan)</span>
+                      <span>90% (Standar)</span>
+                      <span>100% (Pekat)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* TANDA TANGAN CONTROLS */}
+                <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-2xs space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-800 text-xs">
+                      <FileSignature className="w-4 h-4 text-indigo-600" />
+                      <span>Pengaturan Tanda Tangan (TTD)</span>
+                    </div>
+                    {signatureUrl && signatureEnabled ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Aktif
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('ttd')}
+                        className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 cursor-pointer"
+                      >
+                        + Buat / Upload TTD
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 1. Ukuran TTD */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Ukuran TTD</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSignatureSize(Math.max(50, signatureSize - 5))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-10 text-center">
+                          {signatureSize}%
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSignatureSize(Math.min(200, signatureSize + 5))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={200}
+                      step={5}
+                      value={signatureSize}
+                      onChange={(e) => setSignatureSize(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>50% (Kecil)</span>
+                      <span>100% (Normal)</span>
+                      <span>200% (Besar)</span>
+                    </div>
+                  </div>
+
+                  {/* 2. Geser Horizontal TTD (X) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Geser Horizontal TTD (X)</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSignatureOffsetX(Math.max(-60, signatureOffsetX - 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-12 text-center">
+                          {signatureOffsetX > 0 ? `+${signatureOffsetX}` : signatureOffsetX}px
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSignatureOffsetX(Math.min(60, signatureOffsetX + 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={-60}
+                      max={60}
+                      step={2}
+                      value={signatureOffsetX}
+                      onChange={(e) => setSignatureOffsetX(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>← Kiri (-60px)</span>
+                      <span>Tengah (0)</span>
+                      <span>Kanan (+60px) →</span>
+                    </div>
+                  </div>
+
+                  {/* 3. Geser Vertikal TTD (Y) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-semibold text-slate-700 text-[11px]">Geser Vertikal TTD (Y)</label>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSignatureOffsetY(Math.max(-40, signatureOffsetY - 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-indigo-950 text-xs w-12 text-center">
+                          {signatureOffsetY > 0 ? `+${signatureOffsetY}` : signatureOffsetY}px
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSignatureOffsetY(Math.min(40, signatureOffsetY + 2))}
+                          className="w-5 h-5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={-40}
+                      max={40}
+                      step={2}
+                      value={signatureOffsetY}
+                      onChange={(e) => setSignatureOffsetY(parseInt(e.target.value, 10))}
+                      className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-600 font-mono">
+                      <span>↓ Bawah (-40px)</span>
+                      <span>Tengah (0)</span>
+                      <span>Atas (+40px) ↑</span>
+                    </div>
+                  </div>
+
+                  {/* 4. Urutan Lapisan (Z-Index / Overlap) */}
+                  <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                    <label className="font-semibold text-slate-700 text-[11px] flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Urutan Tumpukan Lapisan:</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setStampAboveSignature(true)}
+                        className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                          stampAboveSignature
+                            ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="block text-[11px]">Stempel di Depan ✓</span>
+                        <span className="block text-[9px] text-slate-500 font-normal">Cap menimpa TTD (Resmi)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setStampAboveSignature(false)}
+                        className={`p-2 rounded-lg border text-left cursor-pointer transition-all ${
+                          !stampAboveSignature
+                            ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 font-bold'
+                            : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className="block text-[11px]">TTD di Depan ✓</span>
+                        <span className="block text-[9px] text-slate-500 font-normal">TTD menimpa Stempel</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          )}
+
           {/* LIVE PREVIEW BOX OF SIGNATURE & STAMP BLOCK */}
           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
             <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
@@ -643,12 +1198,12 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
               <div className="flex items-center gap-2 text-[10px]">
                 {signatureEnabled && signatureUrl && (
                   <span className="text-emerald-700 font-semibold bg-emerald-100 px-2 py-0.5 rounded-full">
-                    TTD Aktif ✓
+                    TTD: {signatureSize}% ✓
                   </span>
                 )}
                 {stampEnabled && stampUrl && (
                   <span className="text-indigo-700 font-semibold bg-indigo-100 px-2 py-0.5 rounded-full">
-                    Stempel Aktif ✓
+                    Stempel: {stampSize}% ({stampRotation}°) ✓
                   </span>
                 )}
               </div>
@@ -661,19 +1216,22 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
                 <p className="font-semibold text-black mt-0.5">{signerTitle}</p>
 
                 {/* Relative Signature & Stamp Layer */}
-                <div className="relative flex items-center justify-end my-1 h-14 w-full">
+                <div 
+                  className="relative flex items-center justify-end my-1 w-full"
+                  style={{ height: `${Math.max(52, previewSigH + 10)}px` }}
+                >
                   {/* Stempel (slightly overlapping left, authentic tilt) */}
                   {stampEnabled && stampUrl && (
                     <div 
-                      className="absolute z-10 pointer-events-none"
+                      className="absolute pointer-events-none select-none"
                       style={{
-                        right: '54px',
-                        bottom: '-6px',
-                        width: '56px',
-                        height: '56px',
-                        opacity: 0.9,
-                        transform: 'rotate(-8deg)',
-                        mixBlendMode: 'multiply'
+                        right: `${previewStampRight}px`,
+                        bottom: `${previewStampBottom}px`,
+                        width: `${previewStampW}px`,
+                        height: `${previewStampW}px`,
+                        opacity: stampOpacity / 100,
+                        transform: `rotate(${stampRotation}deg)`,
+                        zIndex: stampAboveSignature ? 10 : 0,
                       }}
                     >
                       <img src={stampUrl} alt="Stempel" className="w-full h-full object-contain" />
@@ -682,8 +1240,15 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
 
                   {/* Tanda Tangan */}
                   {signatureEnabled && signatureUrl ? (
-                    <div className="relative z-0 h-12 flex items-center justify-end">
-                      <img src={signatureUrl} alt="TTD" className="h-full w-auto object-contain max-w-[140px]" />
+                    <div 
+                      className="relative flex items-center justify-end"
+                      style={{
+                        height: `${previewSigH}px`,
+                        transform: `translate(${signatureOffsetX}px, ${-signatureOffsetY}px)`,
+                        zIndex: stampAboveSignature ? 0 : 10,
+                      }}
+                    >
+                      <img src={signatureUrl} alt="TTD" className="h-full w-auto object-contain max-w-[150px]" />
                     </div>
                   ) : (
                     <div className="h-10 flex items-center justify-end text-slate-300 italic text-[9px]">
@@ -692,7 +1257,7 @@ export const SignatureStampModal: React.FC<SignatureStampModalProps> = ({
                   )}
                 </div>
 
-                <p className="font-bold uppercase underline leading-tight text-black text-[11px]">{signerName}</p>
+                <p className="font-bold uppercase underline leading-tight text-black text-[11px] relative z-10">{signerName}</p>
                 <p className="font-mono text-[9.5px] text-black mt-0.5">NIP {signerNip || '-'}</p>
               </div>
             </div>

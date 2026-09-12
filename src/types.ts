@@ -26,6 +26,15 @@ export interface ExamConfig {
   signatureUrl?: string; // Base64 data URI or SVG for Tanda Tangan
   stampUrl?: string; // Base64 data URI or SVG for Stempel Sekolah / Madrasah
   signatureSigner?: 'principal' | 'committee'; // Penandatangan: Kepala Sekolah atau Ketua Panitia
+  stampSize?: number; // Skala ukuran stempel (persen, default 100%, 50 - 200%)
+  stampOffsetX?: number; // Geser horizontal stempel px (-60 s/d +60)
+  stampOffsetY?: number; // Geser vertikal stempel px (-40 s/d +40)
+  stampRotation?: number; // Rotasi derajat stempel (-45 s/d +45, default -7)
+  stampOpacity?: number; // Transparansi/kepekatan stempel (40 s/d 100, default 90)
+  stampAboveSignature?: boolean; // Posisi lapisan: stempel di atas TTD (default true)
+  signatureSize?: number; // Skala ukuran TTD (persen, default 100%, 50 - 200%)
+  signatureOffsetX?: number; // Geser horizontal TTD px (-60 s/d +60)
+  signatureOffsetY?: number; // Geser vertikal TTD px (-40 s/d +40)
   schoolLevel: 'MTs' | 'MA' | 'MI' | 'SMP' | 'SMA' | 'SMK' | 'SD';
   codePrefix: string; // e.g. "26-04"
   logoUrl?: string; // Base64 data URI or SVG string of school/madrasah logo
