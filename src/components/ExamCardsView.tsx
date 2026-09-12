@@ -168,9 +168,11 @@ export const ExamCardsView: React.FC<ExamCardsViewProps> = ({
 
   // Sync when propSchedules updates from parent
   React.useEffect(() => {
-    if (propSchedules && propSchedules.length > 0) {
+    if (propSchedules) {
       setLocalSchedules(propSchedules);
-      setActivePreset('custom');
+      if (propSchedules.length > 0) {
+        setActivePreset('custom');
+      }
     }
   }, [propSchedules]);
 

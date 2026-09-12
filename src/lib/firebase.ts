@@ -372,10 +372,12 @@ export function subscribeToSchedules(
   return onSnapshot(
     colRef,
     (snapshot) => {
-      const items: ExamScheduleItem[] = [];
+      const items: (ExamScheduleItem & { orderIndex?: number })[] = [];
       snapshot.forEach((d) => {
         items.push({ id: d.id, ...(d.data() as Omit<ExamScheduleItem, 'id'>) });
       });
+      // Sort by orderIndex to keep exact sequence as arranged or imported
+      items.sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
       onUpdate(items);
     },
     (error) => {
@@ -385,16 +387,46 @@ export function subscribeToSchedules(
   );
 }
 
+export async function clearAllSchedulesFromCloud(): Promise<void> {
+  try {
+    const snap = await getDocs(collection(db, 'schedules'));
+    const batchSize = 400;
+    const docs = snap.docs;
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const chunk = docs.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, 'schedules');
+  }
+}
+
 export async function syncSchedulesToCloud(schedules: ExamScheduleItem[]): Promise<void> {
   try {
+    const snap = await getDocs(collection(db, 'schedules'));
+    const newIds = new Set(schedules.map((s) => s.id));
+    const staleDocs = snap.docs.filter((d) => !newIds.has(d.id));
+
     const batchSize = 400;
+    // 1. Delete all stale/removed docs so old schedules don't persist or reappear
+    for (let i = 0; i < staleDocs.length; i += batchSize) {
+      const chunk = staleDocs.slice(i, i + batchSize);
+      const batch = writeBatch(db);
+      chunk.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    // 2. Set/update active schedules with orderIndex
     for (let i = 0; i < schedules.length; i += batchSize) {
       const chunk = schedules.slice(i, i + batchSize);
       const batch = writeBatch(db);
-      chunk.forEach((s) => {
+      chunk.forEach((s, idx) => {
         const ref = doc(db, 'schedules', s.id);
         batch.set(ref, {
           ...s,
+          orderIndex: i + idx,
           updatedAt: new Date().toISOString(),
         });
       });

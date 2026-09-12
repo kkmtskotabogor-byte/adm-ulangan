@@ -33,6 +33,7 @@ import {
   syncProctorsToCloud,
   subscribeToSchedules,
   syncSchedulesToCloud,
+  clearAllSchedulesFromCloud,
   subscribeToAttendanceRecords,
   isCloudDatabaseInitialized,
 } from './lib/firebase';
@@ -216,8 +217,12 @@ export default function App() {
       unsubs.push(
         subscribeToSchedules(
           (cloudSchedules) => {
-            if (cloudSchedules && cloudSchedules.length > 0) {
-              setSchedules(cloudSchedules);
+            if (cloudSchedules) {
+              const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULES);
+              // Accept cloud schedules if not empty, or if user explicitly stored empty schedule
+              if (cloudSchedules.length > 0 || saved === '[]') {
+                setSchedules(cloudSchedules);
+              }
               setIsCloudConnected(true);
             }
           },
@@ -764,10 +769,17 @@ export default function App() {
             students={students}
             onUpdateSchedules={(updatedSchedules) => {
               setSchedules(updatedSchedules);
-              syncSchedulesToCloud(updatedSchedules).catch((err) => {
-                console.warn('Failed to sync schedules to cloud:', err);
-              });
-              showToast(`Jadwal ujian berhasil diperbarui (${updatedSchedules.length} sesi)!`);
+              if (updatedSchedules.length === 0) {
+                clearAllSchedulesFromCloud().catch((err) => {
+                  console.warn('Failed to clear schedules from cloud:', err);
+                });
+                showToast('Jadwal ujian berhasil dikosongkan.');
+              } else {
+                syncSchedulesToCloud(updatedSchedules).catch((err) => {
+                  console.warn('Failed to sync schedules to cloud:', err);
+                });
+                showToast(`Jadwal ujian berhasil diperbarui (${updatedSchedules.length} sesi)!`);
+              }
             }}
             setActiveTab={setActiveTab}
           />

@@ -37,14 +37,12 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
   onImportSchedules,
   currentScheduleCount,
 }) => {
-  const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('paste');
-  const [pastedText, setPastedText] = useState<string>(USER_UPLOADED_SCHEDULE_TEMPLATE_RAW);
+  const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
+  const [pastedText, setPastedText] = useState<string>('');
   const [importMode, setImportMode] = useState<'replace' | 'append'>('replace');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [parsedResult, setParsedResult] = useState<ParsedScheduleResult | null>(() => {
-    return parseScheduleText(USER_UPLOADED_SCHEDULE_TEMPLATE_RAW);
-  });
+  const [parsedResult, setParsedResult] = useState<ParsedScheduleResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -277,7 +275,7 @@ export const ScheduleImportModal: React.FC<ScheduleImportModalProps> = ({
                     onChange={(e) => setImportMode(e.target.value as 'replace' | 'append')}
                     className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="replace">Ganti Semua Jadwal (Timpa)</option>
+                    <option value="replace">Ganti Semua Jadwal (Timpa / Gantikan Jadwal Lama)</option>
                     <option value="append">Tambahkan ke Jadwal yang Ada</option>
                   </select>
                 </div>
