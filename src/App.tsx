@@ -794,6 +794,7 @@ export default function App() {
             onSelectRoom={setSelectedRoomForSeating}
             onSwapSeats={handleSwapSeats}
             onDistributeCrossLevel={handleDistributeCrossLevel}
+            onNavigateTab={setActiveTab}
           />
         )}
 

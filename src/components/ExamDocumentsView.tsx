@@ -14,8 +14,20 @@ import {
   Layers,
   Clock,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  MapPin,
+  Scissors,
+  Footprints,
+  Sliders,
+  LayoutGrid,
+  Info
 } from 'lucide-react';
+import { 
+  DeskLabelsViewContainer, 
+  DeskGridSize, 
+  DeskWalkingOrder, 
+  DeskRoomMode 
+} from './DeskLabelsSheet';
 
 interface ExamDocumentsViewProps {
   config: ExamConfig;
@@ -38,6 +50,16 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   const [spareCopies, setSpareCopies] = useState<number>(2);
   const [coverLayout, setCoverLayout] = useState<'full' | 'half'>('full');
   const [includeStampAndSignature, setIncludeStampAndSignature] = useState<boolean>(true);
+
+  // Desk Labels Customization & Arrangement Settings
+  const [deskLayoutGrid, setDeskLayoutGrid] = useState<DeskGridSize>('grid_8');
+  const [deskWalkingOrder, setDeskWalkingOrder] = useState<DeskWalkingOrder>('aisle_walk');
+  const [deskRoomMode, setDeskRoomMode] = useState<DeskRoomMode>('double_40');
+  const [deskShowMiniMap, setDeskShowMiniMap] = useState<boolean>(true);
+  const [deskShowLocationBadge, setDeskShowLocationBadge] = useState<boolean>(true);
+  const [deskShowCheatSheet, setDeskShowCheatSheet] = useState<boolean>(true);
+  const [deskShowCutGuide, setDeskShowCutGuide] = useState<boolean>(true);
+  const [deskShowBarcode, setDeskShowBarcode] = useState<boolean>(true);
 
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
 
@@ -143,7 +165,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
               onChange={(e) => setSelectedRoomId(e.target.value)}
               className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
             >
-              {selectedDoc === 'question_cover' && (
+              {(selectedDoc === 'question_cover' || selectedDoc === 'desk_labels') && (
                 <option value="ALL_ROOMS">📁 Semua Ruang (Cetak Sekaligus — {rooms.length} Ruang)</option>
               )}
               {rooms.map((r) => {
@@ -156,6 +178,61 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
               })}
             </select>
           </div>
+
+          {/* Desk Labels Filter Controls */}
+          {selectedDoc === 'desk_labels' && (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <LayoutGrid className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Format Ukuran Stiker:</span>
+                </label>
+                <select
+                  value={deskLayoutGrid}
+                  onChange={(e) => setDeskLayoutGrid(e.target.value as DeskGridSize)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
+                >
+                  <option value="grid_8">8 Stiker / Lembar A4 (Standar Meja 2×4)</option>
+                  <option value="grid_4">4 Kartu / Lembar A4 (Format Besar / Meja Lipat)</option>
+                  <option value="grid_10">10 Stiker / Lembar A4 (Label HVS 2×5)</option>
+                  <option value="grid_12">12 Stiker / Lembar A4 (Format Kompak 3×4)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <Footprints className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Urutan Penempelan (Rute):</span>
+                </label>
+                <select
+                  value={deskWalkingOrder}
+                  onChange={(e) => setDeskWalkingOrder(e.target.value as DeskWalkingOrder)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
+                >
+                  <option value="aisle_walk">🚶 Rute Lorong (Lajur 1 ⬇, Lajur 2 ⬇...)</option>
+                  <option value="snake_walk">🐍 Rute Ular (Lajur 1 ⬇, Lajur 2 ⬆...)</option>
+                  <option value="seat_asc">🔢 Urut Nomor Kursi (1, 2, 3...)</option>
+                  <option value="desk_num">🪑 Urut Nomor Meja (01, 02...)</option>
+                  <option value="name_asc">🔤 Urut Nama Siswa (A - Z)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Susunan Meja Ruangan:</span>
+                </label>
+                <select
+                  value={deskRoomMode}
+                  onChange={(e) => setDeskRoomMode(e.target.value as DeskRoomMode)}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
+                >
+                  <option value="double_40">Format 1 Meja 2 Siswa (20 Meja / 40 Kursi)</option>
+                  <option value="single_20">Format 1 Meja 1 Siswa (20 Meja Mandiri)</option>
+                </select>
+              </div>
+            </>
+          )}
 
           {(selectedDoc === 'attendance' || selectedDoc === 'minutes' || selectedDoc === 'question_cover') && (
             <div>
@@ -226,6 +303,68 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             </>
           )}
         </div>
+
+        {/* Desk Labels Feature Toggles Bar */}
+        {selectedDoc === 'desk_labels' && (
+          <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deskShowMiniMap}
+                  onChange={(e) => setDeskShowMiniMap(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span>Mini Denah Letak Meja</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deskShowLocationBadge}
+                  onChange={(e) => setDeskShowLocationBadge(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span>Teks Posisi (Lajur • Baris)</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deskShowCheatSheet}
+                  onChange={(e) => setDeskShowCheatSheet(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span>Lembar Panduan Peta Petugas</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deskShowCutGuide}
+                  onChange={(e) => setDeskShowCutGuide(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span>Garis Potong (✂)</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={deskShowBarcode}
+                  onChange={(e) => setDeskShowBarcode(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span>Barcode &amp; QR</span>
+              </label>
+            </div>
+
+            <div className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded flex items-center gap-1.5 font-medium">
+              <Info className="w-3.5 h-3.5 shrink-0" />
+              <span>Stiker siap dipotong &amp; langsung ditempelkan sesuai rute lorong atau urutan meja</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Document View Canvas */}
@@ -251,10 +390,19 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
         )}
 
         {selectedDoc === 'desk_labels' && (
-          <DeskLabelsSheet
+          <DeskLabelsViewContainer
             config={config}
-            room={currentRoom}
-            students={roomStudents}
+            rooms={rooms}
+            students={students}
+            selectedRoomId={selectedRoomId}
+            gridSize={deskLayoutGrid}
+            walkingOrder={deskWalkingOrder}
+            roomMode={deskRoomMode}
+            showMiniMap={deskShowMiniMap}
+            showLocationBadge={deskShowLocationBadge}
+            showCheatSheet={deskShowCheatSheet}
+            showCutGuide={deskShowCutGuide}
+            showBarcode={deskShowBarcode}
           />
         )}
 
@@ -466,83 +614,6 @@ const AttendanceSheet: React.FC<{
           </div>
           <div className="text-[10px] text-slate-500">NIP. .........................................</div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-/* --- 2. STIKER / LABEL MEJA PESERTA --- */
-const DeskLabelsSheet: React.FC<{
-  config: ExamConfig;
-  room?: ExamRoom;
-  students: Student[];
-}> = ({ config, room, students }) => {
-  return (
-    <div className="space-y-4 font-sans">
-      <div className="border-b border-slate-200 pb-2 flex justify-between items-center no-print">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900">
-            Label / Stiker Meja Peserta — {room?.name}
-          </h3>
-          <p className="text-xs text-slate-500">
-            Cetak di kertas stiker/HVS lalu potong sesuai garis batas untuk ditempel di masing-masing meja siswa.
-          </p>
-        </div>
-        <span className="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded font-bold">
-          {students.length} Stiker Meja
-        </span>
-      </div>
-
-      {/* Grid of Desk Labels (2 columns standard) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:grid-cols-2 print:gap-3">
-        {students.map((student) => (
-          <div
-            key={student.id}
-            className="page-break-inside-avoid border-2 border-slate-900 rounded-lg p-4 bg-white text-slate-900 space-y-2 relative shadow-xs print:shadow-none overflow-hidden"
-          >
-            {/* Top minimal black bar */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-slate-900"></div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 pb-2 pt-0.5">
-              <div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                  {config.schoolName}
-                </div>
-                <div className="text-[11px] font-bold uppercase text-slate-900">
-                  {config.examType} • {config.academicYear}
-                </div>
-              </div>
-
-              {/* Huge Desk Number */}
-              <div className="bg-slate-900 text-white px-2.5 py-1 rounded text-xs font-bold font-mono tracking-wider">
-                MEJA {student.seatNumber ? String(student.seatNumber).padStart(2, '0') : '-'}
-              </div>
-            </div>
-
-            {/* Student Info */}
-            <div className="space-y-1 text-xs py-1">
-              <div>
-                <span className="text-[8px] uppercase font-bold text-slate-400 block tracking-wider">Nomor Peserta</span>
-                <span className="font-mono text-sm font-bold text-indigo-950">{student.examNumber}</span>
-              </div>
-              <div>
-                <span className="text-[8px] uppercase font-bold text-slate-400 block tracking-wider">Nama Peserta</span>
-                <span className="font-bold text-xs text-slate-900 uppercase truncate block">{student.name}</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1">
-                <span>Kelas: <strong className="text-slate-900">{student.className}</strong></span>
-                <span>Ruang: <strong className="text-slate-900">{student.roomName || room?.name}</strong></span>
-              </div>
-            </div>
-
-            {/* Barcode at bottom */}
-            <div className="pt-2 border-t border-dashed border-slate-200 flex items-center justify-between">
-              <BarcodeSVG value={student.examNumber} width={130} height={20} showText={false} />
-              <QRCodeSVG value={student.examNumber} size={32} />
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

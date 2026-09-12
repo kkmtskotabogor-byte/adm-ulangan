@@ -12,7 +12,8 @@ import {
   Edit3,
   RotateCcw,
   Sliders,
-  ExternalLink
+  ExternalLink,
+  Tag
 } from 'lucide-react';
 
 interface SeatingChartViewProps {
@@ -23,6 +24,7 @@ interface SeatingChartViewProps {
   onSelectRoom: (roomId: string) => void;
   onSwapSeats: (studentId1: string, studentId2: string) => void;
   onDistributeCrossLevel?: (pattern?: 'photo_order' | 'sequential_desk') => void;
+  onNavigateTab?: (tab: any) => void;
 }
 
 export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
@@ -33,6 +35,7 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
   onSelectRoom,
   onSwapSeats,
   onDistributeCrossLevel,
+  onNavigateTab,
 }) => {
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
   const [selectedSeatForSwap, setSelectedSeatForSwap] = useState<Student | null>(null);
@@ -223,6 +226,17 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
             <Printer className="w-3.5 h-3.5" />
             <span>Cetak Denah Meja (A4)</span>
           </button>
+
+          {onNavigateTab && (
+            <button
+              onClick={() => onNavigateTab('documents')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer"
+              title="Buka Lembar Stiker / Label Meja di Dokumen Ujian"
+            >
+              <Tag className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Cetak Stiker Meja</span>
+            </button>
+          )}
 
           <a
             href={printNewTabUrl}
