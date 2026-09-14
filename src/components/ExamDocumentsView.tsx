@@ -20,7 +20,8 @@ import {
   Footprints,
   Sliders,
   LayoutGrid,
-  Info
+  Info,
+  DoorClosed
 } from 'lucide-react';
 import { 
   DeskLabelsViewContainer, 
@@ -28,6 +29,7 @@ import {
   DeskWalkingOrder, 
   DeskRoomMode 
 } from './DeskLabelsSheet';
+import { RoomDoorLabelSheet } from './RoomDoorLabelSheet';
 
 interface ExamDocumentsViewProps {
   config: ExamConfig;
@@ -36,7 +38,7 @@ interface ExamDocumentsViewProps {
   schedules: ExamScheduleItem[];
 }
 
-type DocType = 'attendance' | 'proctor_attendance' | 'desk_labels' | 'minutes' | 'door_roster' | 'question_cover';
+type DocType = 'attendance' | 'proctor_attendance' | 'desk_labels' | 'room_label' | 'door_roster' | 'minutes' | 'question_cover';
 
 export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   config,
@@ -125,13 +127,14 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
         </div>
 
         {/* Document Type Selector Buttons */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
           {[
             { id: 'attendance', label: 'Daftar Hadir Siswa', icon: <CheckSquare className="w-4 h-4" /> },
             { id: 'proctor_attendance', label: 'Absen Pengawas', icon: <UserCheck className="w-4 h-4" /> },
             { id: 'desk_labels', label: 'Label / Stiker Meja', icon: <Tag className="w-4 h-4" /> },
+            { id: 'room_label', label: 'Label Nomor Ruang', icon: <DoorClosed className="w-4 h-4" /> },
+            { id: 'door_roster', label: 'Daftar Peserta Ruang', icon: <DoorOpen className="w-4 h-4" /> },
             { id: 'minutes', label: 'Berita Acara Ujian', icon: <FileCheck2 className="w-4 h-4" /> },
-            { id: 'door_roster', label: 'Tempelan Pintu Ruang', icon: <DoorOpen className="w-4 h-4" /> },
             { id: 'question_cover', label: 'Label Sampul Soal', icon: <PackageCheck className="w-4 h-4" /> },
           ].map((item) => {
             const isSelected = selectedDoc === item.id;
@@ -165,7 +168,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
               onChange={(e) => setSelectedRoomId(e.target.value)}
               className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
             >
-              {(selectedDoc === 'question_cover' || selectedDoc === 'desk_labels') && (
+              {(selectedDoc === 'question_cover' || selectedDoc === 'desk_labels' || selectedDoc === 'room_label') && (
                 <option value="ALL_ROOMS">📁 Semua Ruang (Cetak Sekaligus — {rooms.length} Ruang)</option>
               )}
               {rooms.map((r) => {
@@ -412,6 +415,15 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             room={currentRoom}
             students={roomStudents}
             subject={selectedSubject}
+          />
+        )}
+
+        {selectedDoc === 'room_label' && (
+          <RoomDoorLabelSheet
+            config={config}
+            rooms={rooms}
+            students={students}
+            selectedRoomId={selectedRoomId}
           />
         )}
 
