@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveTab, AuthUser, ExamConfig, ExamRoom, ExamScheduleItem, Proctor, Student } from './types';
+import { ActiveTab, AuthUser, BackupData, ExamConfig, ExamRoom, ExamScheduleItem, Proctor, Student } from './types';
 import { initialConfig, initialProctors, initialRooms, initialSchedule, initialStudents } from './data/initialData';
 import { distributeCrossClass, distributeSequential, generateExamNumbers, distributeCrossLevelDoubleDesk } from './utils/distribution';
 import { Header } from './components/Header';
@@ -12,6 +12,7 @@ import { SeatingChartView } from './components/SeatingChartView';
 import { ExamCardsView } from './components/ExamCardsView';
 import { ExamDocumentsView } from './components/ExamDocumentsView';
 import { ScheduleManagementView } from './components/ScheduleManagementView';
+import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginPortal } from './components/LoginPortal';
 import { CloudSyncModal } from './components/CloudSyncModal';
 import {
@@ -109,7 +110,7 @@ export default function App() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab') as ActiveTab;
-      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents'].includes(tab)) {
+      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents', 'backup'].includes(tab)) {
         return tab;
       }
     }
@@ -627,6 +628,103 @@ export default function App() {
     }
   };
 
+  // --- Backup & Restore Handlers ---
+  const handleRestoreFull = async (backupData: BackupData['data']) => {
+    setIsSyncing(true);
+    try {
+      if (backupData.config) {
+        setConfig(backupData.config);
+        localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(backupData.config));
+        await saveExamConfigToCloud(backupData.config);
+      }
+      if (backupData.rooms && Array.isArray(backupData.rooms)) {
+        setRooms(backupData.rooms);
+        localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(backupData.rooms));
+        await syncRoomsToCloud(backupData.rooms);
+      }
+      if (backupData.students && Array.isArray(backupData.students)) {
+        setStudents(backupData.students);
+        localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(backupData.students));
+        await syncStudentsToCloud(backupData.students);
+      }
+      if (backupData.proctors && Array.isArray(backupData.proctors)) {
+        setProctors(backupData.proctors);
+        localStorage.setItem(STORAGE_KEYS.PROCTORS, JSON.stringify(backupData.proctors));
+        await syncProctorsToCloud(backupData.proctors);
+      }
+      if (backupData.schedules && Array.isArray(backupData.schedules)) {
+        setSchedules(backupData.schedules);
+        localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(backupData.schedules));
+        await syncSchedulesToCloud(backupData.schedules);
+      }
+      showToast('Seluruh data berhasil dipulihkan dan disinkronkan ke Cloud!');
+    } catch (err) {
+      console.error('Failed to restore data:', err);
+      showToast('Gagal memulihkan data: ' + (err instanceof Error ? err.message : String(err)));
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleRestoreSelective = async (data: Partial<BackupData['data']>, selectedParts: string[]) => {
+    setIsSyncing(true);
+    try {
+      if (data.config) {
+        setConfig(data.config);
+        localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(data.config));
+        await saveExamConfigToCloud(data.config);
+      }
+      if (data.rooms && Array.isArray(data.rooms)) {
+        setRooms(data.rooms);
+        localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(data.rooms));
+        await syncRoomsToCloud(data.rooms);
+      }
+      if (data.students && Array.isArray(data.students)) {
+        setStudents(data.students);
+        localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(data.students));
+        await syncStudentsToCloud(data.students);
+      }
+      if (data.proctors && Array.isArray(data.proctors)) {
+        setProctors(data.proctors);
+        localStorage.setItem(STORAGE_KEYS.PROCTORS, JSON.stringify(data.proctors));
+        await syncProctorsToCloud(data.proctors);
+      }
+      if (data.schedules && Array.isArray(data.schedules)) {
+        setSchedules(data.schedules);
+        localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(data.schedules));
+        await syncSchedulesToCloud(data.schedules);
+      }
+      showToast(`Data terpilih (${selectedParts.join(', ')}) berhasil dipulihkan!`);
+    } catch (err) {
+      console.error('Failed to restore selective data:', err);
+      showToast('Gagal memulihkan data: ' + (err instanceof Error ? err.message : String(err)));
+      throw err;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleClearDataForNewExam = async () => {
+    setIsSyncing(true);
+    try {
+      setStudents([]);
+      localStorage.removeItem(STORAGE_KEYS.STUDENTS);
+      await clearAllStudentsFromCloud();
+
+      setSchedules([]);
+      localStorage.removeItem(STORAGE_KEYS.SCHEDULES);
+      await clearAllSchedulesFromCloud();
+
+      showToast('Data peserta & jadwal telah dikosongkan untuk persiapan ujian semester baru.');
+    } catch (err) {
+      console.error('Failed to clear data for new exam:', err);
+      showToast('Gagal mengosongkan data: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleQuickPrint = () => {
     setActiveTab('cards');
     setTimeout(() => {
@@ -818,6 +916,25 @@ export default function App() {
             students={students}
             rooms={rooms}
             schedules={schedules}
+          />
+        )}
+
+        {activeTab === 'backup' && (
+          <BackupRestoreView
+            config={config}
+            students={students}
+            rooms={rooms}
+            proctors={proctors}
+            schedules={schedules}
+            attendanceRecords={attendanceRecords}
+            authUser={authUser}
+            isCloudConnected={isCloudConnected}
+            onRestoreFull={handleRestoreFull}
+            onRestoreSelective={handleRestoreSelective}
+            onResetData={handleResetData}
+            onClearDataForNewExam={handleClearDataForNewExam}
+            showToast={showToast}
+            setActiveTab={setActiveTab}
           />
         )}
       </main>

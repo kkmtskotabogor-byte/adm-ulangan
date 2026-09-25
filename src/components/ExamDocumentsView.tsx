@@ -52,6 +52,9 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   const [spareCopies, setSpareCopies] = useState<number>(2);
   const [coverLayout, setCoverLayout] = useState<'full' | 'half'>('full');
   const [includeStampAndSignature, setIncludeStampAndSignature] = useState<boolean>(true);
+  const [coverSpareMode, setCoverSpareMode] = useState<'per_grade' | 'total'>('total');
+  const [coverShowGradeDetails, setCoverShowGradeDetails] = useState<boolean>(true);
+  const [coverShowQuickBadges, setCoverShowQuickBadges] = useState<boolean>(true);
 
   // Desk Labels Customization & Arrangement Settings
   const [deskLayoutGrid, setDeskLayoutGrid] = useState<DeskGridSize>('grid_8');
@@ -263,7 +266,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             <>
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Cadangan Soal &amp; LJK:
+                  Cadangan Berkas:
                 </label>
                 <select
                   value={spareCopies}
@@ -274,7 +277,22 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
                   <option value={1}>1 Eksemplar Cadangan</option>
                   <option value={2}>2 Eksemplar (Rekomendasi)</option>
                   <option value={3}>3 Eksemplar Cadangan</option>
+                  <option value={4}>4 Eksemplar Cadangan</option>
                   <option value={5}>5 Eksemplar Cadangan</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Distribusi Cadangan:
+                </label>
+                <select
+                  value={coverSpareMode}
+                  onChange={(e) => setCoverSpareMode(e.target.value as 'per_grade' | 'total')}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
+                >
+                  <option value="total">Bagi Rata per Ruang ({spareCopies} Cadangan Total)</option>
+                  <option value="per_grade">{spareCopies} Cadangan Tiap Tingkat Aktif</option>
                 </select>
               </div>
 
@@ -287,7 +305,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
                   onChange={(e) => setCoverLayout(e.target.value as 'full' | 'half')}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
                 >
-                  <option value="full">1 Label / Lembar (Amplop Folio)</option>
+                  <option value="full">1 Label / Lembar (Amplop Folio / A4)</option>
                   <option value="half">2 Label / Lembar (Format Hemat A5)</option>
                 </select>
               </div>
@@ -306,6 +324,38 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             </>
           )}
         </div>
+
+        {/* Question Cover Feature Toggles Bar */}
+        {selectedDoc === 'question_cover' && (
+          <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={coverShowGradeDetails}
+                  onChange={(e) => setCoverShowGradeDetails(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span className="font-bold text-slate-900">Tabel Rincian Lembar Kelas 7, 8 &amp; 9</span>
+              </label>
+
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={coverShowQuickBadges}
+                  onChange={(e) => setCoverShowQuickBadges(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span>Kartu Rekap Tingkat</span>
+              </label>
+            </div>
+
+            <div className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded flex items-center gap-1.5 font-medium">
+              <Info className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+              <span>Naskah soal &amp; lembar jawaban (LJK) dirinci otomatis per tingkat Kelas 7, 8, dan 9</span>
+            </div>
+          </div>
+        )}
 
         {/* Desk Labels Feature Toggles Bar */}
         {selectedDoc === 'desk_labels' && (
@@ -444,6 +494,9 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             selectedRoomId={selectedRoomId}
             selectedSubject={selectedSubject}
             spareCopies={spareCopies}
+            spareMode={coverSpareMode}
+            showGradeDetails={coverShowGradeDetails}
+            showQuickBadges={coverShowQuickBadges}
             layout={coverLayout}
             includeStampAndSignature={includeStampAndSignature}
           />
@@ -825,6 +878,9 @@ interface QuestionCoverSheetProps {
   selectedRoomId: string;
   selectedSubject: string;
   spareCopies: number;
+  spareMode?: 'per_grade' | 'total';
+  showGradeDetails?: boolean;
+  showQuickBadges?: boolean;
   layout: 'full' | 'half';
   includeStampAndSignature: boolean;
 }
@@ -837,6 +893,9 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
   selectedRoomId,
   selectedSubject,
   spareCopies,
+  spareMode = 'total',
+  showGradeDetails = true,
+  showQuickBadges = true,
   layout,
   includeStampAndSignature,
 }) => {
@@ -913,15 +972,15 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
         <div>
           <div className="font-bold text-indigo-950 flex items-center gap-1.5">
             <PackageCheck className="w-4 h-4 text-indigo-600" />
-            <span>Siap Cetak: {items.length} Label Sampul Soal</span>
+            <span>Siap Cetak: {items.length} Label Sampul Soal Ujian</span>
           </div>
           <p className="text-slate-600 mt-0.5">
-            {effectiveRooms.length} Ruang Ujian × {targetSchedules.length} Mata Pelajaran | Cadangan: {spareCopies} eksemplar | Format: {layout === 'full' ? '1 Label per Halaman (Amplop Folio)' : '2 Label per Halaman (Format Hemat A5)'}
+            {effectiveRooms.length} Ruang Ujian × {targetSchedules.length} Mata Pelajaran | Cadangan: {spareCopies} eksemplar ({spareMode === 'per_grade' ? 'tiap tingkat aktif' : 'total per ruang'}) | Format: {layout === 'full' ? '1 Label per Halaman (Amplop Folio / A4)' : '2 Label per Halaman (Format Hemat A5)'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-semibold text-slate-500">
-            Ditempelkan pada Amplop / Tas Berkas Soal Ruang Ujian
+          <span className="text-[11px] font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200">
+            Ditempelkan pada Amplop Naskah Soal Ruang Ujian
           </span>
         </div>
       </div>
@@ -937,6 +996,9 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
               schedule={item.schedule}
               roomStudents={item.roomStudents}
               spareCopies={spareCopies}
+              spareMode={spareMode}
+              showGradeDetails={showGradeDetails}
+              showQuickBadges={showQuickBadges}
               layout={layout}
               includeStampAndSignature={includeStampAndSignature}
             />
@@ -952,6 +1014,9 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
               schedule={item.schedule}
               roomStudents={item.roomStudents}
               spareCopies={spareCopies}
+              spareMode={spareMode}
+              showGradeDetails={showGradeDetails}
+              showQuickBadges={showQuickBadges}
               layout={layout}
               includeStampAndSignature={includeStampAndSignature}
             />
@@ -968,6 +1033,9 @@ const SingleQuestionCoverLabel: React.FC<{
   schedule: ExamScheduleItem;
   roomStudents: Student[];
   spareCopies: number;
+  spareMode?: 'per_grade' | 'total';
+  showGradeDetails?: boolean;
+  showQuickBadges?: boolean;
   layout: 'full' | 'half';
   includeStampAndSignature: boolean;
 }> = ({
@@ -976,6 +1044,9 @@ const SingleQuestionCoverLabel: React.FC<{
   schedule,
   roomStudents,
   spareCopies,
+  spareMode = 'total',
+  showGradeDetails = true,
+  showQuickBadges = true,
   layout,
   includeStampAndSignature,
 }) => {
@@ -985,27 +1056,110 @@ const SingleQuestionCoverLabel: React.FC<{
   const endExamNumber = roomStudents[roomStudents.length - 1]?.examNumber || '-';
   const examRange = totalStudents > 0 ? `${startExamNumber} s.d. ${endExamNumber}` : '-';
   const classes = Array.from(new Set(roomStudents.map((s) => s.className).filter(Boolean))).join(', ') || schedule.targetLevel || config.schoolLevel;
-  const totalExamCopies = totalStudents + spareCopies;
-  const totalAnswerSheets = totalStudents + spareCopies;
+
+  // Helper to categorize class name into Grade 7, 8, 9, or other
+  const classifyGrade = (cls?: string): '7' | '8' | '9' | 'other' => {
+    if (!cls) return 'other';
+    const c = cls.trim().toUpperCase();
+    if (c.startsWith('VIII') || c.startsWith('8') || c.includes('KELAS 8') || c.includes('KELAS VIII') || c.includes('KL 8')) {
+      return '8';
+    }
+    if (c.startsWith('VII') || c.startsWith('7') || c.includes('KELAS 7') || c.includes('KELAS VII') || c.includes('KL 7')) {
+      return '7';
+    }
+    if (c.startsWith('IX') || c.startsWith('9') || c.includes('KELAS 9') || c.includes('KELAS IX') || c.includes('KL 9')) {
+      return '9';
+    }
+    return 'other';
+  };
+
+  const students7 = roomStudents.filter((s) => classifyGrade(s.className) === '7');
+  const students8 = roomStudents.filter((s) => classifyGrade(s.className) === '8');
+  const students9 = roomStudents.filter((s) => classifyGrade(s.className) === '9');
+  const studentsOther = roomStudents.filter((s) => classifyGrade(s.className) === 'other');
+
+  const count7 = students7.length;
+  const count8 = students8.length;
+  const count9 = students9.length;
+  const countOther = studentsOther.length;
+
+  const classes7 = Array.from(new Set(students7.map((s) => s.className).filter(Boolean))).join(', ');
+  const classes8 = Array.from(new Set(students8.map((s) => s.className).filter(Boolean))).join(', ');
+  const classes9 = Array.from(new Set(students9.map((s) => s.className).filter(Boolean))).join(', ');
+  const classesOther = Array.from(new Set(studentsOther.map((s) => s.className).filter(Boolean))).join(', ');
+
+  const activeGradeKeys: Array<'7' | '8' | '9' | 'other'> = [];
+  if (count7 > 0) activeGradeKeys.push('7');
+  if (count8 > 0) activeGradeKeys.push('8');
+  if (count9 > 0) activeGradeKeys.push('9');
+  if (countOther > 0) activeGradeKeys.push('other');
+
+  // Allocate spare copies
+  let spare7 = 0;
+  let spare8 = 0;
+  let spare9 = 0;
+  let spareOther = 0;
+
+  if (spareCopies > 0) {
+    if (spareMode === 'per_grade') {
+      spare7 = count7 > 0 ? spareCopies : 0;
+      spare8 = count8 > 0 ? spareCopies : 0;
+      spare9 = count9 > 0 ? spareCopies : 0;
+      spareOther = countOther > 0 ? spareCopies : 0;
+    } else {
+      if (activeGradeKeys.length === 1) {
+        if (count7 > 0) spare7 = spareCopies;
+        else if (count8 > 0) spare8 = spareCopies;
+        else if (count9 > 0) spare9 = spareCopies;
+        else if (countOther > 0) spareOther = spareCopies;
+      } else if (activeGradeKeys.length > 1) {
+        const base = Math.floor(spareCopies / activeGradeKeys.length);
+        let rem = spareCopies % activeGradeKeys.length;
+        if (count7 > 0) { spare7 = base + (rem > 0 ? 1 : 0); if (rem > 0) rem--; }
+        if (count8 > 0) { spare8 = base + (rem > 0 ? 1 : 0); if (rem > 0) rem--; }
+        if (count9 > 0) { spare9 = base + (rem > 0 ? 1 : 0); if (rem > 0) rem--; }
+        if (countOther > 0) { spareOther = base + (rem > 0 ? 1 : 0); if (rem > 0) rem--; }
+      }
+    }
+  }
+
+  const totalEffectiveSpare = spare7 + spare8 + spare9 + spareOther;
+  const totalExamCopies = totalStudents + totalEffectiveSpare;
+  const totalAnswerSheets = totalStudents + totalEffectiveSpare;
+
+  // Breakdown detail texts for allocation table
+  const examDetailsSpec = [
+    `Kls 7: ${count7} eks.${spare7 > 0 ? ` (+${spare7} cdg)` : ''}`,
+    `Kls 8: ${count8} eks.${spare8 > 0 ? ` (+${spare8} cdg)` : ''}`,
+    `Kls 9: ${count9} eks.${spare9 > 0 ? ` (+${spare9} cdg)` : ''}`,
+    ...(countOther > 0 ? [`Lainnya: ${countOther} eks.${spareOther > 0 ? ` (+${spareOther} cdg)` : ''}`] : [])
+  ].join(' • ');
+
+  const answerDetailsSpec = [
+    `Kls 7: ${count7} lbr.${spare7 > 0 ? ` (+${spare7} cdg)` : ''}`,
+    `Kls 8: ${count8} lbr.${spare8 > 0 ? ` (+${spare8} cdg)` : ''}`,
+    `Kls 9: ${count9} lbr.${spare9 > 0 ? ` (+${spare9} cdg)` : ''}`,
+    ...(countOther > 0 ? [`Lainnya: ${countOther} lbr.${spareOther > 0 ? ` (+${spareOther} cdg)` : ''}`] : [])
+  ].join(' • ');
 
   return (
     <div
       className={`page-break-inside-avoid bg-white border-2 border-slate-900 rounded-lg text-slate-900 font-sans shadow-xs print:shadow-none relative overflow-hidden flex flex-col justify-between ${
         isFull 
           ? 'p-6 md:p-8 page-break-after-always print:min-h-[268mm] min-h-[700px]' 
-          : 'p-3.5 sm:p-4 page-break-inside-avoid min-h-[490px]'
+          : 'p-3 sm:p-4 page-break-inside-avoid min-h-[490px]'
       }`}
     >
       {/* Top Black Accent Strip */}
       <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-900"></div>
 
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {/* Official Header */}
         <OfficialDocumentHeader config={config} compact={!isFull} />
 
         {/* Title Badge */}
         <div className="text-center font-sans">
-          <div className="inline-block bg-slate-900 text-white font-black uppercase tracking-wider px-3.5 py-1 rounded-sm text-xs sm:text-sm">
+          <div className="inline-block bg-slate-900 text-white font-black uppercase tracking-wider px-3.5 py-1 rounded-sm text-xs sm:text-sm shadow-xs">
             LABEL SAMPUL NASKAH SOAL &amp; LEMBAR JAWABAN
           </div>
           <div className="text-[11px] font-bold text-slate-800 uppercase mt-1">
@@ -1020,18 +1174,18 @@ const SingleQuestionCoverLabel: React.FC<{
         <div className="border-2 border-slate-900 rounded-md overflow-hidden bg-slate-50">
           <div className="grid grid-cols-2 divide-x-2 divide-slate-900 border-b-2 border-slate-900">
             {/* Subject Box */}
-            <div className={`p-2.5 sm:p-3 ${isFull ? 'space-y-1' : 'space-y-0.5'}`}>
+            <div className={`p-2 sm:p-2.5 ${isFull ? 'space-y-1' : 'space-y-0.5'}`}>
               <div className="text-[9px] uppercase font-bold tracking-wider text-slate-500">Mata Pelajaran:</div>
               <div className={`font-black uppercase tracking-wide text-indigo-950 ${isFull ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
                 {schedule.subject}
               </div>
-              <div className="text-[10px] text-slate-700 font-semibold">
+              <div className="text-[10px] text-slate-700 font-semibold truncate">
                 Tingkat / Kelas: <span className="text-slate-900 font-bold">{classes}</span>
               </div>
             </div>
 
             {/* Room Box */}
-            <div className={`p-2.5 sm:p-3 bg-indigo-50/50 ${isFull ? 'space-y-1' : 'space-y-0.5'}`}>
+            <div className={`p-2 sm:p-2.5 bg-indigo-50/50 ${isFull ? 'space-y-1' : 'space-y-0.5'}`}>
               <div className="text-[9px] uppercase font-bold tracking-wider text-slate-500">Ruang Ujian:</div>
               <div className={`font-black uppercase text-slate-950 flex items-center justify-between ${isFull ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
                 <span>{room.name}</span>
@@ -1039,14 +1193,14 @@ const SingleQuestionCoverLabel: React.FC<{
                   {room.roomCode}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-700 font-semibold">
+              <div className="text-[10px] text-slate-700 font-semibold truncate">
                 Lokasi: <span className="text-slate-900">{room.location || 'Gedung Utama'}</span>
               </div>
             </div>
           </div>
 
           {/* Schedule Time & Date Strip */}
-          <div className="grid grid-cols-2 divide-x-2 divide-slate-900 text-xs font-semibold bg-white p-2">
+          <div className="grid grid-cols-2 divide-x-2 divide-slate-900 text-xs font-semibold bg-white p-1.5 sm:p-2">
             <div className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span className="text-slate-600 text-[10px]">Hari / Tanggal:</span>
@@ -1060,13 +1214,269 @@ const SingleQuestionCoverLabel: React.FC<{
           </div>
         </div>
 
-        {/* Envelope Content Allocation Table */}
+        {/* 1. Quick High-Impact Cards: Rekap Tingkat Kelas 7, 8, 9 */}
+        {showQuickBadges && (
+          <div className="grid grid-cols-3 gap-2">
+            {/* Kelas 7 Card */}
+            <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count7 > 0 ? 'bg-blue-50/90 border-blue-900 text-blue-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-wider">Kelas 7 (VII)</span>
+                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count7 > 0 ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {count7 > 0 ? `${count7} Siswa` : 'Nihil'}
+                </span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between border-t border-blue-200/60 pt-0.5">
+                <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
+                <span className="text-xs font-black font-mono text-slate-950">
+                  {count7 > 0 ? `${count7 + spare7} Eks.` : '0'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[9px] text-slate-600">
+                <span>Lembar Jwb:</span>
+                <span className="font-mono font-bold text-slate-950">{count7 > 0 ? `${count7 + spare7} Lbr.` : '0'}</span>
+              </div>
+              {count7 > 0 && spare7 > 0 && (
+                <div className="text-[8px] text-blue-800 font-semibold text-right">
+                  (Utama: {count7} + Cdg: {spare7})
+                </div>
+              )}
+            </div>
+
+            {/* Kelas 8 Card */}
+            <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count8 > 0 ? 'bg-emerald-50/90 border-emerald-900 text-emerald-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-wider">Kelas 8 (VIII)</span>
+                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count8 > 0 ? 'bg-emerald-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {count8 > 0 ? `${count8} Siswa` : 'Nihil'}
+                </span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between border-t border-emerald-200/60 pt-0.5">
+                <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
+                <span className="text-xs font-black font-mono text-slate-950">
+                  {count8 > 0 ? `${count8 + spare8} Eks.` : '0'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[9px] text-slate-600">
+                <span>Lembar Jwb:</span>
+                <span className="font-mono font-bold text-slate-950">{count8 > 0 ? `${count8 + spare8} Lbr.` : '0'}</span>
+              </div>
+              {count8 > 0 && spare8 > 0 && (
+                <div className="text-[8px] text-emerald-800 font-semibold text-right">
+                  (Utama: {count8} + Cdg: {spare8})
+                </div>
+              )}
+            </div>
+
+            {/* Kelas 9 Card */}
+            <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count9 > 0 ? 'bg-purple-50/90 border-purple-900 text-purple-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-wider">Kelas 9 (IX)</span>
+                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count9 > 0 ? 'bg-purple-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                  {count9 > 0 ? `${count9} Siswa` : 'Nihil'}
+                </span>
+              </div>
+              <div className="mt-1 flex items-baseline justify-between border-t border-purple-200/60 pt-0.5">
+                <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
+                <span className="text-xs font-black font-mono text-slate-950">
+                  {count9 > 0 ? `${count9 + spare9} Eks.` : '0'}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between text-[9px] text-slate-600">
+                <span>Lembar Jwb:</span>
+                <span className="font-mono font-bold text-slate-950">{count9 > 0 ? `${count9 + spare9} Lbr.` : '0'}</span>
+              </div>
+              {count9 > 0 && spare9 > 0 && (
+                <div className="text-[8px] text-purple-800 font-semibold text-right">
+                  (Utama: {count9} + Cdg: {spare9})
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 2. Dedicated Table: Rincian Berkas Per Tingkat (Kelas 7, 8 & 9) */}
+        {showGradeDetails && (
+          <div className="border-2 border-slate-900 rounded-md overflow-hidden bg-white">
+            <div className="bg-slate-900 text-white font-bold uppercase tracking-wider text-[9px] sm:text-[9.5px] py-1 px-2.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <PackageCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>Rincian Berkas Per Tingkat (Kelas 7, 8 &amp; 9)</span>
+              </span>
+              <span className="font-mono text-[8px] sm:text-[8.5px] text-amber-300 font-normal">
+                Verifikasi Jumlah Berkas Sebelum Ujian
+              </span>
+            </div>
+
+            <table className="w-full border-collapse text-[9.5px] sm:text-[10px] text-center">
+              <thead>
+                <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-900">
+                  <th className="border-r border-slate-900 py-1 px-1.5 w-20">Tingkat</th>
+                  <th className="border-r border-slate-900 py-1 px-2 text-left">Rombel Terdaftar</th>
+                  <th className="border-r border-slate-900 py-1 px-1.5 w-16">Peserta</th>
+                  <th className="border-r border-slate-900 py-1 px-2 w-32">Naskah Soal</th>
+                  <th className="border-r border-slate-900 py-1 px-2 w-32">Lembar Jawaban</th>
+                  <th className="py-1 px-1.5 w-20">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-300">
+                {/* Kelas 7 */}
+                <tr className={count7 > 0 ? 'bg-blue-50/40' : 'bg-slate-50/50 text-slate-400'}>
+                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">
+                    Kelas 7 (VII)
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">
+                    {classes7 || '-'}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold">
+                    {count7 > 0 ? `${count7} Siswa` : '-'}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    {count7 > 0 ? (
+                      <span>
+                        {count7} + {spare7} = <strong className="text-blue-900 font-black">{count7 + spare7} Eks.</strong>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
+                    )}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    {count7 > 0 ? (
+                      <span>
+                        {count7} + {spare7} = <strong className="text-blue-900 font-black">{count7 + spare7} Lbr.</strong>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
+                    )}
+                  </td>
+                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold">
+                    {count7 > 0 ? (
+                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                        Tersegel
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Nihil</span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Kelas 8 */}
+                <tr className={count8 > 0 ? 'bg-emerald-50/40' : 'bg-slate-50/50 text-slate-400'}>
+                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">
+                    Kelas 8 (VIII)
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">
+                    {classes8 || '-'}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold">
+                    {count8 > 0 ? `${count8} Siswa` : '-'}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    {count8 > 0 ? (
+                      <span>
+                        {count8} + {spare8} = <strong className="text-emerald-900 font-black">{count8 + spare8} Eks.</strong>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
+                    )}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    {count8 > 0 ? (
+                      <span>
+                        {count8} + {spare8} = <strong className="text-emerald-900 font-black">{count8 + spare8} Lbr.</strong>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
+                    )}
+                  </td>
+                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold">
+                    {count8 > 0 ? (
+                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                        Tersegel
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Nihil</span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Kelas 9 */}
+                <tr className={count9 > 0 ? 'bg-purple-50/40' : 'bg-slate-50/50 text-slate-400'}>
+                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">
+                    Kelas 9 (IX)
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">
+                    {classes9 || '-'}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold">
+                    {count9 > 0 ? `${count9} Siswa` : '-'}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    {count9 > 0 ? (
+                      <span>
+                        {count9} + {spare9} = <strong className="text-purple-900 font-black">{count9 + spare9} Eks.</strong>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
+                    )}
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    {count9 > 0 ? (
+                      <span>
+                        {count9} + {spare9} = <strong className="text-purple-900 font-black">{count9 + spare9} Lbr.</strong>
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
+                    )}
+                  </td>
+                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold">
+                    {count9 > 0 ? (
+                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                        Tersegel
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">Nihil</span>
+                    )}
+                  </td>
+                </tr>
+
+                {/* Other Classes if present */}
+                {countOther > 0 && (
+                  <tr className="bg-amber-50/40">
+                    <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">Lainnya</td>
+                    <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">{classesOther}</td>
+                    <td className="border-r border-slate-900 py-1 px-1.5 font-bold">{countOther} Siswa</td>
+                    <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                      {countOther} + {spareOther} = {countOther + spareOther} Eks.
+                    </td>
+                    <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                      {countOther} + {spareOther} = {countOther + spareOther} Lbr.
+                    </td>
+                    <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold text-emerald-700">Tersegel</td>
+                  </tr>
+                )}
+
+                {/* Total Row */}
+                <tr className="bg-slate-100 font-black text-slate-950 border-t-2 border-slate-900">
+                  <td className="border-r border-slate-900 py-1 px-1.5 uppercase tracking-wide" colSpan={2}>
+                    Total Alokasi Sampul
+                  </td>
+                  <td className="border-r border-slate-900 py-1 px-1.5">{totalStudents} Siswa</td>
+                  <td className="border-r border-slate-900 py-1 px-2 text-indigo-950">{totalExamCopies} Eksemplar</td>
+                  <td className="border-r border-slate-900 py-1 px-2 text-indigo-950">{totalAnswerSheets} Lembar</td>
+                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] uppercase font-bold text-emerald-800">Lengkap</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 3. Envelope Content Allocation Table */}
         <div>
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1 flex items-center justify-between">
             <span>Rincian Kelengkapan Berkas dalam Sampul:</span>
             <span className="text-slate-500 font-normal">Kondisi: Tersegel Rapi</span>
           </div>
-          <table className="w-full border-collapse border border-slate-900 text-[10.5px]">
+          <table className="w-full border-collapse border border-slate-900 text-[10px] sm:text-[10.5px]">
             <thead>
               <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-900 text-center">
                 <th className="border border-slate-900 py-1 px-1.5 w-8">No</th>
@@ -1080,7 +1490,8 @@ const SingleQuestionCoverLabel: React.FC<{
                 <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">1</td>
                 <td className="border border-slate-900 py-1 px-2 font-bold text-slate-950">Naskah Soal Ujian</td>
                 <td className="border border-slate-900 py-1 px-2 text-slate-700">
-                  Utama: {totalStudents} eks. + Cadangan: {spareCopies} eks.
+                  <div className="font-semibold text-slate-900">Utama: {totalStudents} eks. ({examDetailsSpec})</div>
+                  <div className="text-[9px] text-slate-600">Cadangan: {totalEffectiveSpare} eks.</div>
                 </td>
                 <td className="border border-slate-900 py-1 px-2 text-center font-bold text-slate-950 bg-slate-50">
                   {totalExamCopies} Eksemplar
@@ -1090,7 +1501,8 @@ const SingleQuestionCoverLabel: React.FC<{
                 <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">2</td>
                 <td className="border border-slate-900 py-1 px-2 font-bold text-slate-950">Lembar Jawaban (LJK / LJ)</td>
                 <td className="border border-slate-900 py-1 px-2 text-slate-700">
-                  Utama: {totalStudents} lbr. + Cadangan: {spareCopies} lbr.
+                  <div className="font-semibold text-slate-900">Utama: {totalStudents} lbr. ({answerDetailsSpec})</div>
+                  <div className="text-[9px] text-slate-600">Cadangan: {totalEffectiveSpare} lbr.</div>
                 </td>
                 <td className="border border-slate-900 py-1 px-2 text-center font-bold text-slate-950 bg-slate-50">
                   {totalAnswerSheets} Lembar
@@ -1126,28 +1538,46 @@ const SingleQuestionCoverLabel: React.FC<{
           </table>
         </div>
 
-        {/* Student Range & Attendance Summary Box */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border border-slate-900 rounded p-2 bg-slate-50 text-[10.5px]">
-          <div>
-            <div className="text-[8.5px] uppercase font-bold text-slate-500">Rentang Nomor Peserta</div>
-            <div className="font-mono font-bold text-slate-900 truncate">{examRange}</div>
+        {/* 4. Student Range & Attendance Summary Box with Grade Breakdown */}
+        <div className="border border-slate-900 rounded p-2 bg-slate-50 text-[10px] sm:text-[10.5px] space-y-1.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <div className="text-[8.5px] uppercase font-bold text-slate-500">Rentang Nomor Peserta</div>
+              <div className="font-mono font-bold text-slate-900 truncate">{examRange}</div>
+            </div>
+            <div>
+              <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Terdaftar</div>
+              <div className="font-bold text-slate-900">{totalStudents} Siswa</div>
+            </div>
+            <div>
+              <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Hadir</div>
+              <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
+            </div>
+            <div>
+              <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Tidak Hadir</div>
+              <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
+            </div>
           </div>
-          <div>
-            <div className="text-[8.5px] uppercase font-bold text-slate-500">Jumlah Terdaftar</div>
-            <div className="font-bold text-slate-900">{totalStudents} Siswa</div>
-          </div>
-          <div>
-            <div className="text-[8.5px] uppercase font-bold text-slate-500">Jumlah Hadir</div>
-            <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
-          </div>
-          <div>
-            <div className="text-[8.5px] uppercase font-bold text-slate-500">Tidak Hadir</div>
-            <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
+
+          {/* Breakdown of attendance by grade 7, 8, 9 */}
+          <div className="pt-1 border-t border-slate-200 grid grid-cols-3 gap-1.5 text-[9px] sm:text-[9.5px]">
+            <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
+              <span className="font-bold text-blue-950">Kls 7:</span>
+              <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count7}</strong> | H: ... | A: ...</span>
+            </div>
+            <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
+              <span className="font-bold text-emerald-950">Kls 8:</span>
+              <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count8}</strong> | H: ... | A: ...</span>
+            </div>
+            <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
+              <span className="font-bold text-purple-950">Kls 9:</span>
+              <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count9}</strong> | H: ... | A: ...</span>
+            </div>
           </div>
         </div>
 
-        {/* Seal Inspection & Opening Witness Verification */}
-        <div className="border border-slate-400 bg-white p-2 rounded text-[10px] space-y-1">
+        {/* 5. Seal Inspection & Opening Witness Verification */}
+        <div className="border border-slate-400 bg-white p-2 rounded text-[9.5px] sm:text-[10px] space-y-1">
           <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200 pb-1">
             <span className="font-bold text-slate-900">Verifikasi Segel Sampul di Ruang Ujian:</span>
             <div className="flex items-center gap-3 font-semibold">
@@ -1175,7 +1605,7 @@ const SingleQuestionCoverLabel: React.FC<{
         </div>
       </div>
 
-      {/* Signature & Handover Confirmation (2 columns) */}
+      {/* 6. Signature & Handover Confirmation (2 columns) */}
       <div className={`pt-3 border-t border-slate-300 font-sans text-xs grid grid-cols-2 text-center gap-4 px-4 ${isFull ? 'mt-4' : 'mt-2'}`}>
         {/* Committee Handover */}
         <div className="relative flex flex-col justify-between">
@@ -1239,7 +1669,7 @@ const SingleQuestionCoverLabel: React.FC<{
         </div>
       </div>
 
-      {/* Barcode & Security Verification Footer */}
+      {/* 7. Barcode & Security Verification Footer */}
       <div className="pt-2.5 mt-2 border-t border-dashed border-slate-300 flex items-center justify-between gap-2 font-mono text-[9px] text-slate-500">
         <div className="flex items-center gap-2">
           <BarcodeSVG 

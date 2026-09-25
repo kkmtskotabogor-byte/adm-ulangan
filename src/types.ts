@@ -85,7 +85,45 @@ export type ActiveTab =
   | 'proctors'
   | 'seating'
   | 'cards'
-  | 'documents';
+  | 'documents'
+  | 'backup';
+
+export interface BackupData {
+  version: string;
+  appId: string;
+  createdAt: string;
+  exportedBy?: string;
+  schoolName: string;
+  examType: string;
+  academicYear: string;
+  metadata: {
+    totalStudents: number;
+    totalRooms: number;
+    totalProctors: number;
+    totalSchedules: number;
+    totalAttendanceRecords?: number;
+  };
+  data: {
+    config: ExamConfig;
+    students: Student[];
+    rooms: ExamRoom[];
+    proctors: Proctor[];
+    schedules: ExamScheduleItem[];
+    attendanceRecords?: ProctorAttendanceRecord[];
+  };
+}
+
+export interface BackupSnapshot {
+  id: string;
+  title: string;
+  createdAt: string;
+  note?: string;
+  schoolName: string;
+  totalStudents: number;
+  totalRooms: number;
+  totalSchedules: number;
+  backupData: BackupData;
+}
 
 export interface Proctor {
   id: string;

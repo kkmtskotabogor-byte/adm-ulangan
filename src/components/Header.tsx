@@ -17,7 +17,8 @@ import {
   GraduationCap,
   Cloud,
   Radio,
-  Calendar
+  Calendar,
+  Database
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -62,36 +63,37 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'seating', label: 'Denah Meja', icon: <Grid3X3 className="w-4 h-4" /> },
     { id: 'cards', label: 'Cetak Kartu', icon: <IdCard className="w-4 h-4" /> },
     { id: 'documents', label: 'Dokumen Ujian', icon: <FileText className="w-4 h-4" /> },
+    { id: 'backup', label: 'Backup & Restore', icon: <Database className="w-4 h-4" /> },
   ];
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
       {/* Top Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="h-16 flex items-center justify-between gap-4">
+        <div className="h-16 flex items-center justify-between gap-3">
           {/* Brand Logo & App Identity */}
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex flex-col items-center justify-center shrink-0 shadow-xs">
-              <div className="w-5 h-1 bg-white rounded-full mb-1"></div>
-              <div className="w-5 h-1 bg-white rounded-full"></div>
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-9 h-9 bg-indigo-600 rounded-lg flex flex-col items-center justify-center shrink-0 shadow-xs">
+              <div className="w-4 h-1 bg-white rounded-full mb-1"></div>
+              <div className="w-4 h-1 bg-white rounded-full"></div>
             </div>
             <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900 tracking-tight leading-none text-base">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-900 tracking-tight leading-none text-sm sm:text-base">
                   EXAM-SYNC
                 </span>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${examBadgeColors[config.examType] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${examBadgeColors[config.examType] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
                   {config.examType}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-widest mt-1">
+              <span className="text-[9px] text-slate-500 font-medium uppercase tracking-widest mt-1 hidden sm:block">
                 Sistem Manajemen Ujian
               </span>
             </div>
           </div>
 
           {/* Desktop Navigation Tabs with Clean Minimalism Border-Bottom Active Indicator */}
-          <nav className="hidden lg:flex items-center gap-6 h-full" aria-label="Tabs">
+          <nav className="hidden lg:flex items-center gap-2.5 xl:gap-4 2xl:gap-5 h-full overflow-x-auto scrollbar-none" aria-label="Tabs">
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
               return (

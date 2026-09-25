@@ -12,7 +12,8 @@ import {
   Calendar,
   Layers,
   FileCheck2,
-  UserCheck
+  UserCheck,
+  Database
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -89,10 +90,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('documents')}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 shadow-xs transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 shadow-xs transition-colors cursor-pointer"
             >
               <FileCheck2 className="w-4 h-4" />
               <span>Dokumen Ujian</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('backup')}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <Database className="w-4 h-4 text-indigo-600" />
+              <span>Backup &amp; Restore</span>
             </button>
           </div>
         </div>
