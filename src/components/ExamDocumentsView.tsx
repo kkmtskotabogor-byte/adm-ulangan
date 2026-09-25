@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExamConfig, ExamRoom, ExamScheduleItem, Student } from '../types';
+import { ActiveTab, ExamConfig, ExamDispensation, ExamRoom, ExamScheduleItem, Student } from '../types';
 import { BarcodeSVG, QRCodeSVG } from '../utils/barcode';
 import { 
   FileText, 
@@ -21,7 +21,9 @@ import {
   Sliders,
   LayoutGrid,
   Info,
-  DoorClosed
+  DoorClosed,
+  FileSignature,
+  Zap
 } from 'lucide-react';
 import { 
   DeskLabelsViewContainer, 
@@ -30,15 +32,19 @@ import {
   DeskRoomMode 
 } from './DeskLabelsSheet';
 import { RoomDoorLabelSheet } from './RoomDoorLabelSheet';
+import { OfficialDispensationLetterSheet } from './DispensationManagementView';
+import { SimpleDispensationSlipSheet, SimpleDispensationData } from './SimpleDispensationSlipSheet';
 
 interface ExamDocumentsViewProps {
   config: ExamConfig;
   students: Student[];
   rooms: ExamRoom[];
   schedules: ExamScheduleItem[];
+  dispensations?: ExamDispensation[];
+  onNavigateTab?: (tab: ActiveTab) => void;
 }
 
-type DocType = 'attendance' | 'proctor_attendance' | 'desk_labels' | 'room_label' | 'door_roster' | 'minutes' | 'question_cover';
+type DocType = 'attendance' | 'proctor_attendance' | 'desk_labels' | 'room_label' | 'door_roster' | 'minutes' | 'question_cover' | 'dispensation';
 
 export type CoverLayoutMode = 'half_portrait' | 'full' | 'half';
 
@@ -47,6 +53,8 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   students,
   rooms,
   schedules,
+  dispensations = [],
+  onNavigateTab,
 }) => {
   const [selectedDoc, setSelectedDoc] = useState<DocType>('attendance');
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || '');
@@ -58,6 +66,9 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   const [coverSpareMode, setCoverSpareMode] = useState<'per_grade' | 'total'>('total');
   const [coverShowGradeDetails, setCoverShowGradeDetails] = useState<boolean>(true);
   const [coverShowQuickBadges, setCoverShowQuickBadges] = useState<boolean>(true);
+  const [selectedDispensationId, setSelectedDispensationId] = useState<string>(
+    dispensations[0]?.id || ''
+  );
 
   const handleCoverLayoutChange = (mode: CoverLayoutMode) => {
     setCoverLayout(mode);
@@ -77,6 +88,22 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   const [deskShowCheatSheet, setDeskShowCheatSheet] = useState<boolean>(true);
   const [deskShowCutGuide, setDeskShowCutGuide] = useState<boolean>(true);
   const [deskShowBarcode, setDeskShowBarcode] = useState<boolean>(true);
+
+  // Dispensation Format inside Exam Documents
+  const [docDispSubType, setDocDispSubType] = useState<'simple' | 'official'>('simple');
+  const [docSimpleBlank, setDocSimpleBlank] = useState<boolean>(true);
+  const [docSimpleSlipsPerPage, setDocSimpleSlipsPerPage] = useState<2 | 3>(2);
+  const [docSimplePageCopies, setDocSimplePageCopies] = useState<number>(1);
+  const [docSimpleCheckIn, setDocSimpleCheckIn] = useState<boolean>(true);
+  const [docSimpleCheckOut, setDocSimpleCheckOut] = useState<boolean>(false);
+  const [docSimpleStudentName, setDocSimpleStudentName] = useState<string>('');
+  const [docSimpleClassName, setDocSimpleClassName] = useState<string>('');
+  const [docSimpleExamNumber, setDocSimpleExamNumber] = useState<string>('');
+  const [docSimpleRoomName, setDocSimpleRoomName] = useState<string>('');
+  const [docSimpleSubject, setDocSimpleSubject] = useState<string>('');
+  const [docSimpleDayDate, setDocSimpleDayDate] = useState<string>(config.issueDate || '');
+  const [docSimpleTimeRange, setDocSimpleTimeRange] = useState<string>('07.30 - Selesai');
+  const [docSimpleReason, setDocSimpleReason] = useState<string>('Terlambat hadir / Selesai urusan dispensasi di panitia');
 
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
 
@@ -142,7 +169,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
         </div>
 
         {/* Document Type Selector Buttons */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2.5">
           {[
             { id: 'attendance', label: 'Daftar Hadir Siswa', icon: <CheckSquare className="w-4 h-4" /> },
             { id: 'proctor_attendance', label: 'Absen Pengawas', icon: <UserCheck className="w-4 h-4" /> },
@@ -151,6 +178,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             { id: 'door_roster', label: 'Daftar Peserta Ruang', icon: <DoorOpen className="w-4 h-4" /> },
             { id: 'minutes', label: 'Berita Acara Ujian', icon: <FileCheck2 className="w-4 h-4" /> },
             { id: 'question_cover', label: 'Label Sampul Soal', icon: <PackageCheck className="w-4 h-4" /> },
+            { id: 'dispensation', label: 'Surat Dispensasi', icon: <FileSignature className="w-4 h-4" /> },
           ].map((item) => {
             const isSelected = selectedDoc === item.id;
             return (
@@ -534,6 +562,206 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             layout={coverLayout}
             includeStampAndSignature={includeStampAndSignature}
           />
+        )}
+
+        {selectedDoc === 'dispensation' && (
+          <div className="space-y-6">
+            {/* Quick banner linking to full menu & sub-type switcher */}
+            <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 no-print">
+              <div>
+                <h4 className="text-sm font-bold text-indigo-950 flex items-center gap-2">
+                  <FileSignature className="w-4 h-4 text-indigo-600" />
+                  <span>Surat Dispensasi &amp; Izin Ujian Siswa</span>
+                </h4>
+                <p className="text-xs text-indigo-700 mt-0.5">
+                  Pilih antara <strong>Surat Dispensasi Simple</strong> (dilengkapi kotak ceklis ijin masuk &amp; keluar ruangan, siap cetak tanpa milih nama) atau <strong>Surat Resmi Terdaftar</strong> (per siswa database).
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex rounded-lg border border-indigo-300 bg-white p-0.5 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setDocDispSubType('simple')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                      docDispSubType === 'simple'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-indigo-800 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    <span>Dispensasi Simple (Masuk &amp; Keluar)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDocDispSubType('official')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                      docDispSubType === 'official'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-indigo-800 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Surat Resmi Terdaftar ({dispensations.length})</span>
+                  </button>
+                </div>
+
+                {onNavigateTab && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab('dispensation')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow-xs transition-colors shrink-0 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3 h-3 text-slate-300" />
+                    <span>Kelola Database</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* If Simple Dispensation is chosen in Exam Documents View */}
+            {docDispSubType === 'simple' && (
+              <div className="space-y-4">
+                {/* Control bar for simple slip */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3 no-print">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-black text-slate-800">Ceklis Izin pada Slip:</span>
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={docSimpleCheckIn}
+                          onChange={(e) => setDocSimpleCheckIn(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span className="text-emerald-700 font-bold">[✓] Ijin Masuk</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={docSimpleCheckOut}
+                          onChange={(e) => setDocSimpleCheckOut(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span className="text-amber-700 font-bold">[✓] Ijin Keluar</span>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-600">Layout A4:</span>
+                      <select
+                        value={docSimpleSlipsPerPage}
+                        onChange={(e) => setDocSimpleSlipsPerPage(Number(e.target.value) as 2 | 3)}
+                        className="px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white font-medium"
+                      >
+                        <option value={2}>2 Slip / Lembar (Setengah A4)</option>
+                        <option value={3}>3 Slip / Lembar (Super Hemat)</option>
+                      </select>
+
+                      <span className="text-xs font-semibold text-slate-600 ml-2">Cetak:</span>
+                      <select
+                        value={docSimplePageCopies}
+                        onChange={(e) => setDocSimplePageCopies(Number(e.target.value))}
+                        className="px-2.5 py-1 text-xs border border-slate-300 rounded-md bg-white font-medium"
+                      >
+                        <option value={1}>1 Lembar</option>
+                        <option value={2}>2 Lembar</option>
+                        <option value={5}>5 Lembar</option>
+                        <option value={10}>10 Lembar</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <label className="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={docSimpleBlank}
+                        onChange={(e) => setDocSimpleBlank(e.target.checked)}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                      />
+                      <span>Mode Blangko Kosong Siap Tulis Pulpen (Garis Titik-titik)</span>
+                    </label>
+
+                    {!docSimpleBlank && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Ketik nama siswa..."
+                          value={docSimpleStudentName}
+                          onChange={(e) => setDocSimpleStudentName(e.target.value)}
+                          className="px-2.5 py-1 border border-slate-300 rounded-md text-xs w-48"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Kelas..."
+                          value={docSimpleClassName}
+                          onChange={(e) => setDocSimpleClassName(e.target.value)}
+                          className="px-2.5 py-1 border border-slate-300 rounded-md text-xs w-24"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Print Sheet */}
+                <SimpleDispensationSlipSheet
+                  config={config}
+                  data={{
+                    studentName: docSimpleStudentName,
+                    className: docSimpleClassName,
+                    examNumber: docSimpleExamNumber,
+                    roomName: docSimpleRoomName,
+                    subject: docSimpleSubject,
+                    dayDate: docSimpleDayDate || config.issueDate,
+                    timeRange: docSimpleTimeRange,
+                    reason: docSimpleReason,
+                    letterNumber: `421/001/PAN-${config.examType || 'UJIAN'}/DISP/${new Date().getFullYear()}`,
+                    checkIn: docSimpleCheckIn,
+                    checkOut: docSimpleCheckOut,
+                    notes: '',
+                  }}
+                  isBlankMode={docSimpleBlank}
+                  slipsPerPage={docSimpleSlipsPerPage}
+                  pageCopies={docSimplePageCopies}
+                />
+              </div>
+            )}
+
+            {/* If Official Registered Dispensations is chosen */}
+            {docDispSubType === 'official' && (
+              <div>
+                {dispensations.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 bg-white border border-slate-200 rounded-xl">
+                    <Info className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                    <p className="text-sm font-medium">Belum ada surat dispensasi resmi yang diterbitkan per siswa.</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Anda dapat menggunakan tab <strong>Dispensasi Simple</strong> di atas untuk mencetak slip izin langsung tanpa milih nama.
+                    </p>
+                    {onNavigateTab && (
+                      <button
+                        onClick={() => onNavigateTab('dispensation')}
+                        className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                      >
+                        + Buat Surat Dispensasi Siswa
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-8 print:space-y-0">
+                    {dispensations.map((disp) => (
+                      <OfficialDispensationLetterSheet
+                        key={disp.id}
+                        config={config}
+                        disp={disp}
+                        schedules={schedules}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

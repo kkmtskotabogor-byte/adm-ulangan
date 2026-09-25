@@ -86,7 +86,41 @@ export type ActiveTab =
   | 'seating'
   | 'cards'
   | 'documents'
+  | 'dispensation'
   | 'backup';
+
+export type DispensationReasonCategory = 
+  | 'Administrasi Keuangan' 
+  | 'Persyaratan Berkas' 
+  | 'Kesehatan / Sakit' 
+  | 'Keterlambatan Hadir' 
+  | 'Lainnya';
+
+export type DispensationStatus = 'Aktif' | 'Selesai' | 'Dibatalkan';
+
+export interface ExamDispensation {
+  id: string;
+  studentId: string;
+  studentName: string;
+  nisn: string;
+  nis?: string;
+  className: string;
+  examNumber: string;
+  roomName?: string;
+  roomId?: string;
+  reasonCategory: DispensationReasonCategory;
+  reasonDetail: string;
+  startDate: string; // YYYY-MM-DD
+  validUntil: string; // YYYY-MM-DD
+  commitmentNote?: string; // Catatan janji pelunasan / pemenuhan syarat
+  parentName?: string;
+  parentPhone?: string;
+  letterNumber: string; // Nomor Surat, e.g. 421/045/PAN-STS/DISP/2026
+  status: DispensationStatus;
+  approvedBy: string; // e.g. "Panitia Ujian" / "Bendahara Madrasah"
+  createdAt: string;
+  allowedSubjects?: string[]; // Daftar mapel yang diizinkan, kosong = semua mapel
+}
 
 export interface BackupData {
   version: string;
@@ -102,6 +136,7 @@ export interface BackupData {
     totalProctors: number;
     totalSchedules: number;
     totalAttendanceRecords?: number;
+    totalDispensations?: number;
   };
   data: {
     config: ExamConfig;
@@ -110,6 +145,7 @@ export interface BackupData {
     proctors: Proctor[];
     schedules: ExamScheduleItem[];
     attendanceRecords?: ProctorAttendanceRecord[];
+    dispensations?: ExamDispensation[];
   };
 }
 

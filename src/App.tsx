@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveTab, AuthUser, BackupData, ExamConfig, ExamRoom, ExamScheduleItem, Proctor, Student } from './types';
-import { initialConfig, initialProctors, initialRooms, initialSchedule, initialStudents } from './data/initialData';
+import { ActiveTab, AuthUser, BackupData, ExamConfig, ExamDispensation, ExamRoom, ExamScheduleItem, Proctor, Student } from './types';
+import { initialConfig, initialDispensations, initialProctors, initialRooms, initialSchedule, initialStudents } from './data/initialData';
 import { distributeCrossClass, distributeSequential, generateExamNumbers, distributeCrossLevelDoubleDesk } from './utils/distribution';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
@@ -11,6 +11,7 @@ import { ProctorsView } from './components/ProctorsView';
 import { SeatingChartView } from './components/SeatingChartView';
 import { ExamCardsView } from './components/ExamCardsView';
 import { ExamDocumentsView } from './components/ExamDocumentsView';
+import { DispensationManagementView } from './components/DispensationManagementView';
 import { ScheduleManagementView } from './components/ScheduleManagementView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginPortal } from './components/LoginPortal';
@@ -46,6 +47,7 @@ const STORAGE_KEYS = {
   ROOMS: 'sim_ujian_rooms_mts_v2',
   PROCTORS: 'sim_ujian_proctors_mts_v2',
   SCHEDULES: 'sim_ujian_schedules_mts_v3',
+  DISPENSATIONS: 'sim_ujian_dispensations_v1',
   AUTH_USER: 'sim_ujian_auth_user_v2',
 };
 
@@ -106,11 +108,24 @@ export default function App() {
     return saved ? JSON.parse(saved) : initialSchedule;
   });
 
+  const [dispensations, setDispensations] = useState<ExamDispensation[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.DISPENSATIONS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Error loading dispensations from storage:', e);
+    }
+    return initialDispensations;
+  });
+
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab') as ActiveTab;
-      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents', 'backup'].includes(tab)) {
+      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents', 'dispensation', 'backup'].includes(tab)) {
         return tab;
       }
     }
@@ -271,6 +286,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(schedules));
   }, [schedules]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(dispensations));
+    } catch (e) {
+      console.error('Error saving dispensations:', e);
+    }
+  }, [dispensations]);
 
   // Auto-heal any same-tingkat desks from previous cached sessions
   useEffect(() => {
@@ -611,11 +634,13 @@ export default function App() {
       setProctors(initialProctors);
       setStudents(updatedStudents);
       setSchedules(initialSchedule);
+      setDispensations(initialDispensations);
       localStorage.removeItem(STORAGE_KEYS.CONFIG);
       localStorage.removeItem(STORAGE_KEYS.STUDENTS);
       localStorage.removeItem(STORAGE_KEYS.ROOMS);
       localStorage.removeItem(STORAGE_KEYS.PROCTORS);
       localStorage.removeItem(STORAGE_KEYS.SCHEDULES);
+      localStorage.removeItem(STORAGE_KEYS.DISPENSATIONS);
 
       // Force push to cloud
       saveExamConfigToCloud(initialConfig).catch(() => {});
@@ -626,6 +651,22 @@ export default function App() {
 
       showToast('Data aplikasi berhasil dikembalikan ke data awal lengkap dan disinkronkan ke cloud.');
     }
+  };
+
+  // Dispensation Handlers
+  const handleAddDispensation = (disp: ExamDispensation) => {
+    setDispensations((prev) => [disp, ...prev]);
+    showToast(`Surat dispensasi untuk ${disp.studentName} berhasil diterbitkan.`);
+  };
+
+  const handleUpdateDispensation = (disp: ExamDispensation) => {
+    setDispensations((prev) => prev.map((d) => (d.id === disp.id ? disp : d)));
+    showToast(`Data dispensasi ${disp.studentName} berhasil diperbarui.`);
+  };
+
+  const handleDeleteDispensation = (id: string) => {
+    setDispensations((prev) => prev.filter((d) => d.id !== id));
+    showToast('Surat dispensasi berhasil dihapus.');
   };
 
   // --- Backup & Restore Handlers ---
@@ -656,6 +697,10 @@ export default function App() {
         setSchedules(backupData.schedules);
         localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(backupData.schedules));
         await syncSchedulesToCloud(backupData.schedules);
+      }
+      if (backupData.dispensations && Array.isArray(backupData.dispensations)) {
+        setDispensations(backupData.dispensations);
+        localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(backupData.dispensations));
       }
       showToast('Seluruh data berhasil dipulihkan dan disinkronkan ke Cloud!');
     } catch (err) {
@@ -715,6 +760,9 @@ export default function App() {
       setSchedules([]);
       localStorage.removeItem(STORAGE_KEYS.SCHEDULES);
       await clearAllSchedulesFromCloud();
+
+      setDispensations([]);
+      localStorage.removeItem(STORAGE_KEYS.DISPENSATIONS);
 
       showToast('Data peserta & jadwal telah dikosongkan untuk persiapan ujian semester baru.');
     } catch (err) {
@@ -916,6 +964,21 @@ export default function App() {
             students={students}
             rooms={rooms}
             schedules={schedules}
+            dispensations={dispensations}
+            onNavigateTab={setActiveTab}
+          />
+        )}
+
+        {activeTab === 'dispensation' && (
+          <DispensationManagementView
+            config={config}
+            students={students}
+            rooms={rooms}
+            schedules={schedules}
+            dispensations={dispensations}
+            onAddDispensation={handleAddDispensation}
+            onUpdateDispensation={handleUpdateDispensation}
+            onDeleteDispensation={handleDeleteDispensation}
           />
         )}
 
@@ -927,6 +990,7 @@ export default function App() {
             proctors={proctors}
             schedules={schedules}
             attendanceRecords={attendanceRecords}
+            dispensations={dispensations}
             authUser={authUser}
             isCloudConnected={isCloudConnected}
             onRestoreFull={handleRestoreFull}

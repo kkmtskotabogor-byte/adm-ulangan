@@ -18,7 +18,8 @@ import {
   Cloud,
   Radio,
   Calendar,
-  Database
+  Database,
+  FileSignature
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -63,6 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'seating', label: 'Denah Meja', icon: <Grid3X3 className="w-4 h-4" /> },
     { id: 'cards', label: 'Cetak Kartu', icon: <IdCard className="w-4 h-4" /> },
     { id: 'documents', label: 'Dokumen Ujian', icon: <FileText className="w-4 h-4" /> },
+    { id: 'dispensation', label: 'Dispensasi', icon: <FileSignature className="w-4 h-4" /> },
     { id: 'backup', label: 'Backup & Restore', icon: <Database className="w-4 h-4" /> },
   ];
 

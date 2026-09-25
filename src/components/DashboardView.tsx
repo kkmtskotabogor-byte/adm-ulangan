@@ -13,7 +13,8 @@ import {
   Layers,
   FileCheck2,
   UserCheck,
-  Database
+  Database,
+  FileSignature
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -94,6 +95,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <FileCheck2 className="w-4 h-4" />
               <span>Dokumen Ujian</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('dispensation')}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <FileSignature className="w-4 h-4 text-indigo-600" />
+              <span>Dispensasi</span>
             </button>
             <button
               onClick={() => setActiveTab('backup')}

@@ -1,4 +1,4 @@
-import { ExamConfig, ExamRoom, ExamScheduleItem, Proctor, Student } from '../types';
+import { ExamConfig, ExamDispensation, ExamRoom, ExamScheduleItem, Proctor, Student } from '../types';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
 import { MTS_MANBAUL_ISLAM_STS_SCHEDULE } from './schedulePresets';
 
@@ -5157,4 +5157,76 @@ export const initialProctors: Proctor[] = [
     assignedRoomCode: 'R.24',
     assignedPosition: 1,
   },
+];
+
+export const initialDispensations: ExamDispensation[] = [
+  {
+    id: 'disp-1',
+    studentId: 'std-1',
+    studentName: 'ACHMAD FADLAN',
+    nisn: '0089123451',
+    nis: 'A-2607001',
+    className: 'IX A',
+    examNumber: 'A-2607001',
+    roomName: 'Ruang 01',
+    roomId: 'room-1',
+    reasonCategory: 'Administrasi Keuangan',
+    reasonDetail: 'Penyelesaian SPP / Iuran Komite Madrasah Bulan September 2026 sedang dalam proses.',
+    startDate: '2026-09-28',
+    validUntil: '2026-10-05',
+    commitmentNote: 'Orang tua siswa berjanji akan menyelesaikan administrasi sebelum tanggal 05 Oktober 2026.',
+    parentName: 'H. Suherman (Wali Murid)',
+    parentPhone: '081388776655',
+    letterNumber: '421/014/PAN-STS/DISP/2026',
+    status: 'Aktif',
+    approvedBy: 'Ketua Panitia & Bendahara Madrasah',
+    createdAt: '2026-09-25',
+    allowedSubjects: ['Semua Mata Pelajaran']
+  },
+  {
+    id: 'disp-2',
+    studentId: 'std-2',
+    studentName: 'ADITYA AWALUDIN',
+    nisn: '0089123462',
+    nis: 'A-2607012',
+    className: 'IX A',
+    examNumber: 'A-2607012',
+    roomName: 'Ruang 01',
+    roomId: 'room-1',
+    reasonCategory: 'Persyaratan Berkas',
+    reasonDetail: 'Pas foto kartu ujian dan surat bebas perpustakaan belum diserahkan ke sekretariat.',
+    startDate: '2026-09-28',
+    validUntil: '2026-09-30',
+    commitmentNote: 'Siswa berjanji melengkapi pas foto dan surat bebas pinjam buku perpustakaan besok.',
+    parentName: 'Ibu Marlina',
+    parentPhone: '081299887711',
+    letterNumber: '421/015/PAN-STS/DISP/2026',
+    status: 'Aktif',
+    approvedBy: 'Sekretaris Panitia Ujian',
+    createdAt: '2026-09-25',
+    allowedSubjects: ['Semua Mata Pelajaran']
+  },
+  {
+    id: 'disp-3',
+    studentId: 'std-3',
+    studentName: 'ADITYA SAPUTRA',
+    nisn: '0089123473',
+    nis: 'A-2607023',
+    className: 'IX A',
+    examNumber: 'A-2607023',
+    roomName: 'Ruang 02',
+    roomId: 'room-2',
+    reasonCategory: 'Kesehatan / Sakit',
+    reasonDetail: 'Dalam pemulihan pasca sakit, diizinkan mengikuti ujian di ruang khusus / pengawasan tersendiri.',
+    startDate: '2026-09-28',
+    validUntil: '2026-10-02',
+    commitmentNote: 'Surat dokter terlampir di sekretariat panitia ujian.',
+    parentName: 'Bpk. Ahmad Saputra',
+    parentPhone: '085711223344',
+    letterNumber: '421/016/PAN-STS/DISP/2026',
+    status: 'Aktif',
+    approvedBy: 'Ketua Panitia Ujian & UKS',
+    createdAt: '2026-09-25',
+    allowedSubjects: ['Semua Mata Pelajaran']
+  }
 ];

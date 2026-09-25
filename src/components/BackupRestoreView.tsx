@@ -36,6 +36,7 @@ import {
   BackupData, 
   BackupSnapshot, 
   ExamConfig, 
+  ExamDispensation,
   ExamRoom, 
   ExamScheduleItem, 
   Proctor, 
@@ -50,6 +51,7 @@ interface BackupRestoreViewProps {
   proctors: Proctor[];
   schedules: ExamScheduleItem[];
   attendanceRecords: ProctorAttendanceRecord[];
+  dispensations?: ExamDispensation[];
   authUser?: AuthUser | null;
   isCloudConnected: boolean;
   onRestoreFull: (data: BackupData['data']) => Promise<void>;
@@ -69,6 +71,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
   proctors,
   schedules,
   attendanceRecords,
+  dispensations = [],
   authUser,
   isCloudConnected,
   onRestoreFull,
@@ -153,6 +156,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
         totalProctors: proctors.length,
         totalSchedules: schedules.length,
         totalAttendanceRecords: attendanceRecords.length,
+        totalDispensations: (dispensations || []).length,
       },
       data: {
         config,
@@ -161,6 +165,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
         proctors,
         schedules,
         attendanceRecords,
+        dispensations: dispensations || [],
       },
     };
   };
