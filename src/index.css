@@ -131,6 +131,48 @@
     box-sizing: border-box !important;
   }
 
+  /* Mode Hemat Sampul Soal: 2 Sampul per 1 Lembar Portrait (Strict 1-Sheet Guarantee) */
+  .half-portrait-sheet {
+    display: block !important;
+    box-sizing: border-box !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+    height: 280mm !important;
+    max-height: 284mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .half-portrait-label-wrapper {
+    display: block !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    width: 100% !important;
+    height: 137mm !important;
+    max-height: 137mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .half-portrait-cut-guide {
+    display: flex !important;
+    box-sizing: border-box !important;
+    height: 4mm !important;
+    max-height: 4mm !important;
+    margin: 0.5mm 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+  }
+
   /* Force solid black borders on print */
   table, th, td {
     border-color: #000000 !important;

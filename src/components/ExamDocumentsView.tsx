@@ -541,45 +541,45 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
 };
 
 /* --- SHARED OFFICIAL KOP SURAT --- */
-const OfficialDocumentHeader: React.FC<{ config: ExamConfig; compact?: boolean }> = ({ config, compact = false }) => {
+const OfficialDocumentHeader: React.FC<{ config: ExamConfig; compact?: boolean; superCompact?: boolean }> = ({ config, compact = false, superCompact = false }) => {
   const isMadrasah = ['MTs', 'MA', 'MI'].includes(config.schoolLevel);
   return (
-    <div className={`border-b-2 border-slate-900 ${compact ? 'pb-1' : 'pb-2'}`}>
-      <div className="flex items-center gap-3">
+    <div className={`border-b-2 border-slate-900 ${superCompact ? 'pb-0.5' : compact ? 'pb-1' : 'pb-2'}`}>
+      <div className="flex items-center gap-2">
         {config.logoUrl && (
-          <div className={`${compact ? 'w-10 h-10' : 'w-14 h-14'} shrink-0 flex items-center justify-center`}>
+          <div className={`${superCompact ? 'w-8 h-8' : compact ? 'w-10 h-10' : 'w-14 h-14'} shrink-0 flex items-center justify-center`}>
             <img src={config.logoUrl} alt="Logo" className="w-full h-full object-contain" />
           </div>
         )}
         <div className="flex-1 text-center font-serif text-slate-900">
           {isMadrasah ? (
             <>
-              <div className={`${compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
+              <div className={`${superCompact ? 'text-[7px]' : compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
                 KEMENTERIAN AGAMA REPUBLIK INDONESIA
               </div>
-              <div className={`${compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
+              <div className={`${superCompact ? 'text-[7px]' : compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
                 KANTOR KEMENTERIAN AGAMA {config.district.toUpperCase()}
               </div>
             </>
           ) : (
             <>
-              <div className={`${compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
+              <div className={`${superCompact ? 'text-[7px]' : compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
                 PEMERINTAH DAERAH PROVINSI {config.province.toUpperCase()}
               </div>
-              <div className={`${compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
+              <div className={`${superCompact ? 'text-[7px]' : compact ? 'text-[8px]' : 'text-[10px]'} uppercase font-bold text-slate-700 tracking-wider leading-tight`}>
                 DINAS PENDIDIKAN DAN KEBUDAYAAN
               </div>
             </>
           )}
-          <div className={`${compact ? 'text-sm' : 'text-base'} font-black uppercase text-slate-950 mt-0.5 leading-tight`}>
+          <div className={`${superCompact ? 'text-xs' : compact ? 'text-sm' : 'text-base'} font-black uppercase text-slate-950 mt-0.5 leading-tight`}>
             {config.schoolName}
           </div>
-          <div className={`${compact ? 'text-[8px]' : 'text-[9px]'} font-sans text-slate-600 mt-0.5 leading-tight`}>
-            {config.address} • Telp: {config.phone} • Email: {config.email}
+          <div className={`${superCompact ? 'text-[7px]' : compact ? 'text-[8px]' : 'text-[9px]'} font-sans text-slate-600 mt-0.5 leading-tight truncate`}>
+            {config.address} • Telp: {config.phone}
           </div>
         </div>
       </div>
-      <div className="border-b border-slate-900 mt-1"></div>
+      <div className="border-b border-slate-900 mt-0.5"></div>
       <div className="border-b-2 border-slate-900 mt-0.5"></div>
     </div>
   );
@@ -1048,10 +1048,10 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
           {itemPairs.map((pair, pageIdx) => (
             <div
               key={`portrait-sheet-${pageIdx}`}
-              className="bg-white print:bg-white f4-page-sheet page-break-after-always print:page-break-after-always print:break-after-page print:min-h-[284mm] print:max-h-[288mm] flex flex-col justify-between p-2 print:p-0 space-y-4 print:space-y-0 border border-dashed border-slate-300 print:border-none rounded-lg"
+              className="bg-white print:bg-white half-portrait-sheet p-2 print:p-0 space-y-3 print:space-y-0 border border-dashed border-slate-300 print:border-none rounded-lg"
             >
               {/* Bagian Atas */}
-              <div className="flex-1 print:h-[139mm] print:max-h-[141mm] flex flex-col justify-between">
+              <div className="half-portrait-label-wrapper">
                 <SingleQuestionCoverLabel
                   config={config}
                   room={pair[0].room}
@@ -1070,18 +1070,18 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
 
               {/* Garis Potong (Cut Guide) */}
               {pair.length > 1 && (
-                <div className="flex items-center justify-center my-1 print:my-0.5 text-[8.5px] font-mono text-slate-400 select-none">
+                <div className="half-portrait-cut-guide flex items-center justify-center my-1 print:my-0 text-[8px] font-mono text-slate-400 select-none">
                   <span className="border-b border-dashed border-slate-300 w-full"></span>
-                  <span className="px-2 shrink-0 flex items-center gap-1 text-slate-600 font-bold uppercase tracking-wider text-[8px]">
-                    <Scissors className="w-3 h-3 text-slate-400" /> Potong di sini (Bagi Dua Atas &amp; Bawah)
+                  <span className="px-2 shrink-0 flex items-center gap-1 text-slate-600 font-bold uppercase tracking-wider text-[7.5px] print:text-[7px]">
+                    <Scissors className="w-2.5 h-2.5 text-slate-400" /> Potong di sini (Bagi Dua Atas &amp; Bawah)
                   </span>
                   <span className="border-b border-dashed border-slate-300 w-full"></span>
                 </div>
               )}
 
               {/* Bagian Bawah */}
-              {pair[1] && (
-                <div className="flex-1 print:h-[139mm] print:max-h-[141mm] flex flex-col justify-between">
+              {pair[1] ? (
+                <div className="half-portrait-label-wrapper">
                   <SingleQuestionCoverLabel
                     config={config}
                     room={pair[1].room}
@@ -1096,6 +1096,10 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
                     positionInSheet="bottom"
                     includeStampAndSignature={includeStampAndSignature}
                   />
+                </div>
+              ) : (
+                <div className="half-portrait-label-wrapper border border-dashed border-slate-200 rounded p-4 flex items-center justify-center text-slate-300 text-xs italic no-print">
+                  (Kosong - Ruang Ganjil)
                 </div>
               )}
             </div>
@@ -1270,31 +1274,31 @@ const SingleQuestionCoverLabel: React.FC<{
         isFull 
           ? 'p-6 md:p-8 page-break-after-always print:min-h-[268mm] min-h-[700px]' 
           : isHalfPortrait
-            ? 'p-2 sm:p-2.5 print:p-2 h-full print:min-h-[135mm] print:max-h-[140mm] min-h-[460px]'
+            ? 'p-1.5 sm:p-2 print:p-1.5 h-full print:h-[136mm] print:max-h-[136mm] box-border'
             : 'p-3 sm:p-4 page-break-inside-avoid min-h-[490px]'
       }`}
     >
       {/* Top Black Accent Strip */}
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-900 flex items-center justify-end px-2">
+      <div className={`absolute top-0 left-0 w-full ${isHalfPortrait ? 'h-1' : 'h-1.5'} bg-slate-900 flex items-center justify-end px-2`}>
         {isHalfPortrait && positionInSheet && (
-          <span className="text-[7.5px] uppercase font-bold text-white tracking-widest opacity-80">
+          <span className="text-[7px] uppercase font-bold text-white tracking-widest opacity-80">
             {positionInSheet === 'top' ? '▲ BAGIAN ATAS' : '▼ BAGIAN BAWAH'}
           </span>
         )}
       </div>
 
-      <div className={isHalfPortrait ? "space-y-1 sm:space-y-1.5" : "space-y-2"}>
+      <div className={isHalfPortrait ? "space-y-0.5 sm:space-y-1" : "space-y-2"}>
         {/* Official Header */}
-        <OfficialDocumentHeader config={config} compact={!isFull} />
+        <OfficialDocumentHeader config={config} compact={!isFull} superCompact={isHalfPortrait} />
 
         {/* Title Badge */}
         <div className="text-center font-sans">
           <div className={`inline-block bg-slate-900 text-white font-black uppercase tracking-wider rounded-sm shadow-xs ${
-            isHalfPortrait ? 'px-2.5 py-0.5 text-[10px] sm:text-[11px]' : 'px-3.5 py-1 text-xs sm:text-sm'
+            isHalfPortrait ? 'px-2 py-0.5 text-[8.5px]' : 'px-3.5 py-1 text-xs sm:text-sm'
           }`}>
             LABEL SAMPUL NASKAH SOAL &amp; LEMBAR JAWABAN
           </div>
-          <div className={`${isHalfPortrait ? 'text-[9.5px] mt-0.5' : 'text-[11px] mt-1'} font-bold text-slate-800 uppercase`}>
+          <div className={`${isHalfPortrait ? 'text-[8px] mt-0.5' : 'text-[11px] mt-1'} font-bold text-slate-800 uppercase`}>
             {config.examTitle} • TAHUN PELAJARAN {config.academicYear} {isHalfPortrait ? `• SMT ${config.semester.toUpperCase()}` : ''}
           </div>
           {!isHalfPortrait && (
@@ -1305,166 +1309,180 @@ const SingleQuestionCoverLabel: React.FC<{
         </div>
 
         {/* Room & Subject High Contrast Details Grid */}
-        <div className="border-2 border-slate-900 rounded-md overflow-hidden bg-slate-50">
-          <div className="grid grid-cols-2 divide-x-2 divide-slate-900 border-b-2 border-slate-900">
+        <div className="border border-slate-900 rounded overflow-hidden bg-slate-50">
+          <div className="grid grid-cols-2 divide-x divide-slate-900 border-b border-slate-900">
             {/* Subject Box */}
-            <div className={`p-1.5 sm:p-2 ${isFull ? 'p-2 sm:p-2.5 space-y-1' : 'space-y-0.5'}`}>
-              <div className="text-[8.5px] uppercase font-bold tracking-wider text-slate-500">Mata Pelajaran:</div>
-              <div className={`font-black uppercase tracking-wide text-indigo-950 ${isFull ? 'text-base sm:text-lg' : isHalfPortrait ? 'text-xs sm:text-[13px] leading-tight' : 'text-xs sm:text-sm'}`}>
+            <div className={`p-1 ${isFull ? 'p-2 sm:p-2.5 space-y-1' : 'space-y-0.5'}`}>
+              <div className="text-[7.5px] uppercase font-bold tracking-wider text-slate-500">Mata Pelajaran:</div>
+              <div className={`font-black uppercase tracking-wide text-indigo-950 ${isFull ? 'text-base sm:text-lg' : isHalfPortrait ? 'text-[11px] leading-tight' : 'text-xs sm:text-sm'}`}>
                 {schedule.subject}
               </div>
-              <div className="text-[9.5px] text-slate-700 font-semibold truncate">
+              <div className="text-[8px] text-slate-700 font-semibold truncate">
                 Tingkat / Kelas: <span className="text-slate-900 font-bold">{classes}</span>
               </div>
             </div>
 
             {/* Room Box */}
-            <div className={`p-1.5 sm:p-2 bg-indigo-50/50 ${isFull ? 'p-2 sm:p-2.5 space-y-1' : 'space-y-0.5'}`}>
-              <div className="text-[8.5px] uppercase font-bold tracking-wider text-slate-500">Ruang Ujian:</div>
-              <div className={`font-black uppercase text-slate-950 flex items-center justify-between ${isFull ? 'text-base sm:text-lg' : isHalfPortrait ? 'text-xs sm:text-[13px] leading-tight' : 'text-xs sm:text-sm'}`}>
+            <div className={`p-1 bg-indigo-50/50 ${isFull ? 'p-2 sm:p-2.5 space-y-1' : 'space-y-0.5'}`}>
+              <div className="text-[7.5px] uppercase font-bold tracking-wider text-slate-500">Ruang Ujian:</div>
+              <div className={`font-black uppercase text-slate-950 flex items-center justify-between ${isFull ? 'text-base sm:text-lg' : isHalfPortrait ? 'text-[11px] leading-tight' : 'text-xs sm:text-sm'}`}>
                 <span>{room.name}</span>
-                <span className="bg-slate-900 text-white text-[9.5px] font-mono px-1.5 py-0.2 rounded-xs font-bold">
+                <span className="bg-slate-900 text-white text-[8px] font-mono px-1 py-0.2 rounded-xs font-bold">
                   {room.roomCode}
                 </span>
               </div>
-              <div className="text-[9.5px] text-slate-700 font-semibold truncate">
+              <div className="text-[8px] text-slate-700 font-semibold truncate">
                 Lokasi: <span className="text-slate-900">{room.location || 'Gedung Utama'}</span>
               </div>
             </div>
           </div>
 
           {/* Schedule Time & Date Strip */}
-          <div className={`grid grid-cols-2 divide-x-2 divide-slate-900 font-semibold bg-white ${isHalfPortrait ? 'text-[9.5px] p-1' : 'text-xs p-1.5 sm:p-2'}`}>
+          <div className={`grid grid-cols-2 divide-x divide-slate-900 font-semibold bg-white ${isHalfPortrait ? 'text-[8px] p-0.5 px-1' : 'text-xs p-1.5 sm:p-2'}`}>
             <div className="flex items-center gap-1">
-              <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
-              <span className="text-slate-600 text-[9px]">Hari/Tgl:</span>
-              <span className="font-bold text-slate-900 text-[10px] truncate">{schedule.dayName}, {schedule.date}</span>
+              <Calendar className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+              <span className="text-slate-600 text-[8px]">Hari/Tgl:</span>
+              <span className="font-bold text-slate-900 text-[8px] truncate">{schedule.dayName}, {schedule.date}</span>
             </div>
-            <div className="flex items-center gap-1 pl-1.5">
-              <Clock className="w-3 h-3 text-slate-500 shrink-0" />
-              <span className="text-slate-600 text-[9px]">Waktu:</span>
-              <span className="font-mono font-bold text-slate-900 text-[10px]">{schedule.sessionTime} WIB</span>
+            <div className="flex items-center gap-1 pl-1">
+              <Clock className="w-2.5 h-2.5 text-slate-500 shrink-0" />
+              <span className="text-slate-600 text-[8px]">Waktu:</span>
+              <span className="font-mono font-bold text-slate-900 text-[8px]">{schedule.sessionTime} WIB</span>
             </div>
           </div>
         </div>
 
         {/* 1. Quick High-Impact Cards: Rekap Tingkat Kelas 7, 8, 9 */}
         {showQuickBadges && (
-          <div className="grid grid-cols-3 gap-2">
-            {/* Kelas 7 Card */}
-            <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count7 > 0 ? 'bg-blue-50/90 border-blue-900 text-blue-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-wider">Kelas 7 (VII)</span>
-                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count7 > 0 ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                  {count7 > 0 ? `${count7} Siswa` : 'Nihil'}
-                </span>
+          isHalfPortrait ? (
+            <div className="grid grid-cols-3 gap-1 text-[7.5px]">
+              <div className={`px-1.5 py-0.5 rounded border ${count7 > 0 ? 'bg-blue-50/80 border-blue-700 text-blue-950 font-bold' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                Kls 7: {count7 > 0 ? `${count7} Siswa • ${count7 + spare7} Eks` : 'Nihil'}
               </div>
-              <div className="mt-1 flex items-baseline justify-between border-t border-blue-200/60 pt-0.5">
-                <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
-                <span className="text-xs font-black font-mono text-slate-950">
-                  {count7 > 0 ? `${count7 + spare7} Eks.` : '0'}
-                </span>
+              <div className={`px-1.5 py-0.5 rounded border ${count8 > 0 ? 'bg-emerald-50/80 border-emerald-700 text-emerald-950 font-bold' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                Kls 8: {count8 > 0 ? `${count8} Siswa • ${count8 + spare8} Eks` : 'Nihil'}
               </div>
-              <div className="flex items-baseline justify-between text-[9px] text-slate-600">
-                <span>Lembar Jwb:</span>
-                <span className="font-mono font-bold text-slate-950">{count7 > 0 ? `${count7 + spare7} Lbr.` : '0'}</span>
+              <div className={`px-1.5 py-0.5 rounded border ${count9 > 0 ? 'bg-purple-50/80 border-purple-700 text-purple-950 font-bold' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                Kls 9: {count9 > 0 ? `${count9} Siswa • ${count9 + spare9} Eks` : 'Nihil'}
               </div>
-              {count7 > 0 && spare7 > 0 && (
-                <div className="text-[8px] text-blue-800 font-semibold text-right">
-                  (Utama: {count7} + Cdg: {spare7})
-                </div>
-              )}
             </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {/* Kelas 7 Card */}
+              <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count7 > 0 ? 'bg-blue-50/90 border-blue-900 text-blue-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider">Kelas 7 (VII)</span>
+                  <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count7 > 0 ? 'bg-blue-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                    {count7 > 0 ? `${count7} Siswa` : 'Nihil'}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-baseline justify-between border-t border-blue-200/60 pt-0.5">
+                  <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
+                  <span className="text-xs font-black font-mono text-slate-950">
+                    {count7 > 0 ? `${count7 + spare7} Eks.` : '0'}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between text-[9px] text-slate-600">
+                  <span>Lembar Jwb:</span>
+                  <span className="font-mono font-bold text-slate-950">{count7 > 0 ? `${count7 + spare7} Lbr.` : '0'}</span>
+                </div>
+                {count7 > 0 && spare7 > 0 && (
+                  <div className="text-[8px] text-blue-800 font-semibold text-right">
+                    (Utama: {count7} + Cdg: {spare7})
+                  </div>
+                )}
+              </div>
 
-            {/* Kelas 8 Card */}
-            <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count8 > 0 ? 'bg-emerald-50/90 border-emerald-900 text-emerald-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-wider">Kelas 8 (VIII)</span>
-                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count8 > 0 ? 'bg-emerald-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                  {count8 > 0 ? `${count8} Siswa` : 'Nihil'}
-                </span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between border-t border-emerald-200/60 pt-0.5">
-                <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
-                <span className="text-xs font-black font-mono text-slate-950">
-                  {count8 > 0 ? `${count8 + spare8} Eks.` : '0'}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between text-[9px] text-slate-600">
-                <span>Lembar Jwb:</span>
-                <span className="font-mono font-bold text-slate-950">{count8 > 0 ? `${count8 + spare8} Lbr.` : '0'}</span>
-              </div>
-              {count8 > 0 && spare8 > 0 && (
-                <div className="text-[8px] text-emerald-800 font-semibold text-right">
-                  (Utama: {count8} + Cdg: {spare8})
+              {/* Kelas 8 Card */}
+              <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count8 > 0 ? 'bg-emerald-50/90 border-emerald-900 text-emerald-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider">Kelas 8 (VIII)</span>
+                  <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count8 > 0 ? 'bg-emerald-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                    {count8 > 0 ? `${count8} Siswa` : 'Nihil'}
+                  </span>
                 </div>
-              )}
-            </div>
+                <div className="mt-1 flex items-baseline justify-between border-t border-emerald-200/60 pt-0.5">
+                  <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
+                  <span className="text-xs font-black font-mono text-slate-950">
+                    {count8 > 0 ? `${count8 + spare8} Eks.` : '0'}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between text-[9px] text-slate-600">
+                  <span>Lembar Jwb:</span>
+                  <span className="font-mono font-bold text-slate-950">{count8 > 0 ? `${count8 + spare8} Lbr.` : '0'}</span>
+                </div>
+                {count8 > 0 && spare8 > 0 && (
+                  <div className="text-[8px] text-emerald-800 font-semibold text-right">
+                    (Utama: {count8} + Cdg: {spare8})
+                  </div>
+                )}
+              </div>
 
-            {/* Kelas 9 Card */}
-            <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count9 > 0 ? 'bg-purple-50/90 border-purple-900 text-purple-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-wider">Kelas 9 (IX)</span>
-                <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count9 > 0 ? 'bg-purple-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                  {count9 > 0 ? `${count9} Siswa` : 'Nihil'}
-                </span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between border-t border-purple-200/60 pt-0.5">
-                <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
-                <span className="text-xs font-black font-mono text-slate-950">
-                  {count9 > 0 ? `${count9 + spare9} Eks.` : '0'}
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between text-[9px] text-slate-600">
-                <span>Lembar Jwb:</span>
-                <span className="font-mono font-bold text-slate-950">{count9 > 0 ? `${count9 + spare9} Lbr.` : '0'}</span>
-              </div>
-              {count9 > 0 && spare9 > 0 && (
-                <div className="text-[8px] text-purple-800 font-semibold text-right">
-                  (Utama: {count9} + Cdg: {spare9})
+              {/* Kelas 9 Card */}
+              <div className={`p-1.5 sm:p-2 rounded-md border-2 transition-all ${count9 > 0 ? 'bg-purple-50/90 border-purple-900 text-purple-950' : 'bg-slate-50 border-slate-300 text-slate-400'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-wider">Kelas 9 (IX)</span>
+                  <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded ${count9 > 0 ? 'bg-purple-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                    {count9 > 0 ? `${count9} Siswa` : 'Nihil'}
+                  </span>
                 </div>
-              )}
+                <div className="mt-1 flex items-baseline justify-between border-t border-purple-200/60 pt-0.5">
+                  <span className="text-[9.5px] font-medium text-slate-700">Naskah Soal:</span>
+                  <span className="text-xs font-black font-mono text-slate-950">
+                    {count9 > 0 ? `${count9 + spare9} Eks.` : '0'}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between text-[9px] text-slate-600">
+                  <span>Lembar Jwb:</span>
+                  <span className="font-mono font-bold text-slate-950">{count9 > 0 ? `${count9 + spare9} Lbr.` : '0'}</span>
+                </div>
+                {count9 > 0 && spare9 > 0 && (
+                  <div className="text-[8px] text-purple-800 font-semibold text-right">
+                    (Utama: {count9} + Cdg: {spare9})
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )
         )}
 
         {/* 2. Dedicated Table: Rincian Berkas Per Tingkat (Kelas 7, 8 & 9) */}
         {showGradeDetails && (
-          <div className="border-2 border-slate-900 rounded-md overflow-hidden bg-white">
-            <div className="bg-slate-900 text-white font-bold uppercase tracking-wider text-[9px] sm:text-[9.5px] py-1 px-2.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <PackageCheck className="w-3.5 h-3.5 text-amber-400" />
+          <div className="border border-slate-900 rounded overflow-hidden bg-white">
+            <div className={`bg-slate-900 text-white font-bold uppercase tracking-wider ${isHalfPortrait ? 'text-[7.5px] py-0.5 px-1.5' : 'text-[9px] sm:text-[9.5px] py-1 px-2.5'} flex items-center justify-between`}>
+              <span className="flex items-center gap-1">
+                <PackageCheck className={`${isHalfPortrait ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-amber-400`} />
                 <span>Rincian Berkas Per Tingkat (Kelas 7, 8 &amp; 9)</span>
               </span>
-              <span className="font-mono text-[8px] sm:text-[8.5px] text-amber-300 font-normal">
+              <span className={`font-mono ${isHalfPortrait ? 'text-[7px]' : 'text-[8px] sm:text-[8.5px]'} text-amber-300 font-normal`}>
                 Verifikasi Jumlah Berkas Sebelum Ujian
               </span>
             </div>
 
-            <table className="w-full border-collapse text-[9.5px] sm:text-[10px] text-center">
+            <table className={`w-full border-collapse ${isHalfPortrait ? 'text-[7.5px] sm:text-[8px]' : 'text-[9.5px] sm:text-[10px]'} text-center`}>
               <thead>
                 <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-900">
-                  <th className="border-r border-slate-900 py-1 px-1.5 w-20">Tingkat</th>
-                  <th className="border-r border-slate-900 py-1 px-2 text-left">Rombel Terdaftar</th>
-                  <th className="border-r border-slate-900 py-1 px-1.5 w-16">Peserta</th>
-                  <th className="border-r border-slate-900 py-1 px-2 w-32">Naskah Soal</th>
-                  <th className="border-r border-slate-900 py-1 px-2 w-32">Lembar Jawaban</th>
-                  <th className="py-1 px-1.5 w-20">Status</th>
+                  <th className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1 w-16' : 'py-1 px-1.5 w-20'}`}>Tingkat</th>
+                  <th className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5 text-left' : 'py-1 px-2 text-left'}`}>Rombel Terdaftar</th>
+                  <th className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1 w-12' : 'py-1 px-1.5 w-16'}`}>Peserta</th>
+                  <th className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5 w-24' : 'py-1 px-2 w-32'}`}>Naskah Soal</th>
+                  <th className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5 w-24' : 'py-1 px-2 w-32'}`}>Lembar Jawaban</th>
+                  <th className={`${isHalfPortrait ? 'py-0.5 px-1 w-14' : 'py-1 px-1.5 w-20'}`}>Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-300">
                 {/* Kelas 7 */}
                 <tr className={count7 > 0 ? 'bg-blue-50/40' : 'bg-slate-50/50 text-slate-400'}>
-                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold text-slate-950`}>
                     Kelas 7 (VII)
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5 truncate max-w-[85px]' : 'py-1 px-2'} text-left font-medium text-slate-800`}>
                     {classes7 || '-'}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold`}>
                     {count7 > 0 ? `${count7} Siswa` : '-'}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                     {count7 > 0 ? (
                       <span>
                         {count7} + {spare7} = <strong className="text-blue-900 font-black">{count7 + spare7} Eks.</strong>
@@ -1473,7 +1491,7 @@ const SingleQuestionCoverLabel: React.FC<{
                       <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
                     )}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                     {count7 > 0 ? (
                       <span>
                         {count7} + {spare7} = <strong className="text-blue-900 font-black">{count7 + spare7} Lbr.</strong>
@@ -1482,9 +1500,9 @@ const SingleQuestionCoverLabel: React.FC<{
                       <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
                     )}
                   </td>
-                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold">
+                  <td className={`${isHalfPortrait ? 'py-0.5 px-1 text-[7px]' : 'py-1 px-1.5 text-[8.5px] sm:text-[9px]'} font-semibold`}>
                     {count7 > 0 ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
                         Tersegel
                       </span>
                     ) : (
@@ -1495,16 +1513,16 @@ const SingleQuestionCoverLabel: React.FC<{
 
                 {/* Kelas 8 */}
                 <tr className={count8 > 0 ? 'bg-emerald-50/40' : 'bg-slate-50/50 text-slate-400'}>
-                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold text-slate-950`}>
                     Kelas 8 (VIII)
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5 truncate max-w-[85px]' : 'py-1 px-2'} text-left font-medium text-slate-800`}>
                     {classes8 || '-'}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold`}>
                     {count8 > 0 ? `${count8} Siswa` : '-'}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                     {count8 > 0 ? (
                       <span>
                         {count8} + {spare8} = <strong className="text-emerald-900 font-black">{count8 + spare8} Eks.</strong>
@@ -1513,7 +1531,7 @@ const SingleQuestionCoverLabel: React.FC<{
                       <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
                     )}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                     {count8 > 0 ? (
                       <span>
                         {count8} + {spare8} = <strong className="text-emerald-900 font-black">{count8 + spare8} Lbr.</strong>
@@ -1522,9 +1540,9 @@ const SingleQuestionCoverLabel: React.FC<{
                       <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
                     )}
                   </td>
-                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold">
+                  <td className={`${isHalfPortrait ? 'py-0.5 px-1 text-[7px]' : 'py-1 px-1.5 text-[8.5px] sm:text-[9px]'} font-semibold`}>
                     {count8 > 0 ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
                         Tersegel
                       </span>
                     ) : (
@@ -1535,16 +1553,16 @@ const SingleQuestionCoverLabel: React.FC<{
 
                 {/* Kelas 9 */}
                 <tr className={count9 > 0 ? 'bg-purple-50/40' : 'bg-slate-50/50 text-slate-400'}>
-                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold text-slate-950`}>
                     Kelas 9 (IX)
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5 truncate max-w-[85px]' : 'py-1 px-2'} text-left font-medium text-slate-800`}>
                     {classes9 || '-'}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-1.5 font-bold">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold`}>
                     {count9 > 0 ? `${count9} Siswa` : '-'}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                     {count9 > 0 ? (
                       <span>
                         {count9} + {spare9} = <strong className="text-purple-900 font-black">{count9 + spare9} Eks.</strong>
@@ -1553,7 +1571,7 @@ const SingleQuestionCoverLabel: React.FC<{
                       <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
                     )}
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                     {count9 > 0 ? (
                       <span>
                         {count9} + {spare9} = <strong className="text-purple-900 font-black">{count9 + spare9} Lbr.</strong>
@@ -1562,9 +1580,9 @@ const SingleQuestionCoverLabel: React.FC<{
                       <span className="text-slate-400 font-normal">0 Lembar (Nihil)</span>
                     )}
                   </td>
-                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold">
+                  <td className={`${isHalfPortrait ? 'py-0.5 px-1 text-[7px]' : 'py-1 px-1.5 text-[8.5px] sm:text-[9px]'} font-semibold`}>
                     {count9 > 0 ? (
-                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                      <span className="text-emerald-700 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
                         Tersegel
                       </span>
                     ) : (
@@ -1576,28 +1594,28 @@ const SingleQuestionCoverLabel: React.FC<{
                 {/* Other Classes if present */}
                 {countOther > 0 && (
                   <tr className="bg-amber-50/40">
-                    <td className="border-r border-slate-900 py-1 px-1.5 font-bold text-slate-950">Lainnya</td>
-                    <td className="border-r border-slate-900 py-1 px-2 text-left font-medium text-slate-800">{classesOther}</td>
-                    <td className="border-r border-slate-900 py-1 px-1.5 font-bold">{countOther} Siswa</td>
-                    <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold text-slate-950`}>Lainnya</td>
+                    <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-left font-medium text-slate-800`}>{classesOther}</td>
+                    <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} font-bold`}>{countOther} Siswa</td>
+                    <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                       {countOther} + {spareOther} = {countOther + spareOther} Eks.
                     </td>
-                    <td className="border-r border-slate-900 py-1 px-2 font-bold text-slate-950">
+                    <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} font-bold text-slate-950`}>
                       {countOther} + {spareOther} = {countOther + spareOther} Lbr.
                     </td>
-                    <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] font-semibold text-emerald-700">Tersegel</td>
+                    <td className={`${isHalfPortrait ? 'py-0.5 px-1 text-[7px]' : 'py-1 px-1.5 text-[8.5px] sm:text-[9px]'} font-semibold text-emerald-700`}>Tersegel</td>
                   </tr>
                 )}
 
                 {/* Total Row */}
-                <tr className="bg-slate-100 font-black text-slate-950 border-t-2 border-slate-900">
-                  <td className="border-r border-slate-900 py-1 px-1.5 uppercase tracking-wide" colSpan={2}>
+                <tr className="bg-slate-100 font-black text-slate-950 border-t border-slate-900">
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'} uppercase tracking-wide`} colSpan={2}>
                     Total Alokasi Sampul
                   </td>
-                  <td className="border-r border-slate-900 py-1 px-1.5">{totalStudents} Siswa</td>
-                  <td className="border-r border-slate-900 py-1 px-2 text-indigo-950">{totalExamCopies} Eksemplar</td>
-                  <td className="border-r border-slate-900 py-1 px-2 text-indigo-950">{totalAnswerSheets} Lembar</td>
-                  <td className="py-1 px-1.5 text-[8.5px] sm:text-[9px] uppercase font-bold text-emerald-800">Lengkap</td>
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1' : 'py-1 px-1.5'}`}>{totalStudents} Siswa</td>
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-indigo-950`}>{totalExamCopies} Eksemplar</td>
+                  <td className={`border-r border-slate-900 ${isHalfPortrait ? 'py-0.5 px-1.5' : 'py-1 px-2'} text-indigo-950`}>{totalAnswerSheets} Lembar</td>
+                  <td className={`${isHalfPortrait ? 'py-0.5 px-1 text-[7px]' : 'py-1 px-1.5 text-[8.5px] sm:text-[9px]'} uppercase font-bold text-emerald-800`}>Lengkap</td>
                 </tr>
               </tbody>
             </table>
@@ -1674,94 +1692,143 @@ const SingleQuestionCoverLabel: React.FC<{
           </div>
         )}
 
-        {/* 4. Student Range & Attendance Summary Box with Grade Breakdown */}
-        <div className="border border-slate-900 rounded p-2 bg-slate-50 text-[10px] sm:text-[10.5px] space-y-1.5">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div>
-              <div className="text-[8.5px] uppercase font-bold text-slate-500">Rentang Nomor Peserta</div>
-              <div className="font-mono font-bold text-slate-900 truncate">{examRange}</div>
+        {/* 4 & 5. Student Range & Attendance + Seal Verification */}
+        {isHalfPortrait ? (
+          <div className="border border-slate-900 rounded p-1 bg-slate-50 text-[7.5px] space-y-0.5">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-0.5">
+              <div>
+                <span className="text-slate-500 font-semibold">No Peserta: </span>
+                <span className="font-mono font-bold text-slate-900">{examRange}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-semibold">Total: </span>
+                <span className="font-bold text-slate-900">{totalStudents}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-semibold">Hadir: </span>
+                <span className="font-mono font-bold text-slate-900">...</span>
+              </div>
+              <div>
+                <span className="text-slate-500 font-semibold">Absen: </span>
+                <span className="font-mono font-bold text-slate-900">...</span>
+              </div>
+              <div className="text-slate-600 font-medium">
+                (Kls 7: <strong className="font-mono">{count7}</strong> | Kls 8: <strong className="font-mono">{count8}</strong> | Kls 9: <strong className="font-mono">{count9}</strong>)
+              </div>
             </div>
-            <div>
-              <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Terdaftar</div>
-              <div className="font-bold text-slate-900">{totalStudents} Siswa</div>
-            </div>
-            <div>
-              <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Hadir</div>
-              <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
-            </div>
-            <div>
-              <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Tidak Hadir</div>
-              <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
+            <div className="flex items-center justify-between pt-0.5 text-[7px]">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-900">Segel:</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <span className="w-2 h-2 border border-slate-800 inline-flex items-center justify-center font-mono text-[6px] font-bold">✓</span>
+                  <span>Baik &amp; Tersegel</span>
+                </span>
+                <span className="inline-flex items-center gap-0.5 text-slate-500">
+                  <span className="w-2 h-2 border border-slate-800 inline-block"></span>
+                  <span>Rusak</span>
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-600">Buka: </span>
+                <strong className="font-mono text-slate-950">.... : .... WIB</strong>
+              </div>
+              <div className="text-slate-500 italic truncate max-w-[170px]">
+                Saksi: 1. .................. 2. ..................
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            {/* 4. Student Range & Attendance Summary Box with Grade Breakdown */}
+            <div className="border border-slate-900 rounded p-2 bg-slate-50 text-[10px] sm:text-[10.5px] space-y-1.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <div className="text-[8.5px] uppercase font-bold text-slate-500">Rentang Nomor Peserta</div>
+                  <div className="font-mono font-bold text-slate-900 truncate">{examRange}</div>
+                </div>
+                <div>
+                  <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Terdaftar</div>
+                  <div className="font-bold text-slate-900">{totalStudents} Siswa</div>
+                </div>
+                <div>
+                  <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Hadir</div>
+                  <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
+                </div>
+                <div>
+                  <div className="text-[8.5px] uppercase font-bold text-slate-500">Total Tidak Hadir</div>
+                  <div className="font-mono text-slate-700 font-bold">....... Siswa</div>
+                </div>
+              </div>
 
-          {/* Breakdown of attendance by grade 7, 8, 9 */}
-          <div className="pt-1 border-t border-slate-200 grid grid-cols-3 gap-1.5 text-[9px] sm:text-[9.5px]">
-            <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
-              <span className="font-bold text-blue-950">Kls 7:</span>
-              <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count7}</strong> | H: ... | A: ...</span>
+              {/* Breakdown of attendance by grade 7, 8, 9 */}
+              <div className="pt-1 border-t border-slate-200 grid grid-cols-3 gap-1.5 text-[9px] sm:text-[9.5px]">
+                <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
+                  <span className="font-bold text-blue-950">Kls 7:</span>
+                  <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count7}</strong> | H: ... | A: ...</span>
+                </div>
+                <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
+                  <span className="font-bold text-emerald-950">Kls 8:</span>
+                  <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count8}</strong> | H: ... | A: ...</span>
+                </div>
+                <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
+                  <span className="font-bold text-purple-950">Kls 9:</span>
+                  <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count9}</strong> | H: ... | A: ...</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
-              <span className="font-bold text-emerald-950">Kls 8:</span>
-              <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count8}</strong> | H: ... | A: ...</span>
-            </div>
-            <div className="flex items-center justify-between bg-white px-2 py-0.5 rounded border border-slate-200">
-              <span className="font-bold text-purple-950">Kls 9:</span>
-              <span className="text-slate-600 font-medium">Daftar: <strong className="font-mono text-slate-900">{count9}</strong> | H: ... | A: ...</span>
-            </div>
-          </div>
-        </div>
 
-        {/* 5. Seal Inspection & Opening Witness Verification */}
-        <div className="border border-slate-400 bg-white p-2 rounded text-[9.5px] sm:text-[10px] space-y-1">
-          <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200 pb-1">
-            <span className="font-bold text-slate-900">Verifikasi Segel Sampul di Ruang Ujian:</span>
-            <div className="flex items-center gap-3 font-semibold">
-              <span className="inline-flex items-center gap-1">
-                <span className="w-3 h-3 border border-slate-800 inline-flex items-center justify-center font-mono text-[9px] font-bold">✓</span>
-                <span>Kondisi Baik &amp; Tersegel</span>
-              </span>
-              <span className="inline-flex items-center gap-1 text-slate-500">
-                <span className="w-3 h-3 border border-slate-800 inline-block"></span>
-                <span>Segel Rusak</span>
-              </span>
-            </div>
-          </div>
+            {/* 5. Seal Inspection & Opening Witness Verification */}
+            <div className="border border-slate-400 bg-white p-2 rounded text-[9.5px] sm:text-[10px] space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-1 border-b border-slate-200 pb-1">
+                <span className="font-bold text-slate-900">Verifikasi Segel Sampul di Ruang Ujian:</span>
+                <div className="flex items-center gap-3 font-semibold">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-3 h-3 border border-slate-800 inline-flex items-center justify-center font-mono text-[9px] font-bold">✓</span>
+                    <span>Kondisi Baik &amp; Tersegel</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-slate-500">
+                    <span className="w-3 h-3 border border-slate-800 inline-block"></span>
+                    <span>Segel Rusak</span>
+                  </span>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
-            <div>
-              <span className="text-slate-600">Dibuka di depan peserta pada:</span>{' '}
-              <strong className="font-mono text-slate-950">Pukul ....... : ....... WIB</strong>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+                <div>
+                  <span className="text-slate-600">Dibuka di depan peserta pada:</span>{' '}
+                  <strong className="font-mono text-slate-950">Pukul ....... : ....... WIB</strong>
+                </div>
+                <div>
+                  <span className="text-slate-600">Saksi 2 Orang Siswa:</span>{' '}
+                  <span className="text-slate-500 italic">1. ..................... (Meja ...)  2. ..................... (Meja ...)</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-slate-600">Saksi 2 Orang Siswa:</span>{' '}
-              <span className="text-slate-500 italic">1. ..................... (Meja ...)  2. ..................... (Meja ...)</span>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* 6. Signature & Handover Confirmation (2 columns) */}
-      <div className={`pt-1.5 sm:pt-2 border-t border-slate-300 font-sans text-xs grid grid-cols-2 text-center gap-2 sm:gap-4 px-2 sm:px-4 ${isFull ? 'mt-4' : isHalfPortrait ? 'mt-1' : 'mt-2'}`}>
+      <div className={`pt-1 border-t border-slate-300 font-sans text-xs grid grid-cols-2 text-center gap-2 px-1 ${isFull ? 'mt-4' : isHalfPortrait ? 'mt-0.5' : 'mt-2'}`}>
         {/* Committee Handover */}
         <div className="relative flex flex-col justify-between">
           <div>
-            <div className="text-[10px] font-semibold text-slate-600">Panitia Pengedar Soal,</div>
-            <div className="text-[9px] text-slate-400">{config.issuePlace}, {schedule.date}</div>
+            <div className={`${isHalfPortrait ? 'text-[8px]' : 'text-[10px]'} font-semibold text-slate-600 leading-tight`}>Panitia Pengedar Soal,</div>
+            <div className={`${isHalfPortrait ? 'text-[7px]' : 'text-[9px]'} text-slate-400 leading-tight`}>{config.issuePlace}, {schedule.date}</div>
           </div>
 
           <div 
             className="relative flex items-center justify-center my-0.5"
-            style={{ height: isFull ? '42px' : isHalfPortrait ? '26px' : '30px' }}
+            style={{ height: isFull ? '42px' : isHalfPortrait ? '18px' : '30px' }}
           >
             {includeStampAndSignature && config.stampEnabled && config.stampUrl && (
               <div 
                 className="absolute z-10 pointer-events-none select-none print:opacity-100"
                 style={{
-                  left: isFull ? '15%' : isHalfPortrait ? '10%' : '10%',
+                  left: isFull ? '15%' : isHalfPortrait ? '8%' : '10%',
                   bottom: '-2px',
-                  width: isFull ? '44px' : isHalfPortrait ? '28px' : '32px',
-                  height: isFull ? '44px' : isHalfPortrait ? '28px' : '32px',
+                  width: isFull ? '44px' : isHalfPortrait ? '22px' : '32px',
+                  height: isFull ? '44px' : isHalfPortrait ? '22px' : '32px',
                   opacity: 0.88,
                   transform: 'rotate(-7deg)'
                 }}
@@ -1772,60 +1839,60 @@ const SingleQuestionCoverLabel: React.FC<{
 
             {includeStampAndSignature && config.signatureEnabled !== false && config.signatureUrl ? (
               <div className="relative z-0 flex items-center justify-center h-full">
-                <img src={config.signatureUrl} alt="TTD" className="h-full w-auto object-contain max-w-[90px]" />
+                <img src={config.signatureUrl} alt="TTD" className="h-full w-auto object-contain max-w-[80px]" />
               </div>
             ) : (
-              <span className="font-serif italic text-slate-300 text-[9px] select-none">(ttd &amp; cap)</span>
+              <span className="font-serif italic text-slate-300 text-[8px] select-none">(ttd &amp; cap)</span>
             )}
           </div>
 
           <div>
-            <div className="font-bold underline text-slate-950 text-[10px] sm:text-[10.5px] truncate relative z-10">
+            <div className={`font-bold underline text-slate-950 ${isHalfPortrait ? 'text-[8.5px]' : 'text-[10px] sm:text-[10.5px]'} truncate relative z-10 leading-tight`}>
               {config.committeeHeadName || 'Ketua Panitia Ujian'}
             </div>
-            <div className="text-[8px] sm:text-[8.5px] text-slate-500 font-mono">NIP. {config.committeeHeadNip || '-'}</div>
+            <div className={`${isHalfPortrait ? 'text-[7px]' : 'text-[8px] sm:text-[8.5px]'} text-slate-500 font-mono leading-tight`}>NIP. {config.committeeHeadNip || '-'}</div>
           </div>
         </div>
 
         {/* Proctor Receiver */}
         <div className="flex flex-col justify-between">
           <div>
-            <div className="text-[10px] font-semibold text-slate-600">Pengawas Ruang Ujian,</div>
-            <div className="text-[9px] text-slate-400">Penerima Naskah</div>
+            <div className={`${isHalfPortrait ? 'text-[8px]' : 'text-[10px]'} font-semibold text-slate-600 leading-tight`}>Pengawas Ruang Ujian,</div>
+            <div className={`${isHalfPortrait ? 'text-[7px]' : 'text-[9px]'} text-slate-400 leading-tight`}>Penerima Naskah</div>
           </div>
-          <div className="flex items-center justify-center my-0.5" style={{ height: isFull ? '42px' : isHalfPortrait ? '26px' : '30px' }}>
-            <span className="font-serif italic text-slate-300 text-[9px] select-none">(tanda tangan)</span>
+          <div className="flex items-center justify-center my-0.5" style={{ height: isFull ? '42px' : isHalfPortrait ? '18px' : '30px' }}>
+            <span className="font-serif italic text-slate-300 text-[8px] select-none">(tanda tangan)</span>
           </div>
           <div>
-            <div className="font-bold underline text-slate-950 text-[10px] sm:text-[10.5px] truncate">
+            <div className={`font-bold underline text-slate-950 ${isHalfPortrait ? 'text-[8.5px]' : 'text-[10px] sm:text-[10.5px]'} truncate leading-tight`}>
               {room.proctor1 || '(....................................)'}
             </div>
-            <div className="text-[8px] sm:text-[8.5px] text-slate-500 font-mono">NIP. ........................................</div>
+            <div className={`${isHalfPortrait ? 'text-[7px]' : 'text-[8px] sm:text-[8.5px]'} text-slate-500 font-mono leading-tight`}>NIP. ........................................</div>
           </div>
         </div>
       </div>
 
       {/* 7. Barcode & Security Verification Footer */}
-      <div className={`pt-1.5 sm:pt-2 ${isHalfPortrait ? 'mt-1' : 'mt-2'} border-t border-dashed border-slate-300 flex items-center justify-between gap-2 font-mono text-[8.5px] sm:text-[9px] text-slate-500`}>
+      <div className={`pt-1 ${isHalfPortrait ? 'mt-0.5' : 'mt-2'} border-t border-dashed border-slate-300 flex items-center justify-between gap-1 font-mono ${isHalfPortrait ? 'text-[7px]' : 'text-[8.5px] sm:text-[9px]'} text-slate-500`}>
         <div className="flex items-center gap-1.5 sm:gap-2">
           <BarcodeSVG 
             value={`${room.roomCode}-${schedule.subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase()}`} 
-            width={isFull ? 130 : isHalfPortrait ? 95 : 100} 
-            height={isFull ? 22 : isHalfPortrait ? 15 : 18} 
+            width={isFull ? 130 : isHalfPortrait ? 85 : 100} 
+            height={isFull ? 22 : isHalfPortrait ? 12 : 18} 
             showText={false} 
           />
           <div>
-            <span className="font-bold text-slate-900 block font-sans text-[9.5px] sm:text-[10px]">{room.roomCode} • {schedule.subject}</span>
-            <span className="text-[7.5px] sm:text-[8px]">KODE-SAMPUL: {room.roomCode}-{schedule.id || 'SOAL'}</span>
+            <span className={`font-bold text-slate-900 block font-sans ${isHalfPortrait ? 'text-[8px]' : 'text-[9.5px] sm:text-[10px]'}`}>{room.roomCode} • {schedule.subject}</span>
+            <span className={isHalfPortrait ? 'text-[6.5px]' : 'text-[7.5px] sm:text-[8px]'}>KODE-SAMPUL: {room.roomCode}-{schedule.id || 'SOAL'}</span>
           </div>
         </div>
         <div className="text-right flex items-center gap-1.5 sm:gap-2">
-          <div className="text-[7.5px] sm:text-[8px] max-w-[200px] text-slate-500 hidden sm:block font-sans leading-tight">
+          <div className={`${isHalfPortrait ? 'text-[6.5px] max-w-[170px]' : 'text-[7.5px] sm:text-[8px] max-w-[200px]'} text-slate-500 hidden sm:block font-sans leading-tight`}>
             Setelah ujian selesai, seluruh LJK &amp; naskah disusun urut dan dimasukkan kembali ke sampul ini.
           </div>
           <QRCodeSVG 
             value={`SAMPUL|${config.schoolName}|${room.roomCode}|${schedule.subject}|${schedule.date}`} 
-            size={isFull ? 34 : isHalfPortrait ? 22 : 26} 
+            size={isFull ? 34 : isHalfPortrait ? 20 : 26} 
           />
         </div>
       </div>
