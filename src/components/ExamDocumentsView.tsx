@@ -40,6 +40,8 @@ interface ExamDocumentsViewProps {
 
 type DocType = 'attendance' | 'proctor_attendance' | 'desk_labels' | 'room_label' | 'door_roster' | 'minutes' | 'question_cover';
 
+export type CoverLayoutMode = 'half_portrait' | 'full' | 'half';
+
 export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   config,
   students,
@@ -50,11 +52,21 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || '');
   const [selectedSubject, setSelectedSubject] = useState<string>(schedules[0]?.subject || 'Matematika');
   const [spareCopies, setSpareCopies] = useState<number>(2);
-  const [coverLayout, setCoverLayout] = useState<'full' | 'half'>('full');
+  const [coverLayout, setCoverLayout] = useState<CoverLayoutMode>('half_portrait');
+  const [coverShowPackageItems, setCoverShowPackageItems] = useState<boolean>(false);
   const [includeStampAndSignature, setIncludeStampAndSignature] = useState<boolean>(true);
   const [coverSpareMode, setCoverSpareMode] = useState<'per_grade' | 'total'>('total');
   const [coverShowGradeDetails, setCoverShowGradeDetails] = useState<boolean>(true);
   const [coverShowQuickBadges, setCoverShowQuickBadges] = useState<boolean>(true);
+
+  const handleCoverLayoutChange = (mode: CoverLayoutMode) => {
+    setCoverLayout(mode);
+    if (mode === 'half_portrait') {
+      setCoverShowPackageItems(false);
+    } else {
+      setCoverShowPackageItems(true);
+    }
+  };
 
   // Desk Labels Customization & Arrangement Settings
   const [deskLayoutGrid, setDeskLayoutGrid] = useState<DeskGridSize>('grid_8');
@@ -302,11 +314,12 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
                 </label>
                 <select
                   value={coverLayout}
-                  onChange={(e) => setCoverLayout(e.target.value as 'full' | 'half')}
+                  onChange={(e) => handleCoverLayoutChange(e.target.value as CoverLayoutMode)}
                   className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white font-medium"
                 >
-                  <option value="full">1 Label / Lembar (Amplop Folio / A4)</option>
-                  <option value="half">2 Label / Lembar (Format Hemat A5)</option>
+                  <option value="half_portrait">⭐ Mode Hemat: 1 Lembar Portrait Bagi 2 (Atas &amp; Bawah)</option>
+                  <option value="full">1 Label / Lembar Penuh (Amplop Folio / A4)</option>
+                  <option value="half">2 Label / Lembar Lanskap (Format A5 Kiri &amp; Kanan)</option>
                 </select>
               </div>
 
@@ -348,11 +361,31 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
                 />
                 <span>Kartu Rekap Tingkat</span>
               </label>
+
+              <label className="flex items-center gap-1.5 font-medium text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={coverShowPackageItems}
+                  onChange={(e) => setCoverShowPackageItems(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                />
+                <span className={!coverShowPackageItems ? 'text-slate-500' : 'text-slate-900 font-medium'}>
+                  Rincian Kelengkapan Berkas (Daftar 1-6)
+                  {coverLayout === 'half_portrait' && !coverShowPackageItems && ' (Hemat: Dihilangkan)'}
+                </span>
+              </label>
             </div>
 
-            <div className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded flex items-center gap-1.5 font-medium">
-              <Info className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
-              <span>Naskah soal &amp; lembar jawaban (LJK) dirinci otomatis per tingkat Kelas 7, 8, dan 9</span>
+            <div className="flex items-center gap-2">
+              {coverLayout === 'half_portrait' && (
+                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold px-2 py-0.5 rounded text-[11px] flex items-center gap-1">
+                  <Scissors className="w-3 h-3 text-emerald-700" /> Mode Hemat Aktif: 1 Lembar Portrait Dibagi Atas &amp; Bawah
+                </span>
+              )}
+              <div className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded flex items-center gap-1.5 font-medium">
+                <Info className="w-3.5 h-3.5 shrink-0 text-indigo-600" />
+                <span>Naskah soal &amp; LJK otomatis dihitung per tingkat Kelas 7, 8, dan 9</span>
+              </div>
             </div>
           </div>
         )}
@@ -497,6 +530,7 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
             spareMode={coverSpareMode}
             showGradeDetails={coverShowGradeDetails}
             showQuickBadges={coverShowQuickBadges}
+            showPackageItems={coverShowPackageItems}
             layout={coverLayout}
             includeStampAndSignature={includeStampAndSignature}
           />
@@ -881,7 +915,8 @@ interface QuestionCoverSheetProps {
   spareMode?: 'per_grade' | 'total';
   showGradeDetails?: boolean;
   showQuickBadges?: boolean;
-  layout: 'full' | 'half';
+  showPackageItems?: boolean;
+  layout: CoverLayoutMode;
   includeStampAndSignature: boolean;
 }
 
@@ -896,6 +931,7 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
   spareMode = 'total',
   showGradeDetails = true,
   showQuickBadges = true,
+  showPackageItems = false,
   layout,
   includeStampAndSignature,
 }) => {
@@ -965,6 +1001,21 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
     });
   });
 
+  // Group pairs for 1 Lembar Portrait dibagi dua (Atas & Bawah)
+  const itemPairs: Array<Array<{
+    room: ExamRoom;
+    schedule: ExamScheduleItem;
+    roomStudents: Student[];
+  }>> = [];
+
+  for (let i = 0; i < items.length; i += 2) {
+    const pair = [
+      items[i],
+      ...(i + 1 < items.length ? [items[i + 1]] : [])
+    ];
+    itemPairs.push(pair);
+  }
+
   return (
     <div className="space-y-6">
       {/* Information Header in non-print */}
@@ -975,7 +1026,13 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
             <span>Siap Cetak: {items.length} Label Sampul Soal Ujian</span>
           </div>
           <p className="text-slate-600 mt-0.5">
-            {effectiveRooms.length} Ruang Ujian × {targetSchedules.length} Mata Pelajaran | Cadangan: {spareCopies} eksemplar ({spareMode === 'per_grade' ? 'tiap tingkat aktif' : 'total per ruang'}) | Format: {layout === 'full' ? '1 Label per Halaman (Amplop Folio / A4)' : '2 Label per Halaman (Format Hemat A5)'}
+            {effectiveRooms.length} Ruang Ujian × {targetSchedules.length} Mata Pelajaran | Cadangan: {spareCopies} eksemplar ({spareMode === 'per_grade' ? 'tiap tingkat aktif' : 'total per ruang'}) | Format: {
+              layout === 'half_portrait' 
+                ? 'Mode Hemat: 1 Lembar Portrait Bagi Dua (Atas & Bawah, Tanpa Rincian Berkas)' 
+                : layout === 'full' 
+                  ? '1 Label per Halaman (Amplop Folio / A4 Penuh)' 
+                  : '2 Label per Halaman (Format Hemat A5 Kiri & Kanan)'
+            }
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -986,7 +1043,65 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
       </div>
 
       {/* Grid or Stack of Labels */}
-      {layout === 'full' ? (
+      {layout === 'half_portrait' ? (
+        <div className="space-y-8 print:space-y-0">
+          {itemPairs.map((pair, pageIdx) => (
+            <div
+              key={`portrait-sheet-${pageIdx}`}
+              className="bg-white print:bg-white f4-page-sheet page-break-after-always print:page-break-after-always print:break-after-page print:min-h-[284mm] print:max-h-[288mm] flex flex-col justify-between p-2 print:p-0 space-y-4 print:space-y-0 border border-dashed border-slate-300 print:border-none rounded-lg"
+            >
+              {/* Bagian Atas */}
+              <div className="flex-1 print:h-[139mm] print:max-h-[141mm] flex flex-col justify-between">
+                <SingleQuestionCoverLabel
+                  config={config}
+                  room={pair[0].room}
+                  schedule={pair[0].schedule}
+                  roomStudents={pair[0].roomStudents}
+                  spareCopies={spareCopies}
+                  spareMode={spareMode}
+                  showGradeDetails={showGradeDetails}
+                  showQuickBadges={showQuickBadges}
+                  showPackageItems={showPackageItems}
+                  layout={layout}
+                  positionInSheet="top"
+                  includeStampAndSignature={includeStampAndSignature}
+                />
+              </div>
+
+              {/* Garis Potong (Cut Guide) */}
+              {pair.length > 1 && (
+                <div className="flex items-center justify-center my-1 print:my-0.5 text-[8.5px] font-mono text-slate-400 select-none">
+                  <span className="border-b border-dashed border-slate-300 w-full"></span>
+                  <span className="px-2 shrink-0 flex items-center gap-1 text-slate-600 font-bold uppercase tracking-wider text-[8px]">
+                    <Scissors className="w-3 h-3 text-slate-400" /> Potong di sini (Bagi Dua Atas &amp; Bawah)
+                  </span>
+                  <span className="border-b border-dashed border-slate-300 w-full"></span>
+                </div>
+              )}
+
+              {/* Bagian Bawah */}
+              {pair[1] && (
+                <div className="flex-1 print:h-[139mm] print:max-h-[141mm] flex flex-col justify-between">
+                  <SingleQuestionCoverLabel
+                    config={config}
+                    room={pair[1].room}
+                    schedule={pair[1].schedule}
+                    roomStudents={pair[1].roomStudents}
+                    spareCopies={spareCopies}
+                    spareMode={spareMode}
+                    showGradeDetails={showGradeDetails}
+                    showQuickBadges={showQuickBadges}
+                    showPackageItems={showPackageItems}
+                    layout={layout}
+                    positionInSheet="bottom"
+                    includeStampAndSignature={includeStampAndSignature}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : layout === 'full' ? (
         <div className="space-y-8 print:space-y-0">
           {items.map((item, idx) => (
             <SingleQuestionCoverLabel
@@ -999,6 +1114,7 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
               spareMode={spareMode}
               showGradeDetails={showGradeDetails}
               showQuickBadges={showQuickBadges}
+              showPackageItems={showPackageItems}
               layout={layout}
               includeStampAndSignature={includeStampAndSignature}
             />
@@ -1017,6 +1133,7 @@ const QuestionCoverSheet: React.FC<QuestionCoverSheetProps> = ({
               spareMode={spareMode}
               showGradeDetails={showGradeDetails}
               showQuickBadges={showQuickBadges}
+              showPackageItems={showPackageItems}
               layout={layout}
               includeStampAndSignature={includeStampAndSignature}
             />
@@ -1036,7 +1153,9 @@ const SingleQuestionCoverLabel: React.FC<{
   spareMode?: 'per_grade' | 'total';
   showGradeDetails?: boolean;
   showQuickBadges?: boolean;
-  layout: 'full' | 'half';
+  showPackageItems?: boolean;
+  layout: CoverLayoutMode;
+  positionInSheet?: 'top' | 'bottom';
   includeStampAndSignature: boolean;
 }> = ({
   config,
@@ -1047,10 +1166,13 @@ const SingleQuestionCoverLabel: React.FC<{
   spareMode = 'total',
   showGradeDetails = true,
   showQuickBadges = true,
+  showPackageItems = false,
   layout,
+  positionInSheet,
   includeStampAndSignature,
 }) => {
   const isFull = layout === 'full';
+  const isHalfPortrait = layout === 'half_portrait';
   const totalStudents = roomStudents.length;
   const startExamNumber = roomStudents[0]?.examNumber || '-';
   const endExamNumber = roomStudents[roomStudents.length - 1]?.examNumber || '-';
@@ -1147,69 +1269,81 @@ const SingleQuestionCoverLabel: React.FC<{
       className={`page-break-inside-avoid bg-white border-2 border-slate-900 rounded-lg text-slate-900 font-sans shadow-xs print:shadow-none relative overflow-hidden flex flex-col justify-between ${
         isFull 
           ? 'p-6 md:p-8 page-break-after-always print:min-h-[268mm] min-h-[700px]' 
-          : 'p-3 sm:p-4 page-break-inside-avoid min-h-[490px]'
+          : isHalfPortrait
+            ? 'p-2 sm:p-2.5 print:p-2 h-full print:min-h-[135mm] print:max-h-[140mm] min-h-[460px]'
+            : 'p-3 sm:p-4 page-break-inside-avoid min-h-[490px]'
       }`}
     >
       {/* Top Black Accent Strip */}
-      <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-900"></div>
+      <div className="absolute top-0 left-0 w-full h-1.5 bg-slate-900 flex items-center justify-end px-2">
+        {isHalfPortrait && positionInSheet && (
+          <span className="text-[7.5px] uppercase font-bold text-white tracking-widest opacity-80">
+            {positionInSheet === 'top' ? '▲ BAGIAN ATAS' : '▼ BAGIAN BAWAH'}
+          </span>
+        )}
+      </div>
 
-      <div className="space-y-2">
+      <div className={isHalfPortrait ? "space-y-1 sm:space-y-1.5" : "space-y-2"}>
         {/* Official Header */}
         <OfficialDocumentHeader config={config} compact={!isFull} />
 
         {/* Title Badge */}
         <div className="text-center font-sans">
-          <div className="inline-block bg-slate-900 text-white font-black uppercase tracking-wider px-3.5 py-1 rounded-sm text-xs sm:text-sm shadow-xs">
+          <div className={`inline-block bg-slate-900 text-white font-black uppercase tracking-wider rounded-sm shadow-xs ${
+            isHalfPortrait ? 'px-2.5 py-0.5 text-[10px] sm:text-[11px]' : 'px-3.5 py-1 text-xs sm:text-sm'
+          }`}>
             LABEL SAMPUL NASKAH SOAL &amp; LEMBAR JAWABAN
           </div>
-          <div className="text-[11px] font-bold text-slate-800 uppercase mt-1">
-            {config.examTitle} • TAHUN PELAJARAN {config.academicYear}
+          <div className={`${isHalfPortrait ? 'text-[9.5px] mt-0.5' : 'text-[11px] mt-1'} font-bold text-slate-800 uppercase`}>
+            {config.examTitle} • TAHUN PELAJARAN {config.academicYear} {isHalfPortrait ? `• SMT ${config.semester.toUpperCase()}` : ''}
           </div>
-          <div className="text-[10px] font-semibold text-slate-600 uppercase">
-            SEMESTER {config.semester.toUpperCase()}
-          </div>
+          {!isHalfPortrait && (
+            <div className="text-[10px] font-semibold text-slate-600 uppercase">
+              SEMESTER {config.semester.toUpperCase()}
+            </div>
+          )}
         </div>
 
         {/* Room & Subject High Contrast Details Grid */}
         <div className="border-2 border-slate-900 rounded-md overflow-hidden bg-slate-50">
           <div className="grid grid-cols-2 divide-x-2 divide-slate-900 border-b-2 border-slate-900">
             {/* Subject Box */}
-            <div className={`p-2 sm:p-2.5 ${isFull ? 'space-y-1' : 'space-y-0.5'}`}>
-              <div className="text-[9px] uppercase font-bold tracking-wider text-slate-500">Mata Pelajaran:</div>
-              <div className={`font-black uppercase tracking-wide text-indigo-950 ${isFull ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
+            <div className={`p-1.5 sm:p-2 ${isFull ? 'p-2 sm:p-2.5 space-y-1' : 'space-y-0.5'}`}>
+              <div className="text-[8.5px] uppercase font-bold tracking-wider text-slate-500">Mata Pelajaran:</div>
+              <div className={`font-black uppercase tracking-wide text-indigo-950 ${isFull ? 'text-base sm:text-lg' : isHalfPortrait ? 'text-xs sm:text-[13px] leading-tight' : 'text-xs sm:text-sm'}`}>
                 {schedule.subject}
               </div>
-              <div className="text-[10px] text-slate-700 font-semibold truncate">
+              <div className="text-[9.5px] text-slate-700 font-semibold truncate">
                 Tingkat / Kelas: <span className="text-slate-900 font-bold">{classes}</span>
               </div>
             </div>
 
             {/* Room Box */}
-            <div className={`p-2 sm:p-2.5 bg-indigo-50/50 ${isFull ? 'space-y-1' : 'space-y-0.5'}`}>
-              <div className="text-[9px] uppercase font-bold tracking-wider text-slate-500">Ruang Ujian:</div>
-              <div className={`font-black uppercase text-slate-950 flex items-center justify-between ${isFull ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
+            <div className={`p-1.5 sm:p-2 bg-indigo-50/50 ${isFull ? 'p-2 sm:p-2.5 space-y-1' : 'space-y-0.5'}`}>
+              <div className="text-[8.5px] uppercase font-bold tracking-wider text-slate-500">Ruang Ujian:</div>
+              <div className={`font-black uppercase text-slate-950 flex items-center justify-between ${isFull ? 'text-base sm:text-lg' : isHalfPortrait ? 'text-xs sm:text-[13px] leading-tight' : 'text-xs sm:text-sm'}`}>
                 <span>{room.name}</span>
-                <span className="bg-slate-900 text-white text-[10px] font-mono px-2 py-0.5 rounded-sm font-bold">
+                <span className="bg-slate-900 text-white text-[9.5px] font-mono px-1.5 py-0.2 rounded-xs font-bold">
                   {room.roomCode}
                 </span>
               </div>
-              <div className="text-[10px] text-slate-700 font-semibold truncate">
+              <div className="text-[9.5px] text-slate-700 font-semibold truncate">
                 Lokasi: <span className="text-slate-900">{room.location || 'Gedung Utama'}</span>
               </div>
             </div>
           </div>
 
           {/* Schedule Time & Date Strip */}
-          <div className="grid grid-cols-2 divide-x-2 divide-slate-900 text-xs font-semibold bg-white p-1.5 sm:p-2">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span className="text-slate-600 text-[10px]">Hari / Tanggal:</span>
-              <span className="font-bold text-slate-900 text-[11px]">{schedule.dayName}, {schedule.date}</span>
+          <div className={`grid grid-cols-2 divide-x-2 divide-slate-900 font-semibold bg-white ${isHalfPortrait ? 'text-[9.5px] p-1' : 'text-xs p-1.5 sm:p-2'}`}>
+            <div className="flex items-center gap-1">
+              <Calendar className="w-3 h-3 text-slate-500 shrink-0" />
+              <span className="text-slate-600 text-[9px]">Hari/Tgl:</span>
+              <span className="font-bold text-slate-900 text-[10px] truncate">{schedule.dayName}, {schedule.date}</span>
             </div>
-            <div className="flex items-center gap-1.5 pl-2">
-              <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-              <span className="text-slate-600 text-[10px]">Waktu / Pukul:</span>
-              <span className="font-mono font-bold text-slate-900 text-[11px]">{schedule.sessionTime} WIB</span>
+            <div className="flex items-center gap-1 pl-1.5">
+              <Clock className="w-3 h-3 text-slate-500 shrink-0" />
+              <span className="text-slate-600 text-[9px]">Waktu:</span>
+              <span className="font-mono font-bold text-slate-900 text-[10px]">{schedule.sessionTime} WIB</span>
             </div>
           </div>
         </div>
@@ -1471,72 +1605,74 @@ const SingleQuestionCoverLabel: React.FC<{
         )}
 
         {/* 3. Envelope Content Allocation Table */}
-        <div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1 flex items-center justify-between">
-            <span>Rincian Kelengkapan Berkas dalam Sampul:</span>
-            <span className="text-slate-500 font-normal">Kondisi: Tersegel Rapi</span>
-          </div>
-          <table className="w-full border-collapse border border-slate-900 text-[10px] sm:text-[10.5px]">
-            <thead>
-              <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-900 text-center">
-                <th className="border border-slate-900 py-1 px-1.5 w-8">No</th>
-                <th className="border border-slate-900 py-1 px-2 text-left">Nama Dokumen / Berkas</th>
-                <th className="border border-slate-900 py-1 px-2 text-left">Spesifikasi Alokasi</th>
-                <th className="border border-slate-900 py-1 px-2 w-28 text-center">Jumlah</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">1</td>
-                <td className="border border-slate-900 py-1 px-2 font-bold text-slate-950">Naskah Soal Ujian</td>
-                <td className="border border-slate-900 py-1 px-2 text-slate-700">
-                  <div className="font-semibold text-slate-900">Utama: {totalStudents} eks. ({examDetailsSpec})</div>
-                  <div className="text-[9px] text-slate-600">Cadangan: {totalEffectiveSpare} eks.</div>
-                </td>
-                <td className="border border-slate-900 py-1 px-2 text-center font-bold text-slate-950 bg-slate-50">
-                  {totalExamCopies} Eksemplar
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">2</td>
-                <td className="border border-slate-900 py-1 px-2 font-bold text-slate-950">Lembar Jawaban (LJK / LJ)</td>
-                <td className="border border-slate-900 py-1 px-2 text-slate-700">
-                  <div className="font-semibold text-slate-900">Utama: {totalStudents} lbr. ({answerDetailsSpec})</div>
-                  <div className="text-[9px] text-slate-600">Cadangan: {totalEffectiveSpare} lbr.</div>
-                </td>
-                <td className="border border-slate-900 py-1 px-2 text-center font-bold text-slate-950 bg-slate-50">
-                  {totalAnswerSheets} Lembar
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">3</td>
-                <td className="border border-slate-900 py-1 px-2 font-semibold text-slate-900">Daftar Hadir Peserta Ujian</td>
-                <td className="border border-slate-900 py-1 px-2 text-slate-700">Format Resmi Presensi Ruang {room.roomCode}</td>
-                <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Rangkap (Set)</td>
-              </tr>
-              <tr>
-                <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">4</td>
-                <td className="border border-slate-900 py-1 px-2 font-semibold text-slate-900">Berita Acara Pelaksanaan</td>
-                <td className="border border-slate-900 py-1 px-2 text-slate-700">Laporan &amp; Notula Kejadian Ruang</td>
-                <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Rangkap (Set)</td>
-              </tr>
-              <tr>
-                <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">5</td>
-                <td className="border border-slate-900 py-1 px-2 text-slate-800">Tata Tertib Peserta &amp; Pengawas</td>
-                <td className="border border-slate-900 py-1 px-2 text-slate-700">Pedoman Pelaksanaan Ruang</td>
-                <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Berkas</td>
-              </tr>
-              {isFull && (
-                <tr>
-                  <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">6</td>
-                  <td className="border border-slate-900 py-1 px-2 text-slate-800">Pakta Integritas / Catatan Khusus</td>
-                  <td className="border border-slate-900 py-1 px-2 text-slate-700">Formulir Insiden Luar Biasa</td>
-                  <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Lembar</td>
+        {showPackageItems && (
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-700 mb-1 flex items-center justify-between">
+              <span>Rincian Kelengkapan Berkas dalam Sampul:</span>
+              <span className="text-slate-500 font-normal">Kondisi: Tersegel Rapi</span>
+            </div>
+            <table className="w-full border-collapse border border-slate-900 text-[10px] sm:text-[10.5px]">
+              <thead>
+                <tr className="bg-slate-100 text-slate-900 font-bold border-b border-slate-900 text-center">
+                  <th className="border border-slate-900 py-1 px-1.5 w-8">No</th>
+                  <th className="border border-slate-900 py-1 px-2 text-left">Nama Dokumen / Berkas</th>
+                  <th className="border border-slate-900 py-1 px-2 text-left">Spesifikasi Alokasi</th>
+                  <th className="border border-slate-900 py-1 px-2 w-28 text-center">Jumlah</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">1</td>
+                  <td className="border border-slate-900 py-1 px-2 font-bold text-slate-950">Naskah Soal Ujian</td>
+                  <td className="border border-slate-900 py-1 px-2 text-slate-700">
+                    <div className="font-semibold text-slate-900">Utama: {totalStudents} eks. ({examDetailsSpec})</div>
+                    <div className="text-[9px] text-slate-600">Cadangan: {totalEffectiveSpare} eks.</div>
+                  </td>
+                  <td className="border border-slate-900 py-1 px-2 text-center font-bold text-slate-950 bg-slate-50">
+                    {totalExamCopies} Eksemplar
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">2</td>
+                  <td className="border border-slate-900 py-1 px-2 font-bold text-slate-950">Lembar Jawaban (LJK / LJ)</td>
+                  <td className="border border-slate-900 py-1 px-2 text-slate-700">
+                    <div className="font-semibold text-slate-900">Utama: {totalStudents} lbr. ({answerDetailsSpec})</div>
+                    <div className="text-[9px] text-slate-600">Cadangan: {totalEffectiveSpare} lbr.</div>
+                  </td>
+                  <td className="border border-slate-900 py-1 px-2 text-center font-bold text-slate-950 bg-slate-50">
+                    {totalAnswerSheets} Lembar
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">3</td>
+                  <td className="border border-slate-900 py-1 px-2 font-semibold text-slate-900">Daftar Hadir Peserta Ujian</td>
+                  <td className="border border-slate-900 py-1 px-2 text-slate-700">Format Resmi Presensi Ruang {room.roomCode}</td>
+                  <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Rangkap (Set)</td>
+                </tr>
+                <tr>
+                  <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">4</td>
+                  <td className="border border-slate-900 py-1 px-2 font-semibold text-slate-900">Berita Acara Pelaksanaan</td>
+                  <td className="border border-slate-900 py-1 px-2 text-slate-700">Laporan &amp; Notula Kejadian Ruang</td>
+                  <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Rangkap (Set)</td>
+                </tr>
+                <tr>
+                  <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">5</td>
+                  <td className="border border-slate-900 py-1 px-2 text-slate-800">Tata Tertib Peserta &amp; Pengawas</td>
+                  <td className="border border-slate-900 py-1 px-2 text-slate-700">Pedoman Pelaksanaan Ruang</td>
+                  <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Berkas</td>
+                </tr>
+                {isFull && (
+                  <tr>
+                    <td className="border border-slate-900 py-1 px-1.5 text-center font-bold">6</td>
+                    <td className="border border-slate-900 py-1 px-2 text-slate-800">Pakta Integritas / Catatan Khusus</td>
+                    <td className="border border-slate-900 py-1 px-2 text-slate-700">Formulir Insiden Luar Biasa</td>
+                    <td className="border border-slate-900 py-1 px-2 text-center font-medium">1 Lembar</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* 4. Student Range & Attendance Summary Box with Grade Breakdown */}
         <div className="border border-slate-900 rounded p-2 bg-slate-50 text-[10px] sm:text-[10.5px] space-y-1.5">
@@ -1606,7 +1742,7 @@ const SingleQuestionCoverLabel: React.FC<{
       </div>
 
       {/* 6. Signature & Handover Confirmation (2 columns) */}
-      <div className={`pt-3 border-t border-slate-300 font-sans text-xs grid grid-cols-2 text-center gap-4 px-4 ${isFull ? 'mt-4' : 'mt-2'}`}>
+      <div className={`pt-1.5 sm:pt-2 border-t border-slate-300 font-sans text-xs grid grid-cols-2 text-center gap-2 sm:gap-4 px-2 sm:px-4 ${isFull ? 'mt-4' : isHalfPortrait ? 'mt-1' : 'mt-2'}`}>
         {/* Committee Handover */}
         <div className="relative flex flex-col justify-between">
           <div>
@@ -1616,16 +1752,16 @@ const SingleQuestionCoverLabel: React.FC<{
 
           <div 
             className="relative flex items-center justify-center my-0.5"
-            style={{ height: isFull ? '42px' : '30px' }}
+            style={{ height: isFull ? '42px' : isHalfPortrait ? '26px' : '30px' }}
           >
             {includeStampAndSignature && config.stampEnabled && config.stampUrl && (
               <div 
                 className="absolute z-10 pointer-events-none select-none print:opacity-100"
                 style={{
-                  left: isFull ? '15%' : '10%',
-                  bottom: '-3px',
-                  width: isFull ? '44px' : '32px',
-                  height: isFull ? '44px' : '32px',
+                  left: isFull ? '15%' : isHalfPortrait ? '10%' : '10%',
+                  bottom: '-2px',
+                  width: isFull ? '44px' : isHalfPortrait ? '28px' : '32px',
+                  height: isFull ? '44px' : isHalfPortrait ? '28px' : '32px',
                   opacity: 0.88,
                   transform: 'rotate(-7deg)'
                 }}
@@ -1644,10 +1780,10 @@ const SingleQuestionCoverLabel: React.FC<{
           </div>
 
           <div>
-            <div className="font-bold underline text-slate-950 text-[10.5px] truncate relative z-10">
+            <div className="font-bold underline text-slate-950 text-[10px] sm:text-[10.5px] truncate relative z-10">
               {config.committeeHeadName || 'Ketua Panitia Ujian'}
             </div>
-            <div className="text-[8.5px] text-slate-500 font-mono">NIP. {config.committeeHeadNip || '-'}</div>
+            <div className="text-[8px] sm:text-[8.5px] text-slate-500 font-mono">NIP. {config.committeeHeadNip || '-'}</div>
           </div>
         </div>
 
@@ -1657,39 +1793,39 @@ const SingleQuestionCoverLabel: React.FC<{
             <div className="text-[10px] font-semibold text-slate-600">Pengawas Ruang Ujian,</div>
             <div className="text-[9px] text-slate-400">Penerima Naskah</div>
           </div>
-          <div className="flex items-center justify-center my-0.5" style={{ height: isFull ? '42px' : '30px' }}>
+          <div className="flex items-center justify-center my-0.5" style={{ height: isFull ? '42px' : isHalfPortrait ? '26px' : '30px' }}>
             <span className="font-serif italic text-slate-300 text-[9px] select-none">(tanda tangan)</span>
           </div>
           <div>
-            <div className="font-bold underline text-slate-950 text-[10.5px] truncate">
+            <div className="font-bold underline text-slate-950 text-[10px] sm:text-[10.5px] truncate">
               {room.proctor1 || '(....................................)'}
             </div>
-            <div className="text-[8.5px] text-slate-500 font-mono">NIP. ........................................</div>
+            <div className="text-[8px] sm:text-[8.5px] text-slate-500 font-mono">NIP. ........................................</div>
           </div>
         </div>
       </div>
 
       {/* 7. Barcode & Security Verification Footer */}
-      <div className="pt-2.5 mt-2 border-t border-dashed border-slate-300 flex items-center justify-between gap-2 font-mono text-[9px] text-slate-500">
-        <div className="flex items-center gap-2">
+      <div className={`pt-1.5 sm:pt-2 ${isHalfPortrait ? 'mt-1' : 'mt-2'} border-t border-dashed border-slate-300 flex items-center justify-between gap-2 font-mono text-[8.5px] sm:text-[9px] text-slate-500`}>
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <BarcodeSVG 
             value={`${room.roomCode}-${schedule.subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase()}`} 
-            width={isFull ? 130 : 100} 
-            height={isFull ? 22 : 18} 
+            width={isFull ? 130 : isHalfPortrait ? 95 : 100} 
+            height={isFull ? 22 : isHalfPortrait ? 15 : 18} 
             showText={false} 
           />
           <div>
-            <span className="font-bold text-slate-900 block font-sans text-[10px]">{room.roomCode} • {schedule.subject}</span>
-            <span className="text-[8px]">KODE-SAMPUL: {room.roomCode}-{schedule.id || 'SOAL'}</span>
+            <span className="font-bold text-slate-900 block font-sans text-[9.5px] sm:text-[10px]">{room.roomCode} • {schedule.subject}</span>
+            <span className="text-[7.5px] sm:text-[8px]">KODE-SAMPUL: {room.roomCode}-{schedule.id || 'SOAL'}</span>
           </div>
         </div>
-        <div className="text-right flex items-center gap-2">
-          <div className="text-[8px] max-w-[220px] text-slate-500 hidden sm:block font-sans leading-tight">
-            Setelah ujian selesai, seluruh lembar jawaban &amp; sisa naskah disusun urut dan dimasukkan kembali ke sampul ini.
+        <div className="text-right flex items-center gap-1.5 sm:gap-2">
+          <div className="text-[7.5px] sm:text-[8px] max-w-[200px] text-slate-500 hidden sm:block font-sans leading-tight">
+            Setelah ujian selesai, seluruh LJK &amp; naskah disusun urut dan dimasukkan kembali ke sampul ini.
           </div>
           <QRCodeSVG 
             value={`SAMPUL|${config.schoolName}|${room.roomCode}|${schedule.subject}|${schedule.date}`} 
-            size={isFull ? 34 : 26} 
+            size={isFull ? 34 : isHalfPortrait ? 22 : 26} 
           />
         </div>
       </div>
