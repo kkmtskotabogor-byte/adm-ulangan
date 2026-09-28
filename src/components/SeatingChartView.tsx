@@ -13,7 +13,8 @@ import {
   RotateCcw,
   Sliders,
   ExternalLink,
-  Tag
+  Tag,
+  Move
 } from 'lucide-react';
 
 interface SeatingChartViewProps {
@@ -23,6 +24,7 @@ interface SeatingChartViewProps {
   selectedRoomId: string;
   onSelectRoom: (roomId: string) => void;
   onSwapSeats: (studentId1: string, studentId2: string) => void;
+  onMoveSeat?: (studentId: string, targetSeatNumber: number) => void;
   onDistributeCrossLevel?: (pattern?: 'photo_order' | 'sequential_desk') => void;
   onNavigateTab?: (tab: any) => void;
 }
@@ -34,11 +36,14 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
   selectedRoomId,
   onSelectRoom,
   onSwapSeats,
+  onMoveSeat,
   onDistributeCrossLevel,
   onNavigateTab,
 }) => {
   const currentRoom = rooms.find((r) => r.id === selectedRoomId) || rooms[0];
   const [selectedSeatForSwap, setSelectedSeatForSwap] = useState<Student | null>(null);
+  const [draggedStudent, setDraggedStudent] = useState<Student | null>(null);
+  const [dragOverSeatNum, setDragOverSeatNum] = useState<number | null>(null);
 
   // Layout mode: 'double_40' (1 meja 2 peserta) or 'single_20' (1 meja 1 peserta)
   const [layoutMode, setLayoutMode] = useState<'double_40' | 'single_20'>('double_40');
@@ -92,15 +97,64 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
     return palette[idx >= 0 ? idx % palette.length : 0];
   };
 
-  const handleSeatClick = (student?: Student) => {
-    if (!student) return;
+  const handleDragStart = (e: React.DragEvent, student: Student) => {
+    e.dataTransfer.setData('text/plain', student.id);
+    setDraggedStudent(student);
+  };
+
+  const handleDragOver = (e: React.DragEvent, seatNum: number) => {
+    e.preventDefault();
+    setDragOverSeatNum(seatNum);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverSeatNum(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetSeatNum: number, targetStudent?: Student) => {
+    e.preventDefault();
+    setDragOverSeatNum(null);
+    const sourceStudent = draggedStudent || selectedSeatForSwap;
+    setDraggedStudent(null);
+    if (!sourceStudent) return;
+
+    if (targetStudent) {
+      if (sourceStudent.id !== targetStudent.id) {
+        onSwapSeats(sourceStudent.id, targetStudent.id);
+        setSelectedSeatForSwap(null);
+      }
+    } else {
+      if (onMoveSeat) {
+        onMoveSeat(sourceStudent.id, targetSeatNum);
+        setSelectedSeatForSwap(null);
+      }
+    }
+  };
+
+  const handleSeatClick = (seatNumber: number, student?: Student) => {
     if (!selectedSeatForSwap) {
-      setSelectedSeatForSwap(student);
-    } else if (selectedSeatForSwap.id === student.id) {
+      if (student) {
+        setSelectedSeatForSwap(student);
+      }
+      return;
+    }
+
+    // A student is already selected
+    if (student && student.id === selectedSeatForSwap.id) {
+      // Cancel selection
+      setSelectedSeatForSwap(null);
+      return;
+    }
+
+    if (student) {
+      // Target seat is occupied -> Swap
+      onSwapSeats(selectedSeatForSwap.id, student.id);
       setSelectedSeatForSwap(null);
     } else {
-      // Execute swap
-      onSwapSeats(selectedSeatForSwap.id, student.id);
+      // Target seat is empty -> Move student
+      if (onMoveSeat) {
+        onMoveSeat(selectedSeatForSwap.id, seatNumber);
+      }
       setSelectedSeatForSwap(null);
     }
   };
@@ -451,6 +505,37 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
         </div>
       )}
 
+      {/* Active Selection Banner for Moving or Swapping between Desks */}
+      {selectedSeatForSwap && (
+        <div className="p-3.5 bg-amber-50 border-2 border-amber-400 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print shadow-md animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-500 text-white font-black flex items-center justify-center text-xs shrink-0 shadow-2xs">
+              {selectedSeatForSwap.seatNumber}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-amber-950 flex items-center gap-2">
+                <span>Memindahkan / Menukar:</span>
+                <span className="underline font-black">{selectedSeatForSwap.name}</span>
+                <span className="bg-amber-200/80 text-amber-900 px-1.5 py-0.2 rounded text-[10px]">
+                  Kelas {selectedSeatForSwap.className} • Meja {selectedSeatForSwap.seatNumber}
+                </span>
+              </div>
+              <div className="text-[11px] text-amber-800 mt-0.5">
+                👉 Klik <strong>Kursi Kosong</strong> untuk memindahkan langsung ke meja tersebut, atau klik <strong>Kursi Siswa Lain</strong> untuk menukar posisi meja. Anda juga dapat menyeret (drag &amp; drop).
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setSelectedSeatForSwap(null)}
+              className="px-3.5 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs rounded-lg transition-colors cursor-pointer shadow-2xs"
+            >
+              Batal Pilihan
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* =========================================================================
           PRINTABLE CANVAS - MODE 1: 40 SISWA (1 MEJA 2 SISWA - SESUAI GAMBAR CONTOH)
           ========================================================================= */}
@@ -526,13 +611,30 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                           <div className="grid grid-cols-2 divide-x divide-black h-full flex-1">
                             {/* Left Seat */}
                             <div
-                              onClick={() => handleSeatClick(leftStudent)}
-                              title={leftStudent ? `${leftStudent.name} (${leftStudent.className}) - Klik untuk tukar` : 'Kursi Kosong'}
+                              draggable={Boolean(leftStudent)}
+                              onDragStart={(e) => leftStudent && handleDragStart(e, leftStudent)}
+                              onDragOver={(e) => handleDragOver(e, leftSeatNum)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, leftSeatNum, leftStudent)}
+                              onClick={() => handleSeatClick(leftSeatNum, leftStudent)}
+                              title={
+                                leftStudent
+                                  ? selectedSeatForSwap && selectedSeatForSwap.id !== leftStudent.id
+                                    ? `Klik untuk menukar posisi dengan ${leftStudent.name}`
+                                    : `${leftStudent.name} (${leftStudent.className}) - Kursi No. ${leftSeatNum}`
+                                  : selectedSeatForSwap
+                                  ? `Klik untuk memindahkan ${selectedSeatForSwap.name} ke Meja ${leftSeatNum}`
+                                  : `Kursi Kosong (Meja ${leftSeatNum})`
+                              }
                               className={`p-1 flex flex-col justify-between transition-colors ${
-                                isSelectedLeft
+                                dragOverSeatNum === leftSeatNum
+                                  ? 'bg-indigo-100 ring-2 ring-indigo-500 z-10'
+                                  : isSelectedLeft
                                   ? 'bg-amber-100 ring-2 ring-amber-500 z-10'
                                   : leftStudent
                                   ? 'hover:bg-slate-100 cursor-pointer'
+                                  : selectedSeatForSwap
+                                  ? 'bg-emerald-50 hover:bg-emerald-100 cursor-pointer border border-dashed border-emerald-400'
                                   : 'bg-white'
                               }`}
                             >
@@ -541,6 +643,10 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                                 <div className="text-[9px] sm:text-[10px] md:text-[10.5px] font-medium text-black text-center leading-tight line-clamp-2 sm:line-clamp-3 font-sans break-words w-full">
                                   {leftStudent ? (
                                     leftStudent.name
+                                  ) : selectedSeatForSwap ? (
+                                    <span className="text-emerald-700 font-bold text-[8.5px] leading-tight animate-pulse block">
+                                      ↳ Pindah sini
+                                    </span>
                                   ) : (
                                     <span className="text-slate-300 italic text-[8.5px]">(Kosong)</span>
                                   )}
@@ -570,13 +676,30 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
 
                             {/* Right Seat */}
                             <div
-                              onClick={() => handleSeatClick(rightStudent)}
-                              title={rightStudent ? `${rightStudent.name} (${rightStudent.className}) - Klik untuk tukar` : 'Kursi Kosong'}
+                              draggable={Boolean(rightStudent)}
+                              onDragStart={(e) => rightStudent && handleDragStart(e, rightStudent)}
+                              onDragOver={(e) => handleDragOver(e, rightSeatNum)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, rightSeatNum, rightStudent)}
+                              onClick={() => handleSeatClick(rightSeatNum, rightStudent)}
+                              title={
+                                rightStudent
+                                  ? selectedSeatForSwap && selectedSeatForSwap.id !== rightStudent.id
+                                    ? `Klik untuk menukar posisi dengan ${rightStudent.name}`
+                                    : `${rightStudent.name} (${rightStudent.className}) - Kursi No. ${rightSeatNum}`
+                                  : selectedSeatForSwap
+                                  ? `Klik untuk memindahkan ${selectedSeatForSwap.name} ke Meja ${rightSeatNum}`
+                                  : `Kursi Kosong (Meja ${rightSeatNum})`
+                              }
                               className={`p-1 flex flex-col justify-between transition-colors ${
-                                isSelectedRight
+                                dragOverSeatNum === rightSeatNum
+                                  ? 'bg-indigo-100 ring-2 ring-indigo-500 z-10'
+                                  : isSelectedRight
                                   ? 'bg-amber-100 ring-2 ring-amber-500 z-10'
                                   : rightStudent
                                   ? 'hover:bg-slate-100 cursor-pointer'
+                                  : selectedSeatForSwap
+                                  ? 'bg-emerald-50 hover:bg-emerald-100 cursor-pointer border border-dashed border-emerald-400'
                                   : 'bg-white'
                               }`}
                             >
@@ -585,6 +708,10 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                                 <div className="text-[9px] sm:text-[10px] md:text-[10.5px] font-medium text-black text-center leading-tight line-clamp-2 sm:line-clamp-3 font-sans break-words w-full">
                                   {rightStudent ? (
                                     rightStudent.name
+                                  ) : selectedSeatForSwap ? (
+                                    <span className="text-emerald-700 font-bold text-[8.5px] leading-tight animate-pulse block">
+                                      ↳ Pindah sini
+                                    </span>
                                   ) : (
                                     <span className="text-slate-300 italic text-[8.5px]">(Kosong)</span>
                                   )}
@@ -687,16 +814,35 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                   const student = seatMap.get(seatNum);
                   const isSelectedForSwap = selectedSeatForSwap?.id === student?.id;
                   const classColor = student ? getClassColor(student.className) : null;
+                  const isHoveredDrop = dragOverSeatNum === seatNum;
 
                   return (
                     <div
                       key={seatNum}
-                      onClick={() => handleSeatClick(student)}
+                      draggable={Boolean(student)}
+                      onDragStart={(e) => student && handleDragStart(e, student)}
+                      onDragOver={(e) => handleDragOver(e, seatNum)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, seatNum, student)}
+                      onClick={() => handleSeatClick(seatNum, student)}
+                      title={
+                        student
+                          ? selectedSeatForSwap && selectedSeatForSwap.id !== student.id
+                            ? `Klik untuk menukar posisi meja dengan ${student.name}`
+                            : `${student.name} (${student.className}) - Meja No. ${seatNum}`
+                          : selectedSeatForSwap
+                          ? `Klik untuk memindahkan ${selectedSeatForSwap.name} ke Meja No. ${seatNum}`
+                          : `Meja Kosong (Meja ${seatNum})`
+                      }
                       className={`relative p-3 rounded-lg border-2 transition-all flex flex-col justify-between min-h-[105px] cursor-pointer ${
-                        isSelectedForSwap
+                        isHoveredDrop
+                          ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-400 shadow-md z-10'
+                          : isSelectedForSwap
                           ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-400/40 shadow-sm'
                           : student
                           ? `${classColor?.bg} ${classColor?.border} hover:border-indigo-400 shadow-2xs`
+                          : selectedSeatForSwap
+                          ? 'border-dashed border-emerald-500 bg-emerald-50/70 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-600'
                           : 'border-dashed border-slate-200 bg-slate-50/50 text-slate-400'
                       }`}
                     >
@@ -726,6 +872,12 @@ export const SeatingChartView: React.FC<SeatingChartViewProps> = ({
                               {student.examNumber.split('-').slice(2).join('-')}
                             </span>
                           </div>
+                        </div>
+                      ) : selectedSeatForSwap ? (
+                        <div className="my-auto text-center">
+                          <span className="text-emerald-700 font-bold text-xs animate-pulse block">
+                            ↳ Klik untuk Pindah ke Meja Ini
+                          </span>
                         </div>
                       ) : (
                         <div className="my-auto text-center text-[11px] text-slate-400 italic">

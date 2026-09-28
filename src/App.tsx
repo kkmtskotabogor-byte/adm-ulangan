@@ -625,6 +625,151 @@ export default function App() {
     showToast('Posisi tempat duduk kedua siswa berhasil ditukar.');
   };
 
+  // Move seat to empty seat number
+  const handleMoveSeat = (studentId: string, targetSeatNumber: number) => {
+    setStudents((prev) => {
+      const student = prev.find((s) => s.id === studentId);
+      if (!student) return prev;
+
+      const updated = prev.map((s) => {
+        if (s.id === studentId) {
+          return {
+            ...s,
+            seatNumber: targetSeatNumber,
+          };
+        }
+        return s;
+      });
+
+      syncStudentsToCloud(updated).catch(() => {});
+      return updated;
+    });
+    showToast(`Peserta berhasil dipindahkan ke Meja/Kursi No. ${targetSeatNumber}.`);
+  };
+
+  // Assign multiple students to a room
+  const handleAssignStudentsToRoom = (studentIds: string[], roomId: string) => {
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) return;
+
+    setStudents((prev) => {
+      const existingInRoom = prev.filter((s) => s.roomId === roomId && !studentIds.includes(s.id));
+      const occupiedSeats = new Set(existingInRoom.map((s) => s.seatNumber).filter(Boolean) as number[]);
+
+      let currentSeat = 1;
+      const getNextFreeSeat = () => {
+        while (occupiedSeats.has(currentSeat)) {
+          currentSeat++;
+        }
+        occupiedSeats.add(currentSeat);
+        return currentSeat;
+      };
+
+      const idsSet = new Set(studentIds);
+      const updated = prev.map((s) => {
+        if (idsSet.has(s.id)) {
+          return {
+            ...s,
+            roomId: room.id,
+            roomName: room.name,
+            seatNumber: getNextFreeSeat(),
+          };
+        }
+        return s;
+      });
+
+      syncStudentsToCloud(updated).catch(() => {});
+      return updated;
+    });
+
+    showToast(`Berhasil menambahkan ${studentIds.length} peserta ke ${room.name}.`);
+  };
+
+  // Unassign students from room
+  const handleUnassignStudentsFromRoom = (studentIds: string[]) => {
+    const idsSet = new Set(studentIds);
+    setStudents((prev) => {
+      const updated = prev.map((s) => {
+        if (idsSet.has(s.id)) {
+          return {
+            ...s,
+            roomId: undefined,
+            roomName: undefined,
+            seatNumber: undefined,
+          };
+        }
+        return s;
+      });
+      syncStudentsToCloud(updated).catch(() => {});
+      return updated;
+    });
+    showToast(`Berhasil mengeluarkan ${studentIds.length} peserta dari ruangan.`);
+  };
+
+  // Transfer a student from one room to another
+  const handleTransferStudentRoom = (studentId: string, targetRoomId: string) => {
+    const targetRoom = rooms.find((r) => r.id === targetRoomId);
+    if (!targetRoom) return;
+
+    setStudents((prev) => {
+      const existingInTarget = prev.filter((s) => s.roomId === targetRoomId && s.id !== studentId);
+      const occupiedSeats = new Set(existingInTarget.map((s) => s.seatNumber).filter(Boolean) as number[]);
+      let freeSeat = 1;
+      while (occupiedSeats.has(freeSeat)) {
+        freeSeat++;
+      }
+
+      const updated = prev.map((s) => {
+        if (s.id === studentId) {
+          return {
+            ...s,
+            roomId: targetRoom.id,
+            roomName: targetRoom.name,
+            seatNumber: freeSeat,
+          };
+        }
+        return s;
+      });
+
+      syncStudentsToCloud(updated).catch(() => {});
+      return updated;
+    });
+    showToast(`Peserta berhasil dipindahkan ke ${targetRoom.name}.`);
+  };
+
+  // Swap two students' rooms
+  const handleSwapStudentsRooms = (studentId1: string, studentId2: string) => {
+    setStudents((prev) => {
+      const s1 = prev.find((s) => s.id === studentId1);
+      const s2 = prev.find((s) => s.id === studentId2);
+      if (!s1 || !s2) return prev;
+
+      const updated = prev.map((s) => {
+        if (s.id === studentId1) {
+          return {
+            ...s,
+            roomId: s2.roomId,
+            roomName: s2.roomName,
+            seatNumber: s2.seatNumber,
+          };
+        }
+        if (s.id === studentId2) {
+          return {
+            ...s,
+            roomId: s1.roomId,
+            roomName: s1.roomName,
+            seatNumber: s1.seatNumber,
+          };
+        }
+        return s;
+      });
+
+      syncStudentsToCloud(updated).catch(() => {});
+      return updated;
+    });
+    showToast('Ruangan dan posisi tempat duduk kedua siswa berhasil ditukar.');
+  };
+
   // Reset to initial full realistic dataset
   const handleResetData = () => {
     if (window.confirm('Apakah Anda yakin ingin memulihkan data MTs Manbaul Islam (463 siswa, 24 ruang)?')) {
@@ -890,6 +1035,10 @@ export default function App() {
             onSetRoomsPreset={handleSetRoomsPreset}
             setActiveTab={setActiveTab}
             onSelectRoomForSeating={setSelectedRoomForSeating}
+            onAssignStudentsToRoom={handleAssignStudentsToRoom}
+            onUnassignStudentsFromRoom={handleUnassignStudentsFromRoom}
+            onTransferStudentRoom={handleTransferStudentRoom}
+            onSwapStudentsRooms={handleSwapStudentsRooms}
           />
         )}
 
@@ -939,6 +1088,7 @@ export default function App() {
             selectedRoomId={selectedRoomForSeating || rooms[0]?.id || ''}
             onSelectRoom={setSelectedRoomForSeating}
             onSwapSeats={handleSwapSeats}
+            onMoveSeat={handleMoveSeat}
             onDistributeCrossLevel={handleDistributeCrossLevel}
             onNavigateTab={setActiveTab}
           />
