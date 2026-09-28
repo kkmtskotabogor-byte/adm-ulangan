@@ -1,7 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveTab, AuthUser, BackupData, ExamConfig, ExamDispensation, ExamRoom, ExamScheduleItem, Proctor, Student } from './types';
+import { 
+  ActiveTab, 
+  AuthUser, 
+  BackupData, 
+  ExamConfig, 
+  ExamDispensation, 
+  ExamGradeItem, 
+  ExamRoom, 
+  ExamScheduleItem, 
+  Proctor, 
+  Student, 
+  SubjectGradingConfig 
+} from './types';
 import { initialConfig, initialDispensations, initialProctors, initialRooms, initialSchedule, initialStudents } from './data/initialData';
 import { distributeCrossClass, distributeSequential, generateExamNumbers, distributeCrossLevelDoubleDesk } from './utils/distribution';
+import { generateSampleGrades } from './utils/gradeUtils';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
 import { ConfigView } from './components/ConfigView';
@@ -12,6 +25,7 @@ import { SeatingChartView } from './components/SeatingChartView';
 import { ExamCardsView } from './components/ExamCardsView';
 import { ExamDocumentsView } from './components/ExamDocumentsView';
 import { DispensationManagementView } from './components/DispensationManagementView';
+import { GradesManagementView } from './components/GradesManagementView';
 import { ScheduleManagementView } from './components/ScheduleManagementView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginPortal } from './components/LoginPortal';
@@ -48,6 +62,8 @@ const STORAGE_KEYS = {
   PROCTORS: 'sim_ujian_proctors_mts_v2',
   SCHEDULES: 'sim_ujian_schedules_mts_v3',
   DISPENSATIONS: 'sim_ujian_dispensations_v1',
+  GRADES: 'sim_ujian_grades_v1',
+  GRADING_CONFIGS: 'sim_ujian_grading_configs_v1',
   AUTH_USER: 'sim_ujian_auth_user_v2',
 };
 
@@ -121,11 +137,34 @@ export default function App() {
     return initialDispensations;
   });
 
+  const [grades, setGrades] = useState<ExamGradeItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.GRADES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Error loading grades from storage:', e);
+    }
+    return generateSampleGrades(initialStudents, ['Matematika', 'Bahasa Indonesia', 'IPA', 'Al-Qur\'an Hadis', 'Bahasa Inggris']);
+  });
+
+  const [gradingConfigs, setGradingConfigs] = useState<Record<string, SubjectGradingConfig>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.GRADING_CONFIGS);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading grading configs:', e);
+    }
+    return {};
+  });
+
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const tab = params.get('tab') as ActiveTab;
-      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents', 'dispensation', 'backup'].includes(tab)) {
+      if (tab && ['dashboard', 'config', 'students', 'rooms', 'proctors', 'schedules', 'seating', 'cards', 'documents', 'grades', 'dispensation', 'backup'].includes(tab)) {
         return tab;
       }
     }
@@ -780,12 +819,17 @@ export default function App() {
       setStudents(updatedStudents);
       setSchedules(initialSchedule);
       setDispensations(initialDispensations);
+      const sampleGrades = generateSampleGrades(initialStudents, ['Matematika', 'Bahasa Indonesia', 'IPA', 'Al-Qur\'an Hadis', 'Bahasa Inggris']);
+      setGrades(sampleGrades);
+      setGradingConfigs({});
       localStorage.removeItem(STORAGE_KEYS.CONFIG);
       localStorage.removeItem(STORAGE_KEYS.STUDENTS);
       localStorage.removeItem(STORAGE_KEYS.ROOMS);
       localStorage.removeItem(STORAGE_KEYS.PROCTORS);
       localStorage.removeItem(STORAGE_KEYS.SCHEDULES);
       localStorage.removeItem(STORAGE_KEYS.DISPENSATIONS);
+      localStorage.removeItem(STORAGE_KEYS.GRADES);
+      localStorage.removeItem(STORAGE_KEYS.GRADING_CONFIGS);
 
       // Force push to cloud
       saveExamConfigToCloud(initialConfig).catch(() => {});
@@ -796,6 +840,28 @@ export default function App() {
 
       showToast('Data aplikasi berhasil dikembalikan ke data awal lengkap dan disinkronkan ke cloud.');
     }
+  };
+
+  // Grades Handlers
+  const handleUpdateGrades = (updatedGrades: ExamGradeItem[]) => {
+    setGrades(updatedGrades);
+    try {
+      localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(updatedGrades));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleUpdateGradingConfig = (subject: string, conf: SubjectGradingConfig) => {
+    setGradingConfigs((prev) => {
+      const next = { ...prev, [subject]: conf };
+      try {
+        localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
   };
 
   // Dispensation Handlers
@@ -846,6 +912,18 @@ export default function App() {
       if (backupData.dispensations && Array.isArray(backupData.dispensations)) {
         setDispensations(backupData.dispensations);
         localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(backupData.dispensations));
+      }
+      if (backupData.grades && Array.isArray(backupData.grades)) {
+        setGrades(backupData.grades);
+        localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(backupData.grades));
+      }
+      if (backupData.gradingConfigs && Array.isArray(backupData.gradingConfigs)) {
+        const confMap: Record<string, SubjectGradingConfig> = {};
+        backupData.gradingConfigs.forEach((c) => {
+          if (c.subject) confMap[c.subject] = c;
+        });
+        setGradingConfigs(confMap);
+        localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
       }
       showToast('Seluruh data berhasil dipulihkan dan disinkronkan ke Cloud!');
     } catch (err) {
@@ -908,6 +986,9 @@ export default function App() {
 
       setDispensations([]);
       localStorage.removeItem(STORAGE_KEYS.DISPENSATIONS);
+
+      setGrades([]);
+      localStorage.removeItem(STORAGE_KEYS.GRADES);
 
       showToast('Data peserta & jadwal telah dikosongkan untuk persiapan ujian semester baru.');
     } catch (err) {
@@ -1119,6 +1200,21 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'grades' && (
+          <GradesManagementView
+            config={config}
+            students={students}
+            rooms={rooms}
+            schedules={schedules}
+            grades={grades}
+            gradingConfigs={gradingConfigs}
+            onUpdateGrades={handleUpdateGrades}
+            onUpdateGradingConfig={handleUpdateGradingConfig}
+            showToast={showToast}
+            setActiveTab={setActiveTab}
+          />
+        )}
+
         {activeTab === 'dispensation' && (
           <DispensationManagementView
             config={config}
@@ -1141,6 +1237,8 @@ export default function App() {
             schedules={schedules}
             attendanceRecords={attendanceRecords}
             dispensations={dispensations}
+            grades={grades}
+            gradingConfigs={gradingConfigs}
             authUser={authUser}
             isCloudConnected={isCloudConnected}
             onRestoreFull={handleRestoreFull}

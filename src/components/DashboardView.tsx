@@ -14,7 +14,8 @@ import {
   FileCheck2,
   UserCheck,
   Database,
-  FileSignature
+  FileSignature,
+  Award
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -95,6 +96,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <FileCheck2 className="w-4 h-4" />
               <span>Dokumen Ujian</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('grades')}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-semibold rounded-lg border border-indigo-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <Award className="w-4 h-4 text-indigo-600" />
+              <span>Daftar Nilai</span>
             </button>
             <button
               onClick={() => setActiveTab('dispensation')}
@@ -398,6 +406,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div>
                 <div className="font-semibold text-slate-800">Cetak Dokumen Administrasi</div>
                 <p className="text-slate-500 text-[11px]">Daftar hadir (presensi), stiker meja, berita acara &amp; tempelan pintu.</p>
+              </div>
+            </li>
+
+            <li className="flex gap-3 items-start">
+              <span className="flex-none w-5 h-5 rounded bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[11px] border border-slate-200">
+                8
+              </span>
+              <div>
+                <div className="font-semibold text-slate-800 flex items-center justify-between">
+                  <span>Daftar Nilai &amp; Rekap Hasil</span>
+                  <button 
+                    onClick={() => setActiveTab('grades')}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+                  >
+                    Buka Nilai &rarr;
+                  </button>
+                </div>
+                <p className="text-slate-500 text-[11px]">Input nilai PG/Esai, unduh template Excel, hitung KKM &amp; cetak lembar nilai resmi.</p>
               </div>
             </li>
           </ol>

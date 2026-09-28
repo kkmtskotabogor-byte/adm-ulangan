@@ -87,6 +87,7 @@ export type ActiveTab =
   | 'cards'
   | 'documents'
   | 'dispensation'
+  | 'grades'
   | 'backup';
 
 export type DispensationReasonCategory = 
@@ -122,6 +123,44 @@ export interface ExamDispensation {
   allowedSubjects?: string[]; // Daftar mapel yang diizinkan, kosong = semua mapel
 }
 
+export interface ExamGradeItem {
+  id: string; // `${studentId}_${subject}`
+  studentId: string;
+  studentName: string;
+  nisn: string;
+  nis?: string;
+  className: string;
+  examNumber: string;
+  roomId?: string;
+  roomName?: string;
+  seatNumber?: number;
+  subject: string;
+  // Perhitungan Benar & Salah
+  correctPg?: number | null; // Jumlah Benar PG (misal 35 dari 40)
+  wrongPg?: number | null; // Jumlah Salah PG (misal 5 dari 40)
+  correctEssay?: number | null; // Skor Perolehan / Benar Esai (misal 4.5 dari 5 atau skor esai)
+  scorePg?: number | null; // Nilai Konversi Pilihan Ganda (0-100)
+  scoreEssay?: number | null; // Nilai Konversi Esai / Uraian (0-100)
+  scoreFinal: number; // Nilai Akhir Ujian (0-100, jika benar semua = 100)
+  remedialScore?: number | null; // Nilai Remedial jika ada
+  passed?: boolean; // Tuntas / Belum Tuntas
+  notes?: string; // Catatan Guru / Evaluasi
+  updatedAt?: string;
+}
+
+export interface SubjectGradingConfig {
+  subject: string;
+  kkm: number; // default 75
+  totalPgQuestions: number; // Jumlah butir soal PG (misal 40 atau 30)
+  totalEssayQuestions: number; // Jumlah butir soal Esai (misal 5)
+  maxEssayScore?: number; // Skor maksimal esai (default = totalEssayQuestions atau misal 20)
+  weightPg: number; // Bobot Pilihan Ganda (%) default 70%
+  weightEssay: number; // Bobot Esai (%) default 30%
+  teacherName?: string; // Guru Mata Pelajaran / Korektor
+  teacherNip?: string;
+  scoringMode?: 'item_count' | 'combined' | 'direct'; // item_count = Berdasarkan Benar & Salah (default), combined = Nilai PG & Esai, direct = Nilai langsung
+}
+
 export interface BackupData {
   version: string;
   appId: string;
@@ -137,6 +176,7 @@ export interface BackupData {
     totalSchedules: number;
     totalAttendanceRecords?: number;
     totalDispensations?: number;
+    totalGrades?: number;
   };
   data: {
     config: ExamConfig;
@@ -146,6 +186,8 @@ export interface BackupData {
     schedules: ExamScheduleItem[];
     attendanceRecords?: ProctorAttendanceRecord[];
     dispensations?: ExamDispensation[];
+    grades?: ExamGradeItem[];
+    gradingConfigs?: SubjectGradingConfig[];
   };
 }
 

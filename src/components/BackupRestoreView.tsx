@@ -37,11 +37,13 @@ import {
   BackupSnapshot, 
   ExamConfig, 
   ExamDispensation,
+  ExamGradeItem,
   ExamRoom, 
   ExamScheduleItem, 
   Proctor, 
   ProctorAttendanceRecord, 
-  Student 
+  Student,
+  SubjectGradingConfig
 } from '../types';
 
 interface BackupRestoreViewProps {
@@ -52,6 +54,8 @@ interface BackupRestoreViewProps {
   schedules: ExamScheduleItem[];
   attendanceRecords: ProctorAttendanceRecord[];
   dispensations?: ExamDispensation[];
+  grades?: ExamGradeItem[];
+  gradingConfigs?: Record<string, SubjectGradingConfig>;
   authUser?: AuthUser | null;
   isCloudConnected: boolean;
   onRestoreFull: (data: BackupData['data']) => Promise<void>;
@@ -72,6 +76,8 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
   schedules,
   attendanceRecords,
   dispensations = [],
+  grades = [],
+  gradingConfigs = {},
   authUser,
   isCloudConnected,
   onRestoreFull,
@@ -157,6 +163,7 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
         totalSchedules: schedules.length,
         totalAttendanceRecords: attendanceRecords.length,
         totalDispensations: (dispensations || []).length,
+        totalGrades: (grades || []).length,
       },
       data: {
         config,
@@ -166,6 +173,8 @@ export const BackupRestoreView: React.FC<BackupRestoreViewProps> = ({
         schedules,
         attendanceRecords,
         dispensations: dispensations || [],
+        grades: grades || [],
+        gradingConfigs: Object.values(gradingConfigs || {}),
       },
     };
   };
