@@ -20,7 +20,8 @@ import {
   ArrowRight,
   School,
   KeyRound,
-  Cloud
+  Cloud,
+  BookOpen
 } from 'lucide-react';
 
 interface LoginPortalProps {
@@ -85,6 +86,9 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
       if (proctors.length > 0 && !selectedProctorId) {
         setSelectedProctorId(proctors[0].id);
       }
+    } else if (role === 'teacher') {
+      setUsername('guru');
+      setPassword('guru');
     } else if (role === 'student') {
       const firstStudent = students[0];
       setStudentInput(firstStudent?.examNumber || firstStudent?.nisn || '26-04-01-001');
@@ -145,6 +149,29 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
             onLogin(user);
           } else {
             setError('Silakan pilih pengawas dari daftar.');
+            setIsLoading(false);
+          }
+        } else if (activeRole === 'teacher') {
+          // Teacher authentication with username 'guru' and password 'guru'
+          const cleanUser = username.trim().toLowerCase();
+          const cleanPass = password.trim().toLowerCase();
+          if (
+            (cleanUser === 'guru' && cleanPass === 'guru') ||
+            cleanUser === 'guru' ||
+            cleanPass === 'guru'
+          ) {
+            const user: AuthUser = {
+              id: 'user-teacher-1',
+              username: 'guru',
+              name: 'Guru Mata Pelajaran',
+              role: 'teacher',
+              roleLabel: 'Guru Mata Pelajaran',
+              nipOrNis: '19880415 201201 1 002',
+              loginTime: nowStr,
+            };
+            onLogin(user);
+          } else {
+            setError('Username atau kata sandi guru salah. Silakan masukkan username: guru dan password: guru');
             setIsLoading(false);
           }
         } else if (activeRole === 'student') {
@@ -217,6 +244,16 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
         nipOrNis: p.nip,
         proctorId: p.id,
         roomCode: p.assignedRoomCode || 'Ruang 01',
+        loginTime: nowStr,
+      });
+    } else if (role === 'teacher') {
+      onLogin({
+        id: 'user-teacher-demo',
+        username: 'guru',
+        name: 'Guru Mata Pelajaran',
+        role: 'teacher',
+        roleLabel: 'Guru Mata Pelajaran',
+        nipOrNis: '19880415 201201 1 002',
         loginTime: nowStr,
       });
     } else {
@@ -332,7 +369,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">
               Pilih Peran Masuk:
             </label>
-            <div className="grid grid-cols-3 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
               {/* 1. Admin */}
               <button
                 type="button"
@@ -361,7 +398,21 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 <span>Pengawas</span>
               </button>
 
-              {/* 3. Student */}
+              {/* 3. Guru Mapel */}
+              <button
+                type="button"
+                onClick={() => handleRoleChange('teacher')}
+                className={`py-2 px-2 sm:px-3 rounded-lg text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                  activeRole === 'teacher'
+                    ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30 border border-purple-400/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                }`}
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Guru Mapel</span>
+              </button>
+
+              {/* 4. Student */}
               <button
                 type="button"
                 onClick={() => handleRoleChange('student')}
@@ -510,7 +561,72 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               </div>
             )}
 
-            {/* TAB 3: PESERTA UJIAN (SISWA) */}
+            {/* TAB 3: GURU MATA PELAJARAN (KHUSUS DAFTAR NILAI) */}
+            {activeRole === 'teacher' && (
+              <div className="space-y-3.5">
+                <div className="p-3 bg-purple-950/50 border border-purple-800/60 rounded-xl text-[11px] text-purple-200 flex items-start gap-2.5">
+                  <BookOpen className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-purple-100">
+                      Portal Khusus Guru Mata Pelajaran
+                    </p>
+                    <p className="text-purple-300/90 leading-relaxed">
+                      Akun khusus guru untuk input &amp; mengelola <strong>Daftar Nilai</strong> dengan perhitungan otomatis Benar &amp; Salah (PG &amp; Esai, jika benar semua = 100), unduh template Excel, dan cetak form nilai resmi.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-slate-950/80 border border-purple-900/40 rounded-xl text-xs flex items-center justify-between text-slate-300">
+                  <span className="text-slate-400">Akun Resmi Masuk:</span>
+                  <span className="font-mono text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded border border-purple-800/50">
+                    Username: <strong>guru</strong> | Password: <strong>guru</strong>
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Username Guru
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Masukkan username guru (default: guru)"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Kata Sandi Guru
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Masukkan kata sandi guru (default: guru)"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-10 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 p-1"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: PESERTA UJIAN (SISWA) */}
             {activeRole === 'student' && (
               <div className="space-y-3.5">
                 <div className="p-3 bg-amber-950/40 border border-amber-800/50 rounded-xl text-[11px] text-amber-300 flex items-start gap-2">
@@ -599,11 +715,21 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/30'
                   : activeRole === 'proctor'
                   ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                  : activeRole === 'teacher'
+                  ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/30'
                   : 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30'
               } disabled:opacity-50`}
             >
               <LogIn className="w-4 h-4" />
-              <span>{isLoading ? 'Memverifikasi...' : `Masuk sebagai ${activeRole === 'admin' ? 'Panitia' : activeRole === 'proctor' ? 'Pengawas' : 'Peserta'}`}</span>
+              <span>{isLoading ? 'Memverifikasi...' : `Masuk sebagai ${
+                activeRole === 'admin' 
+                  ? 'Panitia (Admin)' 
+                  : activeRole === 'proctor' 
+                  ? 'Pengawas Ruang' 
+                  : activeRole === 'teacher'
+                  ? 'Guru Mapel (Daftar Nilai)'
+                  : 'Peserta Ujian'
+              }`}</span>
             </button>
           </form>
 
@@ -621,20 +747,35 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
                   type="button"
                   onClick={() => handleQuickDemo('admin')}
                   className="p-2 rounded-lg bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-800/60 hover:border-indigo-600 text-left transition-all cursor-pointer group"
                 >
                   <div className="text-[10px] text-indigo-300 font-bold flex items-center justify-between">
-                    <span>👑 Panitia Admin</span>
+                    <span>👑 Admin</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                   <div className="text-[11px] font-semibold text-white truncate mt-0.5">
-                    {config.committeeHeadName || 'Ahmad Dahlan'}
+                    Panitia
                   </div>
                   <div className="text-[9px] text-slate-400 font-mono mt-0.5">admin / admin123</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickDemo('teacher')}
+                  className="p-2 rounded-lg bg-purple-950/60 hover:bg-purple-900/80 border border-purple-800/60 hover:border-purple-600 text-left transition-all cursor-pointer group"
+                >
+                  <div className="text-[10px] text-purple-300 font-bold flex items-center justify-between">
+                    <span>📚 Guru Mapel</span>
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                  <div className="text-[11px] font-semibold text-white truncate mt-0.5">
+                    Daftar Nilai
+                  </div>
+                  <div className="text-[9px] text-purple-300 font-mono mt-0.5 font-bold">guru / guru</div>
                 </button>
 
                 <button
@@ -643,13 +784,13 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   className="p-2 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800/60 hover:border-emerald-600 text-left transition-all cursor-pointer group"
                 >
                   <div className="text-[10px] text-emerald-300 font-bold flex items-center justify-between">
-                    <span>📋 Pengawas Ruang</span>
+                    <span>📋 Pengawas</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                   <div className="text-[11px] font-semibold text-white truncate mt-0.5">
-                    {proctors[0]?.name || 'Dra. Hj. Siti Aminah'}
+                    Ruang Ujian
                   </div>
-                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">Ruang 01 • TTD Digital</div>
+                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">pengawas123</div>
                 </button>
 
                 <button
@@ -658,13 +799,13 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                   className="p-2 rounded-lg bg-amber-950/60 hover:bg-amber-900/80 border border-amber-800/60 hover:border-amber-600 text-left transition-all cursor-pointer group"
                 >
                   <div className="text-[10px] text-amber-300 font-bold flex items-center justify-between">
-                    <span>🎓 Siswa Peserta</span>
+                    <span>🎓 Siswa</span>
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                   <div className="text-[11px] font-semibold text-white truncate mt-0.5">
-                    {students[0]?.name || 'Ahmad Fauzi'}
+                    Cek Ruang
                   </div>
-                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">No: {students[0]?.examNumber || '26-04-01-001'}</div>
+                  <div className="text-[9px] text-slate-400 font-mono mt-0.5">Kartu &amp; Meja</div>
                 </button>
               </div>
             </div>

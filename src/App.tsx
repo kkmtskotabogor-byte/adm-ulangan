@@ -362,6 +362,13 @@ export default function App() {
     }
   }, []);
 
+  // Enforce role-based tab restriction: Teacher only has access to 'grades'
+  useEffect(() => {
+    if (authUser?.role === 'teacher' && activeTab !== 'grades') {
+      setActiveTab('grades');
+    }
+  }, [authUser, activeTab]);
+
   const showToast = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 4000);
@@ -1000,6 +1007,10 @@ export default function App() {
   };
 
   const handleQuickPrint = () => {
+    if (authUser?.role === 'teacher') {
+      window.print();
+      return;
+    }
     setActiveTab('cards');
     setTimeout(() => {
       window.print();
@@ -1014,6 +1025,8 @@ export default function App() {
       setActiveTab('proctors');
     } else if (user.role === 'student') {
       setActiveTab('cards');
+    } else if (user.role === 'teacher') {
+      setActiveTab('grades');
     }
   };
 
@@ -1070,137 +1083,8 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'dashboard' && (
-          <DashboardView
-            config={config}
-            students={students}
-            rooms={rooms}
-            schedules={schedules}
-            setActiveTab={setActiveTab}
-            onDistributeCross={handleDistributeCross}
-            onDistributeSequential={handleDistributeSequential}
-          />
-        )}
-
-        {activeTab === 'config' && (
-          <ConfigView
-            config={config}
-            onSaveConfig={handleSaveConfig}
-          />
-        )}
-
-        {activeTab === 'students' && (
-          <StudentsView
-            students={students}
-            onAddStudent={handleAddStudent}
-            onUpdateStudent={handleUpdateStudent}
-            onDeleteStudent={handleDeleteStudent}
-            onBulkDeleteStudents={handleBulkDeleteStudents}
-            onBulkImport={handleBulkImport}
-            onRegenerateNumbers={handleRegenerateNumbers}
-            onClearAll={handleClearAllStudents}
-          />
-        )}
-
-        {activeTab === 'rooms' && (
-          <RoomsView
-            rooms={rooms}
-            students={students}
-            onAddRoom={handleAddRoom}
-            onUpdateRoom={handleUpdateRoom}
-            onDeleteRoom={handleDeleteRoom}
-            onDistributeCross={handleDistributeCross}
-            onDistributeCrossLevel={handleDistributeCrossLevel}
-            onDistributeSequential={handleDistributeSequential}
-            onClearDistribution={handleClearDistribution}
-            onSetRoomsPreset={handleSetRoomsPreset}
-            setActiveTab={setActiveTab}
-            onSelectRoomForSeating={setSelectedRoomForSeating}
-            onAssignStudentsToRoom={handleAssignStudentsToRoom}
-            onUnassignStudentsFromRoom={handleUnassignStudentsFromRoom}
-            onTransferStudentRoom={handleTransferStudentRoom}
-            onSwapStudentsRooms={handleSwapStudentsRooms}
-          />
-        )}
-
-        {activeTab === 'proctors' && (
-          <ProctorsView
-            config={config}
-            proctors={proctors}
-            rooms={rooms}
-            schedules={schedules}
-            onAddProctor={handleAddProctor}
-            onUpdateProctor={handleUpdateProctor}
-            onDeleteProctor={handleDeleteProctor}
-            onBulkAddProctors={handleBulkAddProctors}
-            onResetProctors={handleResetProctors}
-            onSyncRoomsWithProctors={handleSyncRoomsWithProctors}
-          />
-        )}
-
-        {activeTab === 'schedules' && (
-          <ScheduleManagementView
-            config={config}
-            schedules={schedules}
-            students={students}
-            onUpdateSchedules={(updatedSchedules) => {
-              setSchedules(updatedSchedules);
-              if (updatedSchedules.length === 0) {
-                clearAllSchedulesFromCloud().catch((err) => {
-                  console.warn('Failed to clear schedules from cloud:', err);
-                });
-                showToast('Jadwal ujian berhasil dikosongkan.');
-              } else {
-                syncSchedulesToCloud(updatedSchedules).catch((err) => {
-                  console.warn('Failed to sync schedules to cloud:', err);
-                });
-                showToast(`Jadwal ujian berhasil diperbarui (${updatedSchedules.length} sesi)!`);
-              }
-            }}
-            setActiveTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'seating' && (
-          <SeatingChartView
-            config={config}
-            rooms={rooms}
-            students={students}
-            selectedRoomId={selectedRoomForSeating || rooms[0]?.id || ''}
-            onSelectRoom={setSelectedRoomForSeating}
-            onSwapSeats={handleSwapSeats}
-            onMoveSeat={handleMoveSeat}
-            onDistributeCrossLevel={handleDistributeCrossLevel}
-            onNavigateTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'cards' && (
-          <ExamCardsView
-            config={config}
-            students={students}
-            rooms={rooms}
-            schedules={schedules}
-            onUpdateSchedules={(updatedSchedules) => {
-              setSchedules(updatedSchedules);
-              syncSchedulesToCloud(updatedSchedules).catch(() => {});
-            }}
-            onUpdateConfig={handleSaveConfig}
-          />
-        )}
-
-        {activeTab === 'documents' && (
-          <ExamDocumentsView
-            config={config}
-            students={students}
-            rooms={rooms}
-            schedules={schedules}
-            dispensations={dispensations}
-            onNavigateTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'grades' && (
+        {/* Guru Mapel Role: Exclusively access Daftar Nilai */}
+        {authUser?.role === 'teacher' ? (
           <GradesManagementView
             config={config}
             students={students}
@@ -1212,42 +1096,191 @@ export default function App() {
             onUpdateGradingConfig={handleUpdateGradingConfig}
             showToast={showToast}
             setActiveTab={setActiveTab}
-          />
-        )}
-
-        {activeTab === 'dispensation' && (
-          <DispensationManagementView
-            config={config}
-            students={students}
-            rooms={rooms}
-            schedules={schedules}
-            dispensations={dispensations}
-            onAddDispensation={handleAddDispensation}
-            onUpdateDispensation={handleUpdateDispensation}
-            onDeleteDispensation={handleDeleteDispensation}
-          />
-        )}
-
-        {activeTab === 'backup' && (
-          <BackupRestoreView
-            config={config}
-            students={students}
-            rooms={rooms}
-            proctors={proctors}
-            schedules={schedules}
-            attendanceRecords={attendanceRecords}
-            dispensations={dispensations}
-            grades={grades}
-            gradingConfigs={gradingConfigs}
             authUser={authUser}
-            isCloudConnected={isCloudConnected}
-            onRestoreFull={handleRestoreFull}
-            onRestoreSelective={handleRestoreSelective}
-            onResetData={handleResetData}
-            onClearDataForNewExam={handleClearDataForNewExam}
-            showToast={showToast}
-            setActiveTab={setActiveTab}
           />
+        ) : (
+          <>
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                config={config}
+                students={students}
+                rooms={rooms}
+                schedules={schedules}
+                setActiveTab={setActiveTab}
+                onDistributeCross={handleDistributeCross}
+                onDistributeSequential={handleDistributeSequential}
+              />
+            )}
+
+            {activeTab === 'config' && (
+              <ConfigView
+                config={config}
+                onSaveConfig={handleSaveConfig}
+              />
+            )}
+
+            {activeTab === 'students' && (
+              <StudentsView
+                students={students}
+                onAddStudent={handleAddStudent}
+                onUpdateStudent={handleUpdateStudent}
+                onDeleteStudent={handleDeleteStudent}
+                onBulkDeleteStudents={handleBulkDeleteStudents}
+                onBulkImport={handleBulkImport}
+                onRegenerateNumbers={handleRegenerateNumbers}
+                onClearAll={handleClearAllStudents}
+              />
+            )}
+
+            {activeTab === 'rooms' && (
+              <RoomsView
+                rooms={rooms}
+                students={students}
+                onAddRoom={handleAddRoom}
+                onUpdateRoom={handleUpdateRoom}
+                onDeleteRoom={handleDeleteRoom}
+                onDistributeCross={handleDistributeCross}
+                onDistributeCrossLevel={handleDistributeCrossLevel}
+                onDistributeSequential={handleDistributeSequential}
+                onClearDistribution={handleClearDistribution}
+                onSetRoomsPreset={handleSetRoomsPreset}
+                setActiveTab={setActiveTab}
+                onSelectRoomForSeating={setSelectedRoomForSeating}
+                onAssignStudentsToRoom={handleAssignStudentsToRoom}
+                onUnassignStudentsFromRoom={handleUnassignStudentsFromRoom}
+                onTransferStudentRoom={handleTransferStudentRoom}
+                onSwapStudentsRooms={handleSwapStudentsRooms}
+              />
+            )}
+
+            {activeTab === 'proctors' && (
+              <ProctorsView
+                config={config}
+                proctors={proctors}
+                rooms={rooms}
+                schedules={schedules}
+                onAddProctor={handleAddProctor}
+                onUpdateProctor={handleUpdateProctor}
+                onDeleteProctor={handleDeleteProctor}
+                onBulkAddProctors={handleBulkAddProctors}
+                onResetProctors={handleResetProctors}
+                onSyncRoomsWithProctors={handleSyncRoomsWithProctors}
+              />
+            )}
+
+            {activeTab === 'schedules' && (
+              <ScheduleManagementView
+                config={config}
+                schedules={schedules}
+                students={students}
+                onUpdateSchedules={(updatedSchedules) => {
+                  setSchedules(updatedSchedules);
+                  if (updatedSchedules.length === 0) {
+                    clearAllSchedulesFromCloud().catch((err) => {
+                      console.warn('Failed to clear schedules from cloud:', err);
+                    });
+                    showToast('Jadwal ujian berhasil dikosongkan.');
+                  } else {
+                    syncSchedulesToCloud(updatedSchedules).catch((err) => {
+                      console.warn('Failed to sync schedules to cloud:', err);
+                    });
+                    showToast(`Jadwal ujian berhasil diperbarui (${updatedSchedules.length} sesi)!`);
+                  }
+                }}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'seating' && (
+              <SeatingChartView
+                config={config}
+                rooms={rooms}
+                students={students}
+                selectedRoomId={selectedRoomForSeating || rooms[0]?.id || ''}
+                onSelectRoom={setSelectedRoomForSeating}
+                onSwapSeats={handleSwapSeats}
+                onMoveSeat={handleMoveSeat}
+                onDistributeCrossLevel={handleDistributeCrossLevel}
+                onNavigateTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'cards' && (
+              <ExamCardsView
+                config={config}
+                students={students}
+                rooms={rooms}
+                schedules={schedules}
+                onUpdateSchedules={(updatedSchedules) => {
+                  setSchedules(updatedSchedules);
+                  syncSchedulesToCloud(updatedSchedules).catch(() => {});
+                }}
+                onUpdateConfig={handleSaveConfig}
+              />
+            )}
+
+            {activeTab === 'documents' && (
+              <ExamDocumentsView
+                config={config}
+                students={students}
+                rooms={rooms}
+                schedules={schedules}
+                dispensations={dispensations}
+                onNavigateTab={setActiveTab}
+              />
+            )}
+
+            {activeTab === 'grades' && (
+              <GradesManagementView
+                config={config}
+                students={students}
+                rooms={rooms}
+                schedules={schedules}
+                grades={grades}
+                gradingConfigs={gradingConfigs}
+                onUpdateGrades={handleUpdateGrades}
+                onUpdateGradingConfig={handleUpdateGradingConfig}
+                showToast={showToast}
+                setActiveTab={setActiveTab}
+                authUser={authUser}
+              />
+            )}
+
+            {activeTab === 'dispensation' && (
+              <DispensationManagementView
+                config={config}
+                students={students}
+                rooms={rooms}
+                schedules={schedules}
+                dispensations={dispensations}
+                onAddDispensation={handleAddDispensation}
+                onUpdateDispensation={handleUpdateDispensation}
+                onDeleteDispensation={handleDeleteDispensation}
+              />
+            )}
+
+            {activeTab === 'backup' && (
+              <BackupRestoreView
+                config={config}
+                students={students}
+                rooms={rooms}
+                proctors={proctors}
+                schedules={schedules}
+                attendanceRecords={attendanceRecords}
+                dispensations={dispensations}
+                grades={grades}
+                gradingConfigs={gradingConfigs}
+                authUser={authUser}
+                isCloudConnected={isCloudConnected}
+                onRestoreFull={handleRestoreFull}
+                onRestoreSelective={handleRestoreSelective}
+                onResetData={handleResetData}
+                onClearDataForNewExam={handleClearDataForNewExam}
+                showToast={showToast}
+                setActiveTab={setActiveTab}
+              />
+            )}
+          </>
         )}
       </main>
 

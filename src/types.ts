@@ -235,7 +235,7 @@ export interface ProctorAttendanceRecord {
   timestamp: number;
 }
 
-export type UserRole = 'admin' | 'proctor' | 'student';
+export type UserRole = 'admin' | 'proctor' | 'student' | 'teacher';
 
 export interface AuthUser {
   id: string;
@@ -249,6 +249,7 @@ export interface AuthUser {
   roomCode?: string;
   className?: string;
   examNumber?: string;
+  subject?: string;
   avatar?: string;
   loginTime: string;
 }

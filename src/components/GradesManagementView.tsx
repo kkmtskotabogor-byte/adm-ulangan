@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { 
   ActiveTab, 
+  AuthUser,
   ExamConfig, 
   ExamGradeItem, 
   ExamRoom, 
@@ -66,6 +67,7 @@ interface GradesManagementViewProps {
   onUpdateGradingConfig: (subject: string, config: SubjectGradingConfig) => void;
   showToast: (msg: string) => void;
   setActiveTab?: (tab: ActiveTab) => void;
+  authUser?: AuthUser;
 }
 
 export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
@@ -79,6 +81,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   onUpdateGradingConfig,
   showToast,
   setActiveTab,
+  authUser,
 }) => {
   // 1. Available subjects: gather from schedules + standards
   const availableSubjects = useMemo(() => {
@@ -614,6 +617,29 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Dedicated Teacher Role Welcome Banner */}
+        {authUser?.role === 'teacher' && (
+          <div className="mt-4 p-3 bg-purple-50/80 border border-purple-200/80 rounded-xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                <BookOpen className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="font-bold text-purple-950">
+                  Ruang Kerja Guru Mata Pelajaran — Akses Penginputan &amp; Pengelolaan Nilai Ujian
+                </p>
+                <p className="text-[11px] text-purple-700">
+                  Silakan pilih mata pelajaran Anda, atur butir soal (PG &amp; Esai), isi jumlah jawaban benar/salah, dan cetak form nilai resmi.
+                </p>
+              </div>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-purple-200 rounded-lg text-[11px] font-semibold text-purple-800 shrink-0 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Login: <strong>{authUser.username}</strong> ({authUser.roleLabel})</span>
+            </div>
+          </div>
+        )}
 
         {/* Mata Pelajaran Selector Horizontal Strip */}
         <div className="mt-5 pt-4 border-t border-slate-100">

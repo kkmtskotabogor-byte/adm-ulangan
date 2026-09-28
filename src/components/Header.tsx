@@ -20,7 +20,8 @@ import {
   Calendar,
   Database,
   FileSignature,
-  Award
+  Award,
+  BookOpen
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -55,20 +56,26 @@ export const Header: React.FC<HeaderProps> = ({
     US: 'bg-rose-50 text-rose-700 border-rose-200',
   };
 
-  const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'config', label: 'Identitas & Ujian', icon: <Settings className="w-4 h-4" /> },
-    { id: 'students', label: 'Data Peserta', icon: <Users className="w-4 h-4" /> },
-    { id: 'schedules', label: 'Jadwal Ujian', icon: <Calendar className="w-4 h-4" /> },
-    { id: 'rooms', label: 'Ruang & Plotting', icon: <DoorOpen className="w-4 h-4" /> },
-    { id: 'proctors', label: 'Pengawas & Absen', icon: <UserCheck className="w-4 h-4" /> },
-    { id: 'seating', label: 'Denah Meja', icon: <Grid3X3 className="w-4 h-4" /> },
-    { id: 'cards', label: 'Cetak Kartu', icon: <IdCard className="w-4 h-4" /> },
-    { id: 'documents', label: 'Dokumen Ujian', icon: <FileText className="w-4 h-4" /> },
-    { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> },
-    { id: 'dispensation', label: 'Dispensasi', icon: <FileSignature className="w-4 h-4" /> },
-    { id: 'backup', label: 'Backup & Restore', icon: <Database className="w-4 h-4" /> },
-  ];
+  // Role-based NavItems: If role is teacher, ONLY show "Daftar Nilai"
+  const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = 
+    authUser?.role === 'teacher'
+      ? [
+          { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> }
+        ]
+      : [
+          { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+          { id: 'config', label: 'Identitas & Ujian', icon: <Settings className="w-4 h-4" /> },
+          { id: 'students', label: 'Data Peserta', icon: <Users className="w-4 h-4" /> },
+          { id: 'schedules', label: 'Jadwal Ujian', icon: <Calendar className="w-4 h-4" /> },
+          { id: 'rooms', label: 'Ruang & Plotting', icon: <DoorOpen className="w-4 h-4" /> },
+          { id: 'proctors', label: 'Pengawas & Absen', icon: <UserCheck className="w-4 h-4" /> },
+          { id: 'seating', label: 'Denah Meja', icon: <Grid3X3 className="w-4 h-4" /> },
+          { id: 'cards', label: 'Cetak Kartu', icon: <IdCard className="w-4 h-4" /> },
+          { id: 'documents', label: 'Dokumen Ujian', icon: <FileText className="w-4 h-4" /> },
+          { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> },
+          { id: 'dispensation', label: 'Dispensasi', icon: <FileSignature className="w-4 h-4" /> },
+          { id: 'backup', label: 'Backup & Restore', icon: <Database className="w-4 h-4" /> },
+        ];
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
@@ -128,12 +135,16 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'bg-indigo-600' 
                     : authUser.role === 'proctor' 
                     ? 'bg-emerald-600' 
+                    : authUser.role === 'teacher'
+                    ? 'bg-purple-600'
                     : 'bg-amber-600'
                 }`}>
                   {authUser.role === 'admin' ? (
                     <ShieldCheck className="w-4 h-4" />
                   ) : authUser.role === 'proctor' ? (
                     <UserCheck className="w-4 h-4" />
+                  ) : authUser.role === 'teacher' ? (
+                    <BookOpen className="w-4 h-4" />
                   ) : (
                     <GraduationCap className="w-4 h-4" />
                   )}
@@ -190,13 +201,15 @@ export const Header: React.FC<HeaderProps> = ({
                 </a>
               )}
 
-              <button
-                onClick={onResetData}
-                title="Kembalikan ke data contoh lengkap"
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
+              {authUser?.role !== 'teacher' && (
+                <button
+                  onClick={onResetData}
+                  title="Kembalikan ke data contoh lengkap"
+                  className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              )}
 
               <button
                 onClick={onQuickPrint}
