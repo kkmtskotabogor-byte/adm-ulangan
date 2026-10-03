@@ -235,6 +235,22 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   // Config settings drawer toggle
   const [showConfigDrawer, setShowConfigDrawer] = useState<boolean>(true);
 
+  // Mode input nilai: 'direct' (Nilai Langsung 0-100 Manual) vs 'breakdown' (Hitung Benar & Salah)
+  const [mobileInputMode, setMobileInputMode] = useState<'direct' | 'breakdown'>('direct');
+  const [expandedBreakdownStudents, setExpandedBreakdownStudents] = useState<Set<string>>(new Set());
+
+  const toggleStudentBreakdown = (studentId: string) => {
+    setExpandedBreakdownStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  };
+
   // Import Modal state
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -418,6 +434,58 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   ) => {
     const existing = currentSubjectGradeMap.get(student.id);
 
+    // If updating notes or remedialScore only, preserve existing score without resetting to 0
+    if (field === 'notes') {
+      const newGradeItem: ExamGradeItem = {
+        ...(existing || {
+          id: `${student.id}_${selectedSubject}`,
+          studentId: student.id,
+          studentName: student.name,
+          nisn: student.nisn || '',
+          nis: student.nis || '',
+          className: student.className,
+          examNumber: student.examNumber || '',
+          roomId: student.roomId || '',
+          roomName: student.roomName || '',
+          seatNumber: student.seatNumber,
+          subject: selectedSubject,
+          scoreFinal: 0,
+          passed: false,
+        }),
+        notes: value,
+        updatedAt: new Date().toISOString(),
+      };
+      const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+      onUpdateGrades([...otherGrades, newGradeItem]);
+      return;
+    }
+
+    if (field === 'remedialScore') {
+      const updatedRemedial = value === '' ? null : Math.min(100, Math.max(0, parseFloat(value) || 0));
+      const newGradeItem: ExamGradeItem = {
+        ...(existing || {
+          id: `${student.id}_${selectedSubject}`,
+          studentId: student.id,
+          studentName: student.name,
+          nisn: student.nisn || '',
+          nis: student.nis || '',
+          className: student.className,
+          examNumber: student.examNumber || '',
+          roomId: student.roomId || '',
+          roomName: student.roomName || '',
+          seatNumber: student.seatNumber,
+          subject: selectedSubject,
+          scoreFinal: 0,
+          passed: false,
+        }),
+        remedialScore: updatedRemedial,
+        updatedAt: new Date().toISOString(),
+      };
+      const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+      onUpdateGrades([...otherGrades, newGradeItem]);
+      return;
+    }
+
     let updatedCorrectPg = existing?.correctPg ?? 0;
     let updatedCorrectEssay = existing?.correctEssay ?? 0;
     let updatedRemedial = existing?.remedialScore ?? null;
@@ -432,10 +500,6 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     } else if (field === 'correctEssay') {
       const num = value === '' ? 0 : Math.min(maxEssay, Math.max(0, parseFloat(value) || 0));
       updatedCorrectEssay = num;
-    } else if (field === 'remedialScore') {
-      updatedRemedial = value === '' ? null : Math.min(100, Math.max(0, parseFloat(value) || 0));
-    } else if (field === 'notes') {
-      updatedNotes = value;
     }
 
     // Run exact calculation:
@@ -463,6 +527,53 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       remedialScore: updatedRemedial,
       passed: calc.passed,
       notes: updatedNotes || (calc.passed ? 'Tuntas' : 'Remedial'),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+    onUpdateGrades([...otherGrades, newGradeItem]);
+  };
+
+  // Handle Direct Final Score Input (Manual 0 - 100 tanpa perlu memasukkan benar atau salah)
+  const handleDirectScoreChange = (student: Student, value: string) => {
+    const existing = currentSubjectGradeMap.get(student.id);
+    const kkm = currentGradingConfig.kkm || DEFAULT_KKM;
+
+    if (value.trim() === '') {
+      // Jika dikosongkan, hapus data penilaian siswa pada mapel ini
+      const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+      onUpdateGrades(otherGrades);
+      return;
+    }
+
+    let num = parseFloat(value);
+    if (isNaN(num)) return;
+    num = Math.min(100, Math.max(0, Math.round(num * 10) / 10)); // Batasi 0 - 100
+
+    const isPassed = num >= kkm;
+
+    const newGradeItem: ExamGradeItem = {
+      id: `${student.id}_${selectedSubject}`,
+      studentId: student.id,
+      studentName: student.name,
+      nisn: student.nisn || '',
+      nis: student.nis || '',
+      className: student.className,
+      examNumber: student.examNumber || '',
+      roomId: student.roomId || '',
+      roomName: student.roomName || '',
+      seatNumber: student.seatNumber,
+      subject: selectedSubject,
+      // Pertahankan atau simpan null jika guru tidak menginput butir
+      correctPg: existing?.correctPg ?? null,
+      wrongPg: existing?.wrongPg ?? null,
+      correctEssay: existing?.correctEssay ?? null,
+      scorePg: existing?.scorePg ?? num,
+      scoreEssay: existing?.scoreEssay ?? (totalEssay > 0 ? num : null),
+      scoreFinal: num,
+      remedialScore: existing?.remedialScore ?? null,
+      passed: isPassed,
+      notes: existing?.notes || (isPassed ? 'Tuntas' : 'Remedial'),
       updatedAt: new Date().toISOString(),
     };
 
@@ -1257,15 +1368,55 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
           {/* Interactive Benar-Salah Table Container */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            {/* Mobile View Notification */}
-            <div className="md:hidden px-3.5 py-2 bg-purple-50/90 border-b border-purple-200/80 text-[11px] text-purple-900 flex items-center justify-between gap-2">
-              <span className="font-semibold flex items-center gap-1.5">
-                <span>📱</span>
-                <span>Tampilan Mobile: Isian nilai ditaruh tepat di bawah nama siswa tanpa perlu digeser ke kanan.</span>
-              </span>
-              <span className="text-[10px] bg-purple-200/70 text-purple-800 px-2 py-0.5 rounded font-mono shrink-0">
-                {filteredStudents.length} Siswa
-              </span>
+            {/* Mode Pengisian Nilai: Nilai Langsung (Manual) vs Butir Soal (Benar/Salah) */}
+            <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Calculator className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Metode Pengisian:</span>
+                </span>
+                <div className="inline-flex rounded-lg p-0.5 bg-slate-200/80 text-xs shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setMobileInputMode('direct')}
+                    className={`px-3 py-1 font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mobileInputMode === 'direct'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>🎯</span>
+                    <span>Nilai Langsung (Manual 0-100)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMobileInputMode('breakdown')}
+                    className={`px-3 py-1 font-semibold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mobileInputMode === 'breakdown'
+                        ? 'bg-white text-indigo-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>📝</span>
+                    <span>Butir Soal (Benar & Salah)</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                {mobileInputMode === 'direct' ? (
+                  <span className="text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60">
+                    💡 Guru dapat langsung mengetik Nilai (0-100) di kotak nilai siswa tanpa perlu menghitung butir soal.
+                  </span>
+                ) : (
+                  <span className="text-blue-700 font-medium bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60">
+                    💡 Nilai akhir otomatis dihitung dari jumlah Benar/Salah PG dan Esai.
+                  </span>
+                )}
+                <span className="text-[10px] bg-slate-200/70 text-slate-700 px-2 py-0.5 rounded font-mono shrink-0">
+                  {filteredStudents.length} Siswa
+                </span>
+              </div>
             </div>
 
             {/* Desktop Table View (>= md breakpoint): Wide spreadsheet view */}
@@ -1436,22 +1587,28 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                             {totalEssay > 0 ? currentScoreEssay : '-'}
                           </td>
 
-                          {/* 6. Nilai Akhir (100 jika benar semua!) */}
-                          <td className="py-2 px-2 text-center bg-indigo-50/50 border-l border-indigo-200">
+                          {/* 6. Nilai Akhir (Bisa diisi manual langsung 0-100 atau terhitung otomatis) */}
+                          <td className="py-1.5 px-2 text-center bg-indigo-50/50 border-l border-indigo-200">
                             <div className="flex items-center justify-center">
-                              <span
-                                className={`font-mono font-bold text-sm px-2.5 py-0.5 rounded ${
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                max={100}
+                                placeholder="-"
+                                value={typeof grade?.scoreFinal === 'number' ? grade.scoreFinal : ''}
+                                onChange={(e) => handleDirectScoreChange(student, e.target.value)}
+                                title="Ketik untuk mengisi Nilai Akhir manual langsung (0 - 100)"
+                                className={`w-16 px-1.5 py-1 text-center font-mono font-bold text-xs rounded border transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
                                   hasFinal
                                     ? finalScore === 100
-                                      ? 'text-indigo-800 bg-indigo-100 ring-1 ring-indigo-400'
+                                      ? 'text-indigo-900 bg-indigo-100 border-indigo-300 ring-1 ring-indigo-400'
                                       : isPassed
-                                      ? 'text-emerald-700 bg-emerald-50'
-                                      : 'text-rose-700 bg-rose-50'
-                                    : 'text-slate-300'
+                                      ? 'text-emerald-900 bg-emerald-100 border-emerald-300'
+                                      : 'text-rose-900 bg-rose-100 border-rose-300'
+                                    : 'text-slate-700 bg-white border-slate-300 hover:border-indigo-400 placeholder-slate-400'
                                 }`}
-                              >
-                                {hasFinal ? finalScore : '-'}
-                              </span>
+                              />
                             </div>
                           </td>
 
@@ -1576,30 +1733,44 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Skor Nilai Akhir & Status Badge (Kanan Atas) */}
+                        {/* Skor Nilai Akhir & Status Badge (Kanan Atas - Bisa diisi langsung) */}
                         <div className="text-right shrink-0">
                           <div className="flex items-center justify-end gap-1.5">
-                            <div
-                              className={`px-2.5 py-1 rounded-lg font-mono font-bold text-base leading-none shadow-2xs border ${
-                                hasFinal
-                                  ? finalScore === 100
-                                    ? 'bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-300'
-                                    : isPassed
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                    : 'bg-rose-50 text-rose-800 border-rose-300'
-                                  : 'bg-slate-100 text-slate-400 border-slate-200'
-                              }`}
-                              title="Nilai Akhir (100 jika benar semua)"
-                            >
-                              {hasFinal ? finalScore : '-'}
+                            <div className="relative">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                max={100}
+                                placeholder="-"
+                                value={typeof grade?.scoreFinal === 'number' ? grade.scoreFinal : ''}
+                                onChange={(e) => handleDirectScoreChange(student, e.target.value)}
+                                title="Ketik di sini untuk mengisi Nilai manual langsung (0 - 100)"
+                                className={`w-14 sm:w-16 h-8 text-center font-mono font-bold text-base rounded-lg border shadow-xs transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
+                                  hasFinal
+                                    ? finalScore === 100
+                                      ? 'bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-300'
+                                      : isPassed
+                                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                      : 'bg-rose-50 text-rose-800 border-rose-300'
+                                    : 'bg-white text-slate-800 border-slate-300 hover:border-indigo-400 placeholder-slate-400'
+                                }`}
+                              />
                             </div>
-                            {predicateInfo && (
-                              <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${predicateInfo.badgeClass}`}>
+                            {predicateInfo ? (
+                              <span
+                                className={`px-1.5 py-1 text-[10px] font-bold rounded border ${predicateInfo.badgeClass}`}
+                                title={predicateInfo.label}
+                              >
                                 {predicateInfo.predicate}
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-1 text-[10px] font-semibold text-slate-400 rounded border border-dashed border-slate-300">
+                                -
                               </span>
                             )}
                           </div>
-                          <div className="mt-1">
+                          <div className="mt-1 flex items-center justify-end">
                             {hasFinal ? (
                               isPassed ? (
                                 <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700">
@@ -1611,126 +1782,246 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                                 </span>
                               )
                             ) : (
-                              <span className="text-[10px] text-slate-400 italic">Belum Dinilai</span>
+                              <span className="text-[9px] text-slate-400 italic">Ketik nilai langsung</span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Baris 2: Isian Nilai Tepat di Bawah Nama Siswa (Tanpa Perlu Geser Kanan) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
-                        {/* 1. Blok Pilihan Ganda (PG) */}
-                        <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-blue-950 flex items-center gap-1">
-                              <span>Pilihan Ganda</span>
-                              <span className="text-[10px] font-normal text-blue-700">({weightPg}%)</span>
-                            </span>
-                            <span className="text-[11px] font-bold text-blue-800 font-mono bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
-                              Nilai PG: {currentScorePg}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-[10px] font-semibold text-blue-900 mb-1">
-                                Benar (Max {totalPg})
-                              </label>
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                min={0}
-                                max={totalPg}
-                                placeholder={`0-${totalPg}`}
-                                value={currentCorrectPg}
-                                onChange={(e) => handleCountChange(student, 'correctPg', e.target.value)}
-                                className="w-full px-2 py-1.5 text-center font-mono font-bold text-sm bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden shadow-2xs text-slate-900"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
-                                Salah PG
-                              </label>
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                min={0}
-                                max={totalPg}
-                                placeholder="0"
-                                value={currentWrongPg}
-                                onChange={(e) => handleCountChange(student, 'wrongPg', e.target.value)}
-                                className="w-full px-2 py-1.5 text-center font-mono text-sm bg-white/90 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-400 focus:outline-hidden text-slate-900"
-                              />
+                      {/* Baris 2: Isian Nilai Tepat di Bawah Nama Siswa */}
+                      {mobileInputMode === 'direct' && !expandedBreakdownStudents.has(student.id) ? (
+                        /* MODE 1: Input Nilai Langsung (Manual 0-100) */
+                        <div className="p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                              <span>Isian Nilai Manual:</span>
+                              <span className="text-[10px] font-normal text-slate-500">(0 - 100)</span>
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleDirectScoreChange(student, String(currentGradingConfig.kkm || DEFAULT_KKM))}
+                                className="px-2 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded transition-colors cursor-pointer"
+                                title={`Isi otomatis nilai KKM (${currentGradingConfig.kkm || DEFAULT_KKM})`}
+                              >
+                                Set KKM ({currentGradingConfig.kkm || DEFAULT_KKM})
+                              </button>
+                              {hasFinal && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDirectScoreChange(student, '')}
+                                  className="px-1.5 py-0.5 text-[10px] text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                                  title="Kosongkan Nilai"
+                                >
+                                  Hapus
+                                </button>
+                              )}
                             </div>
                           </div>
-                        </div>
 
-                        {/* 2. Blok Soal Esai */}
-                        <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-amber-950 flex items-center gap-1">
-                              <span>Soal Esai</span>
-                              <span className="text-[10px] font-normal text-amber-700">({weightEssay}%)</span>
-                            </span>
-                            <span className="text-[11px] font-bold text-amber-800 font-mono bg-white px-2 py-0.5 rounded border border-amber-200 shadow-2xs">
-                              Nilai Esai: {totalEssay > 0 ? currentScoreEssay : '-'}
-                            </span>
-                          </div>
-
-                          {totalEssay > 0 ? (
-                            <div>
-                              <label className="block text-[10px] font-semibold text-amber-900 mb-1">
-                                Skor Jawaban Benar (Max {maxEssay})
-                              </label>
+                          <div className="flex items-center gap-2">
+                            {/* Input Nilai Utama */}
+                            <div className="relative w-28 shrink-0">
                               <input
                                 type="number"
                                 inputMode="decimal"
-                                step="0.5"
                                 min={0}
-                                max={maxEssay}
-                                placeholder={`0-${maxEssay}`}
-                                value={currentCorrectEssay}
-                                onChange={(e) => handleCountChange(student, 'correctEssay', e.target.value)}
-                                className="w-full px-2 py-1.5 text-center font-mono font-bold text-sm bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-hidden shadow-2xs text-slate-900"
+                                max={100}
+                                placeholder="0 - 100"
+                                value={typeof grade?.scoreFinal === 'number' ? grade.scoreFinal : ''}
+                                onChange={(e) => handleDirectScoreChange(student, e.target.value)}
+                                className={`w-full px-2 py-1.5 text-center font-mono font-bold text-base rounded-lg border shadow-xs transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
+                                  hasFinal
+                                    ? finalScore === 100
+                                      ? 'bg-indigo-600 text-white border-indigo-700'
+                                      : isPassed
+                                      ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                                      : 'bg-rose-50 text-rose-900 border-rose-300'
+                                    : 'bg-white text-slate-900 border-indigo-200'
+                                }`}
                               />
                             </div>
-                          ) : (
-                            <div className="h-14 flex items-center justify-center text-[11px] text-slate-400 italic bg-white/60 rounded-lg border border-dashed border-amber-200">
-                              Mapel ini tanpa butir esai
+
+                            {/* Catatan / Keterangan */}
+                            <div className="flex-1 min-w-0">
+                              <input
+                                type="text"
+                                placeholder="Catatan / evaluasi (opsional)..."
+                                value={grade?.notes || ''}
+                                onChange={(e) => handleCountChange(student, 'notes', e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:border-indigo-500 focus:outline-hidden text-slate-900 placeholder-slate-400 shadow-2xs"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Baris Remedial & Link Butir Soal */}
+                          <div className="flex items-center justify-between gap-2 pt-0.5 text-[11px]">
+                            <div>
+                              {hasFinal && !isPassed ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] font-semibold text-rose-700">Nilai Remedial:</span>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    min={0}
+                                    max={100}
+                                    placeholder="0-100"
+                                    value={grade?.remedialScore ?? ''}
+                                    onChange={(e) => handleCountChange(student, 'remedialScore', e.target.value)}
+                                    className="w-16 px-1.5 py-0.5 text-center font-mono text-xs bg-white border border-rose-200 rounded focus:border-rose-500 focus:outline-hidden text-rose-900 font-bold"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-slate-500">
+                                  KKM: <strong>{currentGradingConfig.kkm || DEFAULT_KKM}</strong>
+                                  {hasFinal && (
+                                    <span className={isPassed ? ' text-emerald-600 font-semibold ml-1.5' : ' text-rose-600 font-semibold ml-1.5'}>
+                                      • {isPassed ? 'Tuntas' : 'Remedial'}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleStudentBreakdown(student.id)}
+                              className="text-[10px] text-indigo-600 hover:text-indigo-800 font-medium underline cursor-pointer"
+                            >
+                              Hitung Butir PG & Esai
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* MODE 2: Butir Soal PG & Esai (Benar & Salah) */
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                            {/* 1. Blok Pilihan Ganda (PG) */}
+                            <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-blue-950 flex items-center gap-1">
+                                  <span>Pilihan Ganda</span>
+                                  <span className="text-[10px] font-normal text-blue-700">({weightPg}%)</span>
+                                </span>
+                                <span className="text-[11px] font-bold text-blue-800 font-mono bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                                  Nilai PG: {currentScorePg}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-blue-900 mb-1">
+                                    Benar (Max {totalPg})
+                                  </label>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    min={0}
+                                    max={totalPg}
+                                    placeholder={`0-${totalPg}`}
+                                    value={currentCorrectPg}
+                                    onChange={(e) => handleCountChange(student, 'correctPg', e.target.value)}
+                                    className="w-full px-2 py-1.5 text-center font-mono font-bold text-sm bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden shadow-2xs text-slate-900"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                                    Salah PG
+                                  </label>
+                                  <input
+                                    type="number"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    min={0}
+                                    max={totalPg}
+                                    placeholder="0"
+                                    value={currentWrongPg}
+                                    onChange={(e) => handleCountChange(student, 'wrongPg', e.target.value)}
+                                    className="w-full px-2 py-1.5 text-center font-mono text-sm bg-white/90 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-400 focus:outline-hidden text-slate-900"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* 2. Blok Soal Esai */}
+                            <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-amber-950 flex items-center gap-1">
+                                  <span>Soal Esai</span>
+                                  <span className="text-[10px] font-normal text-amber-700">({weightEssay}%)</span>
+                                </span>
+                                <span className="text-[11px] font-bold text-amber-800 font-mono bg-white px-2 py-0.5 rounded border border-amber-200 shadow-2xs">
+                                  Nilai Esai: {totalEssay > 0 ? currentScoreEssay : '-'}
+                                </span>
+                              </div>
+
+                              {totalEssay > 0 ? (
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-amber-900 mb-1">
+                                    Skor Jawaban Benar (Max {maxEssay})
+                                  </label>
+                                  <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.5"
+                                    min={0}
+                                    max={maxEssay}
+                                    placeholder={`0-${maxEssay}`}
+                                    value={currentCorrectEssay}
+                                    onChange={(e) => handleCountChange(student, 'correctEssay', e.target.value)}
+                                    className="w-full px-2 py-1.5 text-center font-mono font-bold text-sm bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-hidden shadow-2xs text-slate-900"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="h-14 flex items-center justify-center text-[11px] text-slate-400 italic bg-white/60 rounded-lg border border-dashed border-amber-200">
+                                  Mapel ini tanpa butir esai
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Baris 3: Catatan & Remedial */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                placeholder="Catatan / evaluasi siswa..."
+                                value={grade?.notes || ''}
+                                onChange={(e) => handleCountChange(student, 'notes', e.target.value)}
+                                className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-indigo-500 focus:outline-hidden text-slate-900 placeholder-slate-400"
+                              />
+                            </div>
+                            {(!hasFinal || !isPassed) && (
+                              <div className="w-24 shrink-0">
+                                <input
+                                  type="number"
+                                  inputMode="numeric"
+                                  min={0}
+                                  max={100}
+                                  placeholder="Remedial"
+                                  value={grade?.remedialScore ?? ''}
+                                  onChange={(e) => handleCountChange(student, 'remedialScore', e.target.value)}
+                                  className="w-full px-2 py-1.5 text-center font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-hidden text-slate-900"
+                                  title="Nilai Remedial Siswa"
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {mobileInputMode === 'direct' && expandedBreakdownStudents.has(student.id) && (
+                            <div className="text-right pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => toggleStudentBreakdown(student.id)}
+                                className="text-[10px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                              >
+                                Sembunyikan Butir Soal
+                              </button>
                             </div>
                           )}
                         </div>
-                      </div>
-
-                      {/* Baris 3: Catatan & Remedial (jika belum tuntas) */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <div className="flex-1">
-                          <input
-                            type="text"
-                            placeholder="Catatan / evaluasi siswa..."
-                            value={grade?.notes || ''}
-                            onChange={(e) => handleCountChange(student, 'notes', e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-indigo-500 focus:outline-hidden text-slate-900 placeholder-slate-400"
-                          />
-                        </div>
-                        {(!hasFinal || !isPassed) && (
-                          <div className="w-24 shrink-0">
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              min={0}
-                              max={100}
-                              placeholder="Remedial"
-                              value={grade?.remedialScore ?? ''}
-                              onChange={(e) => handleCountChange(student, 'remedialScore', e.target.value)}
-                              className="w-full px-2 py-1.5 text-center font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-hidden text-slate-900"
-                              title="Nilai Remedial Siswa"
-                            />
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   );
                 })
