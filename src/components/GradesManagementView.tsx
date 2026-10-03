@@ -457,36 +457,6 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     showToast(`Seluruh siswa (${newItems.length} siswa) berhasil diset Tuntas KKM!`);
   };
 
-  const handleSetStudentPerfect = (student: Student) => {
-    const calc = calculateExamScoreFromCounts(totalPg, maxEssay, currentGradingConfig);
-    const newGradeItem: ExamGradeItem = {
-      id: `${student.id}_${selectedSubject}`,
-      studentId: student.id,
-      studentName: student.name,
-      nisn: student.nisn || '',
-      nis: student.nis || '',
-      className: student.className,
-      examNumber: student.examNumber || '',
-      roomId: student.roomId || '',
-      roomName: student.roomName || '',
-      seatNumber: student.seatNumber,
-      subject: selectedSubject,
-      correctPg: totalPg,
-      wrongPg: 0,
-      correctEssay: maxEssay,
-      scorePg: 100,
-      scoreEssay: 100,
-      scoreFinal: 100,
-      remedialScore: null,
-      passed: true,
-      notes: 'Sempurna - Benar Semua (Nilai 100)',
-      updatedAt: new Date().toISOString(),
-    };
-    const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
-    onUpdateGrades([...otherGrades, newGradeItem]);
-    showToast(`Nilai ${student.name} diset Benar Semua (100).`);
-  };
-
   const handleClearSubjectGrades = () => {
     if (!window.confirm(`Yakin ingin mengosongkan seluruh nilai mata pelajaran "${selectedSubject}"? Tindakan ini tidak dapat dibatalkan.`)) {
       return;
@@ -1618,7 +1588,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Baris 3: Catatan, Remedial (jika belum tuntas), dan Tombol Cepat 100 */}
+                      {/* Baris 3: Catatan & Remedial (jika belum tuntas) */}
                       <div className="flex items-center gap-2 pt-1">
                         <div className="flex-1">
                           <input
@@ -1630,7 +1600,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                           />
                         </div>
                         {(!hasFinal || !isPassed) && (
-                          <div className="w-20 shrink-0">
+                          <div className="w-24 shrink-0">
                             <input
                               type="number"
                               inputMode="numeric"
@@ -1644,15 +1614,6 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                             />
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => handleSetStudentPerfect(student)}
-                          title="Set Nilai Sempurna 100 untuk siswa ini"
-                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold shrink-0 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
-                        >
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>100</span>
-                        </button>
                       </div>
                     </div>
                   );

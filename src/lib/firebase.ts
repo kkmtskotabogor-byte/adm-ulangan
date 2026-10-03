@@ -23,7 +23,7 @@ import {
 } from '../types';
 
 // Suppress noisy Firestore connection warnings in browser preview/sandboxes
-setLogLevel('error');
+setLogLevel('silent');
 
 // Initialize Firebase App safely
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -105,9 +105,6 @@ export async function testConnection(): Promise<boolean> {
     return false;
   }
 }
-
-// Auto-run connection check
-testConnection().catch(() => {});
 
 // --- REAL-TIME LISTENERS & CRUD METHODS ---
 
@@ -536,6 +533,7 @@ export async function isCloudDatabaseInitialized(): Promise<boolean> {
     const configDoc = await getDocs(collection(db, 'rooms'));
     return !configDoc.empty;
   } catch {
-    return false;
+    // If backend is unreachable or offline, do not trigger auto-sync flood
+    return true;
   }
 }
