@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ActiveTab, 
   AuthUser, 
@@ -52,6 +52,16 @@ import {
   clearAllSchedulesFromCloud,
   subscribeToAttendanceRecords,
   isCloudDatabaseInitialized,
+  subscribeToSubjectGrades,
+  saveSubjectGradesToCloud,
+  syncAllGradesToCloud,
+  subscribeToGradingConfigs,
+  saveGradingConfigsToCloud,
+  subscribeToCustomSubjects,
+  saveCustomSubjectsToCloud,
+  subscribeToDispensations,
+  saveDispensationToCloud,
+  deleteDispensationFromCloud,
 } from './lib/firebase';
 import { ProctorAttendanceRecord } from './types';
 
@@ -207,6 +217,7 @@ export default function App() {
   const handleUpdateSubjects = (newSubjects: string[]) => {
     setSubjects(newSubjects);
     localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(newSubjects));
+    saveCustomSubjectsToCloud(newSubjects).catch((err) => console.warn('Cloud subjects save note:', err));
   };
 
   // Check URL query parameters for autoPrint when opened in a new tab
@@ -239,6 +250,15 @@ export default function App() {
           syncStudentsToCloud(students);
           syncProctorsToCloud(proctors);
           syncSchedulesToCloud(schedules);
+          if (grades && grades.length > 0) {
+            syncAllGradesToCloud(grades).catch(() => {});
+          }
+          if (gradingConfigs && Object.keys(gradingConfigs).length > 0) {
+            saveGradingConfigsToCloud(gradingConfigs).catch(() => {});
+          }
+          if (subjects && subjects.length > 0) {
+            saveCustomSubjectsToCloud(subjects).catch(() => {});
+          }
         }
       })
       .catch((err) => {
@@ -321,6 +341,67 @@ export default function App() {
           (records) => {
             if (records) {
               setAttendanceRecords(records);
+            }
+          },
+          () => {}
+        )
+      );
+
+      // Real-time listener for Subject Grades (Sinkronisasi Antar Perangkat & Multi-Laptop)
+      unsubs.push(
+        subscribeToSubjectGrades(
+          (cloudGrades) => {
+            if (cloudGrades && cloudGrades.length > 0) {
+              setGrades(cloudGrades);
+              try {
+                localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(cloudGrades));
+              } catch (e) {}
+              setIsCloudConnected(true);
+            }
+          },
+          () => setIsCloudConnected(false)
+        )
+      );
+
+      // Real-time listener for Grading Configs (Bobot & KKM)
+      unsubs.push(
+        subscribeToGradingConfigs(
+          (cloudConfigs) => {
+            if (cloudConfigs && Object.keys(cloudConfigs).length > 0) {
+              setGradingConfigs(cloudConfigs);
+              try {
+                localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(cloudConfigs));
+              } catch (e) {}
+            }
+          },
+          () => {}
+        )
+      );
+
+      // Real-time listener for Master Subjects Catalog
+      unsubs.push(
+        subscribeToCustomSubjects(
+          (cloudSubjects) => {
+            if (cloudSubjects && cloudSubjects.length > 0) {
+              setSubjects(cloudSubjects);
+              try {
+                localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(cloudSubjects));
+              } catch (e) {}
+            }
+          },
+          () => {}
+        )
+      );
+
+      // Real-time listener for Dispensations
+      unsubs.push(
+        subscribeToDispensations(
+          (cloudDispensations) => {
+            if (cloudDispensations) {
+              setDispensations(cloudDispensations);
+              try {
+                localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(cloudDispensations));
+              } catch (e) {}
             }
           },
           () => {}

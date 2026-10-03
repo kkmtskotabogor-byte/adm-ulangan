@@ -20,6 +20,9 @@ import {
   Proctor,
   ExamScheduleItem,
   ProctorAttendanceRecord,
+  ExamGradeItem,
+  SubjectGradingConfig,
+  ExamDispensation,
 } from '../types';
 
 // Suppress noisy Firestore connection warnings in browser preview/sandboxes
@@ -535,5 +538,202 @@ export async function isCloudDatabaseInitialized(): Promise<boolean> {
   } catch {
     // If backend is unreachable or offline, do not trigger auto-sync flood
     return true;
+  }
+}
+
+// --- GRADES REAL-TIME SYNCHRONIZATION ---
+
+export function getSafeSubjectKey(subject: string): string {
+  // Safe document ID from subject name (handles spaces, symbols, slashes)
+  return encodeURIComponent(subject.trim().toLowerCase()).replace(/%/g, '_');
+}
+
+// 8. Subject Grades (Real-time Cross-device Sync)
+export function subscribeToSubjectGrades(
+  onUpdate: (grades: ExamGradeItem[]) => void,
+  onError?: (err: unknown) => void
+) {
+  const colRef = collection(db, 'subject_grades');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const allGrades: ExamGradeItem[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        if (data && Array.isArray(data.grades)) {
+          allGrades.push(...data.grades);
+        }
+      });
+      onUpdate(allGrades);
+    },
+    (error) => {
+      if (onError) onError(error);
+      handleFirestoreError(error, OperationType.LIST, 'subject_grades');
+    }
+  );
+}
+
+export async function saveSubjectGradesToCloud(
+  subject: string,
+  subjectGrades: ExamGradeItem[]
+): Promise<void> {
+  const safeKey = getSafeSubjectKey(subject);
+  const path = `subject_grades/${safeKey}`;
+  try {
+    const docRef = doc(db, 'subject_grades', safeKey);
+    // Sanitize grades to ensure no undefined values are written to Firestore
+    const sanitized = subjectGrades.map((g) => {
+      const clean: Record<string, any> = {};
+      Object.entries(g).forEach(([k, v]) => {
+        if (v !== undefined) clean[k] = v;
+      });
+      return clean;
+    });
+
+    await setDoc(docRef, {
+      subject,
+      safeKey,
+      grades: sanitized,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function syncAllGradesToCloud(grades: ExamGradeItem[]): Promise<void> {
+  try {
+    // Group grades by subject
+    const bySubject = new Map<string, ExamGradeItem[]>();
+    grades.forEach((g) => {
+      const s = g.subject || 'Lainnya';
+      if (!bySubject.has(s)) bySubject.set(s, []);
+      bySubject.get(s)!.push(g);
+    });
+
+    for (const [subject, list] of bySubject.entries()) {
+      await saveSubjectGradesToCloud(subject, list);
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, 'subject_grades');
+  }
+}
+
+// 9. Grading Configs (KKM and weights per subject)
+export function subscribeToGradingConfigs(
+  onUpdate: (configs: Record<string, SubjectGradingConfig>) => void,
+  onError?: (err: unknown) => void
+) {
+  const docRef = doc(db, 'grading_configs', 'current');
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data && data.configs) {
+          onUpdate(data.configs as Record<string, SubjectGradingConfig>);
+        }
+      }
+    },
+    (error) => {
+      if (onError) onError(error);
+      handleFirestoreError(error, OperationType.GET, 'grading_configs/current');
+    }
+  );
+}
+
+export async function saveGradingConfigsToCloud(
+  configs: Record<string, SubjectGradingConfig>
+): Promise<void> {
+  const path = 'grading_configs/current';
+  try {
+    const docRef = doc(db, 'grading_configs', 'current');
+    await setDoc(docRef, {
+      id: 'current',
+      configs,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// 10. Custom Master Subjects (Daftar Mata Pelajaran)
+export function subscribeToCustomSubjects(
+  onUpdate: (subjects: string[]) => void,
+  onError?: (err: unknown) => void
+) {
+  const docRef = doc(db, 'custom_subjects', 'current');
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data && Array.isArray(data.subjects) && data.subjects.length > 0) {
+          onUpdate(data.subjects);
+        }
+      }
+    },
+    (error) => {
+      if (onError) onError(error);
+      handleFirestoreError(error, OperationType.GET, 'custom_subjects/current');
+    }
+  );
+}
+
+export async function saveCustomSubjectsToCloud(subjects: string[]): Promise<void> {
+  const path = 'custom_subjects/current';
+  try {
+    const docRef = doc(db, 'custom_subjects', 'current');
+    await setDoc(docRef, {
+      id: 'current',
+      subjects,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// 11. Dispensations (Surat Dispensasi)
+export function subscribeToDispensations(
+  onUpdate: (dispensations: ExamDispensation[]) => void,
+  onError?: (err: unknown) => void
+) {
+  const colRef = collection(db, 'dispensations');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const items: ExamDispensation[] = [];
+      snapshot.forEach((d) => {
+        items.push({ id: d.id, ...(d.data() as Omit<ExamDispensation, 'id'>) });
+      });
+      onUpdate(items);
+    },
+    (error) => {
+      if (onError) onError(error);
+      handleFirestoreError(error, OperationType.LIST, 'dispensations');
+    }
+  );
+}
+
+export async function saveDispensationToCloud(disp: ExamDispensation): Promise<void> {
+  const path = `dispensations/${disp.id}`;
+  try {
+    await setDoc(doc(db, 'dispensations', disp.id), {
+      ...disp,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteDispensationFromCloud(dispId: string): Promise<void> {
+  const path = `dispensations/${dispId}`;
+  try {
+    await deleteDoc(doc(db, 'dispensations', dispId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }

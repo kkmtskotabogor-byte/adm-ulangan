@@ -142,6 +142,55 @@
         "updatedAt": { "type": "string", "maxLength": 100 }
       },
       "required": ["id"]
+    },
+    "SubjectGradesDocument": {
+      "title": "SubjectGradesDocument",
+      "description": "Kumpulan nilai ujian peserta untuk satu mata pelajaran",
+      "type": "object",
+      "properties": {
+        "subject": { "type": "string", "maxLength": 100 },
+        "grades": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["subject"]
+    },
+    "GradingConfigsDocument": {
+      "title": "GradingConfigsDocument",
+      "description": "Konfigurasi bobot penilaian dan KKM seluruh mata pelajaran",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "configs": { "type": "object" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id"]
+    },
+    "CustomSubjectsDocument": {
+      "title": "CustomSubjectsDocument",
+      "description": "Katalog master daftar mata pelajaran ujian sekolah",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "subjects": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id"]
+    },
+    "ExamDispensation": {
+      "title": "ExamDispensation",
+      "description": "Surat izin dispensasi ujian peserta",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "studentId": { "type": "string", "maxLength": 100 },
+        "studentName": { "type": "string", "maxLength": 150 },
+        "studentClass": { "type": "string", "maxLength": 50 },
+        "reason": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "maxLength": 50 },
+        "approvedBy": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "studentId", "studentName"]
     }
   },
   "firestore": {
@@ -172,6 +221,22 @@
     "/proctor_matrix/{matrixId}": {
       "schema": "ProctorMatrix",
       "description": "Alokasi jadwal pengawas silang ruang dan sesi"
+    },
+    "/subject_grades/{subjectId}": {
+      "schema": "SubjectGradesDocument",
+      "description": "Koleksi nilai ujian peserta per mata pelajaran"
+    },
+    "/grading_configs/{configId}": {
+      "schema": "GradingConfigsDocument",
+      "description": "Pengaturan bobot dan KKM per mata pelajaran"
+    },
+    "/custom_subjects/{docId}": {
+      "schema": "CustomSubjectsDocument",
+      "description": "Katalog master daftar mata pelajaran ujian"
+    },
+    "/dispensations/{dispensationId}": {
+      "schema": "ExamDispensation",
+      "description": "Koleksi surat dispensasi ujian peserta"
     }
   }
 }
