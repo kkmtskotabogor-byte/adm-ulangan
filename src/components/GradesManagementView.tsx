@@ -866,19 +866,19 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             {/* Cloud Sync Status & Action Controls */}
             <div className="flex flex-wrap items-center gap-2">
               {isSyncing ? (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse">
-                  <Cloud className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                  <span>Menyimpan ke Cloud...</span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-300 animate-pulse">
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                  <span>Menyimpan Otomatis...</span>
                 </div>
               ) : isCloudConnected ? (
                 <div 
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs"
-                  title={`Tersinkron ke Cloud Firestore. Nilai langsung terbaca di komputer / laptop lain.${lastGradeCloudSyncedAt ? ` (Terakhir: ${lastGradeCloudSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})` : ''}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-300 shadow-2xs"
+                  title="Nilai otomatis tersimpan secara real-time dan langsung sinkron ke semua komputer/laptop."
                 >
-                  <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                  <span className="font-semibold text-emerald-900">Cloud Aktif</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="font-bold text-emerald-950">Tersimpan Otomatis</span>
                   <span className="hidden sm:inline text-[11px] text-emerald-700 font-mono">
-                    {lastGradeCloudSyncedAt ? lastGradeCloudSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Real-time'}
+                    (Real-Time Multi-Laptop)
                   </span>
                 </div>
               ) : (
@@ -898,11 +898,11 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   }
                 }}
                 disabled={isSyncing}
-                title="Tekan untuk memastikan seluruh nilai tersimpan ke Cloud Firestore agar langsung terbaca di laptop lain"
+                title="Tekan untuk memastikan seluruh nilai tersimpan dan langsung terbaca di semua laptop"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
               >
                 <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Sinkronkan ke Cloud</span>
+                <span className="hidden sm:inline">Sinkronkan Sekarang</span>
                 <span className="sm:hidden">Sinkron</span>
               </button>
 
@@ -1459,7 +1459,11 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-500 flex items-center gap-2">
+              <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-emerald-800 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>Auto-Save Real-Time Aktif</span>
+                </span>
                 {mobileInputMode === 'direct' ? (
                   <span className="text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200/60">
                     💡 Guru dapat langsung mengetik Nilai (0-100) di kotak nilai siswa tanpa perlu menghitung butir soal.
@@ -1654,6 +1658,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                                 placeholder="-"
                                 value={typeof grade?.scoreFinal === 'number' ? grade.scoreFinal : ''}
                                 onChange={(e) => handleDirectScoreChange(student, e.target.value)}
+                                onBlur={() => onSyncSubjectGradesNow?.(selectedSubject)}
                                 title="Ketik untuk mengisi Nilai Akhir manual langsung (0 - 100)"
                                 className={`w-16 px-1.5 py-1 text-center font-mono font-bold text-xs rounded border transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
                                   hasFinal
@@ -1801,6 +1806,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                                 placeholder="-"
                                 value={typeof grade?.scoreFinal === 'number' ? grade.scoreFinal : ''}
                                 onChange={(e) => handleDirectScoreChange(student, e.target.value)}
+                                onBlur={() => onSyncSubjectGradesNow?.(selectedSubject)}
                                 title="Ketik di sini untuk mengisi Nilai manual langsung (0 - 100)"
                                 className={`w-14 sm:w-16 h-8 text-center font-mono font-bold text-base rounded-lg border shadow-xs transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
                                   hasFinal
@@ -1886,6 +1892,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                                 placeholder="0 - 100"
                                 value={typeof grade?.scoreFinal === 'number' ? grade.scoreFinal : ''}
                                 onChange={(e) => handleDirectScoreChange(student, e.target.value)}
+                                onBlur={() => onSyncSubjectGradesNow?.(selectedSubject)}
                                 className={`w-full px-2 py-1.5 text-center font-mono font-bold text-base rounded-lg border shadow-xs transition-all focus:ring-2 focus:ring-indigo-500 focus:outline-hidden ${
                                   hasFinal
                                     ? finalScore === 100

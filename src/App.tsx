@@ -64,6 +64,13 @@ import {
   saveDispensationToCloud,
   deleteDispensationFromCloud,
 } from './lib/firebase';
+import {
+  fetchServerGrades,
+  saveServerGrades,
+  subscribeToServerGrades,
+  fetchServerGradingConfigs,
+  saveServerGradingConfigs,
+} from './lib/api';
 import { ProctorAttendanceRecord } from './types';
 
 const STORAGE_KEYS = {
@@ -159,7 +166,7 @@ export default function App() {
     } catch (e) {
       console.error('Error loading grades from storage:', e);
     }
-    return generateSampleGrades(initialStudents, ['Matematika', 'Bahasa Indonesia', 'IPA', 'Al-Qur\'an Hadis', 'Bahasa Inggris']);
+    return [];
   });
 
   const [gradingConfigs, setGradingConfigs] = useState<Record<string, SubjectGradingConfig>>(() => {
@@ -267,6 +274,60 @@ export default function App() {
       .catch((err) => {
         console.warn('Cloud database check note:', err);
       });
+
+    // Initial fetch from high-performance Backend Server (Local / Persistent)
+    fetchServerGrades().then((serverGrades) => {
+      if (serverGrades && serverGrades.length > 0) {
+        setGrades((prev) => {
+          const map = new Map<string, ExamGradeItem>();
+          serverGrades.forEach((g) => map.set(`${g.studentId}_${g.subject}`, g));
+          prev.forEach((g) => {
+            if (!map.has(`${g.studentId}_${g.subject}`)) {
+              map.set(`${g.studentId}_${g.subject}`, g);
+            }
+          });
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+        setLastGradeCloudSyncedAt(new Date());
+      } else if (grades && grades.length > 0) {
+        // Seed server with existing local grades if server is brand new
+        saveServerGrades(grades).catch(() => {});
+      }
+    });
+
+    fetchServerGradingConfigs().then((serverConfigs) => {
+      if (serverConfigs && Object.keys(serverConfigs).length > 0) {
+        setGradingConfigs((prev) => ({ ...serverConfigs, ...prev }));
+      }
+    });
+
+    // Real-time listener from Backend Server (Instant 0-latency broadcast via Server-Sent Events)
+    unsubs.push(
+      subscribeToServerGrades((serverGrades) => {
+        if (serverGrades && serverGrades.length > 0) {
+          setGrades((prevLocal) => {
+            const map = new Map<string, ExamGradeItem>();
+            prevLocal.forEach((item) => {
+              map.set(`${item.studentId}_${item.subject}`, item);
+            });
+            serverGrades.forEach((item) => {
+              map.set(`${item.studentId}_${item.subject}`, item);
+            });
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
+            } catch (e) {}
+            return merged;
+          });
+          setLastGradeCloudSyncedAt(new Date());
+          setIsCloudConnected(true);
+        }
+      })
+    );
 
     // Check if subject_grades in Cloud Firestore is empty; if so and we have local grades, push them to cloud
     isCloudGradesEmpty()
@@ -1002,41 +1063,57 @@ export default function App() {
       console.error(e);
     }
 
-    // Debounce cloud sync (500ms) so rapid keystrokes don't flood Firestore
+    // Debounce server & cloud sync (200ms so rapid keystrokes feel instantaneous while preventing server spam)
     if (gradesSyncTimerRef.current) {
       clearTimeout(gradesSyncTimerRef.current);
     }
     gradesSyncTimerRef.current = setTimeout(async () => {
       try {
-        if (immediateSubject) {
-          const subGrades = updatedGrades.filter((g) => g.subject === immediateSubject);
-          await saveSubjectGradesToCloud(immediateSubject, subGrades);
-        } else {
-          await syncAllGradesToCloud(updatedGrades);
+        const subGrades = immediateSubject
+          ? updatedGrades.filter((g) => g.subject === immediateSubject)
+          : updatedGrades;
+
+        // 1. Direct save to High-Performance Server (Broadcasts via SSE instantly to all other laptops)
+        await saveServerGrades(subGrades, immediateSubject);
+
+        // 2. Secondary Cloud Firestore Backup (gracefully ignores quota exhaustion)
+        try {
+          if (immediateSubject) {
+            await saveSubjectGradesToCloud(immediateSubject, subGrades);
+          } else {
+            await syncAllGradesToCloud(updatedGrades);
+          }
+        } catch (cloudErr) {
+          console.warn('Secondary Cloud Firestore backup note:', cloudErr);
         }
+
         setLastGradeCloudSyncedAt(new Date());
       } catch (err) {
-        console.warn('Cloud grade save note:', err);
+        console.warn('Grades sync note:', err);
       } finally {
         setIsGradeSyncing(false);
       }
-    }, 500);
+    }, 200);
   };
 
   const handleSyncSubjectGradesNow = async (subject?: string) => {
     setIsGradeSyncing(true);
     try {
-      if (subject) {
-        const subGrades = grades.filter((g) => g.subject === subject);
-        await saveSubjectGradesToCloud(subject, subGrades);
-        showToast(`Nilai mapel "${subject}" berhasil disimpan & disinkronkan ke Cloud.`);
-      } else {
-        await syncAllGradesToCloud(grades);
-        showToast('Seluruh data nilai berhasil disinkronkan ke Cloud Firestore.');
-      }
+      const subGrades = subject ? grades.filter((g) => g.subject === subject) : grades;
+      // 1. Force push to backend server
+      await saveServerGrades(subGrades, subject);
+      // 2. Secondary cloud push
+      try {
+        if (subject) {
+          await saveSubjectGradesToCloud(subject, subGrades);
+        } else {
+          await syncAllGradesToCloud(grades);
+        }
+      } catch {}
       setLastGradeCloudSyncedAt(new Date());
+      showToast(`Nilai ${subject ? `mapel "${subject}"` : 'seluruh mapel'} berhasil disimpan & disinkronkan real-time!`);
     } catch (err) {
-      showToast('Gagal sinkronisasi nilai ke Cloud: ' + (err instanceof Error ? err.message : String(err)));
+      showToast('Gagal sinkronisasi nilai: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsGradeSyncing(false);
     }
@@ -1050,6 +1127,7 @@ export default function App() {
       } catch (e) {
         console.error(e);
       }
+      saveServerGradingConfigs(next).catch(() => {});
       saveGradingConfigsToCloud(next).catch((err) => console.warn('Cloud grading configs save note:', err));
       return next;
     });
@@ -1294,8 +1372,10 @@ export default function App() {
             customSubjects={subjects}
             onUpdateSubjects={handleUpdateSubjects}
             isCloudConnected={isCloudConnected}
-            isSyncing={isSyncing}
+            isSyncing={isSyncing || isGradeSyncing}
             onForceSyncCloud={handleForceSyncAllToCloud}
+            onSyncSubjectGradesNow={handleSyncSubjectGradesNow}
+            lastGradeCloudSyncedAt={lastGradeCloudSyncedAt}
           />
         ) : (
           <>
