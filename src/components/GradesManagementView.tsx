@@ -42,7 +42,9 @@ import {
   FileCheck2,
   X,
   Calculator,
-  HelpCircle
+  HelpCircle,
+  Cloud,
+  RefreshCw
 } from 'lucide-react';
 import { 
   calculateExamScoreFromCounts,
@@ -65,7 +67,7 @@ interface GradesManagementViewProps {
   schedules: ExamScheduleItem[];
   grades: ExamGradeItem[];
   gradingConfigs: Record<string, SubjectGradingConfig>;
-  onUpdateGrades: (updatedGrades: ExamGradeItem[]) => void;
+  onUpdateGrades: (updatedGrades: ExamGradeItem[], subject?: string) => void;
   onUpdateGradingConfig: (subject: string, config: SubjectGradingConfig) => void;
   showToast: (msg: string) => void;
   setActiveTab?: (tab: ActiveTab) => void;
@@ -74,6 +76,11 @@ interface GradesManagementViewProps {
   onCloseSubjectPicker?: () => void;
   customSubjects?: string[];
   onUpdateSubjects?: (subjects: string[]) => void;
+  isCloudConnected?: boolean;
+  isSyncing?: boolean;
+  onForceSyncCloud?: () => void;
+  onSyncSubjectGradesNow?: (subject?: string) => void;
+  lastGradeCloudSyncedAt?: Date | null;
 }
 
 export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
@@ -92,6 +99,11 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   onCloseSubjectPicker,
   customSubjects,
   onUpdateSubjects,
+  isCloudConnected,
+  isSyncing,
+  onForceSyncCloud,
+  onSyncSubjectGradesNow,
+  lastGradeCloudSyncedAt,
 }) => {
   // 1. Subjects catalog state: loaded from customSubjects prop, localStorage, or standard defaults
   const [subjectsList, setSubjectsList] = useState<string[]>(() => {
@@ -456,7 +468,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         updatedAt: new Date().toISOString(),
       };
       const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
-      onUpdateGrades([...otherGrades, newGradeItem]);
+      onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
       return;
     }
 
@@ -482,7 +494,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         updatedAt: new Date().toISOString(),
       };
       const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
-      onUpdateGrades([...otherGrades, newGradeItem]);
+      onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
       return;
     }
 
@@ -531,7 +543,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     };
 
     const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
-    onUpdateGrades([...otherGrades, newGradeItem]);
+    onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
   };
 
   // Handle Direct Final Score Input (Manual 0 - 100 tanpa perlu memasukkan benar atau salah)
@@ -542,7 +554,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     if (value.trim() === '') {
       // Jika dikosongkan, hapus data penilaian siswa pada mapel ini
       const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
-      onUpdateGrades(otherGrades);
+      onUpdateGrades(otherGrades, selectedSubject);
       return;
     }
 
@@ -578,14 +590,14 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     };
 
     const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
-    onUpdateGrades([...otherGrades, newGradeItem]);
+    onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
   };
 
   // Bulk Actions
   const handleGenerateSampleScores = () => {
     const sample = generateSampleGrades(students, [selectedSubject], currentGradingConfig.kkm);
     const otherGrades = grades.filter((g) => g.subject !== selectedSubject);
-    onUpdateGrades([...otherGrades, ...sample]);
+    onUpdateGrades([...otherGrades, ...sample], selectedSubject);
     showToast(`Nilai simulasi Benar-Salah untuk mata pelajaran ${selectedSubject} berhasil dibuat!`);
   };
 
@@ -618,7 +630,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       };
     });
 
-    onUpdateGrades([...otherGrades, ...newItems]);
+    onUpdateGrades([...otherGrades, ...newItems], selectedSubject);
     showToast(`Seluruh siswa (${newItems.length} siswa) berhasil diset Benar Semua (Nilai 100)!`);
   };
 
@@ -657,7 +669,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       };
     });
 
-    onUpdateGrades([...otherGrades, ...newItems]);
+    onUpdateGrades([...otherGrades, ...newItems], selectedSubject);
     showToast(`Seluruh siswa (${newItems.length} siswa) berhasil diset Tuntas KKM!`);
   };
 
@@ -666,7 +678,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       return;
     }
     const otherGrades = grades.filter((g) => g.subject !== selectedSubject);
-    onUpdateGrades(otherGrades);
+    onUpdateGrades(otherGrades, selectedSubject);
     showToast(`Seluruh nilai mata pelajaran ${selectedSubject} telah dikosongkan.`);
   };
 
@@ -851,14 +863,58 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Cetak Halaman</span>
-            </button>
+            {/* Cloud Sync Status & Action Controls */}
+            <div className="flex flex-wrap items-center gap-2">
+              {isSyncing ? (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse">
+                  <Cloud className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                  <span>Menyimpan ke Cloud...</span>
+                </div>
+              ) : isCloudConnected ? (
+                <div 
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs"
+                  title={`Tersinkron ke Cloud Firestore. Nilai langsung terbaca di komputer / laptop lain.${lastGradeCloudSyncedAt ? ` (Terakhir: ${lastGradeCloudSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})` : ''}`}
+                >
+                  <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="font-semibold text-emerald-900">Cloud Aktif</span>
+                  <span className="hidden sm:inline text-[11px] text-emerald-700 font-mono">
+                    {lastGradeCloudSyncedAt ? lastGradeCloudSyncedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Real-time'}
+                  </span>
+                </div>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                  <Cloud className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Lokal (Offline)</span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSyncSubjectGradesNow) {
+                    onSyncSubjectGradesNow(selectedSubject);
+                  } else if (onForceSyncCloud) {
+                    onForceSyncCloud();
+                  }
+                }}
+                disabled={isSyncing}
+                title="Tekan untuk memastikan seluruh nilai tersimpan ke Cloud Firestore agar langsung terbaca di laptop lain"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Sinkronkan ke Cloud</span>
+                <span className="sm:hidden">Sinkron</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Cetak Halaman</span>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -541,6 +541,33 @@ export async function isCloudDatabaseInitialized(): Promise<boolean> {
   }
 }
 
+export async function isCloudGradesEmpty(): Promise<boolean> {
+  try {
+    const snap = await getDocs(collection(db, 'subject_grades'));
+    return snap.empty;
+  } catch {
+    return false;
+  }
+}
+
+export async function getCloudGrades(): Promise<ExamGradeItem[]> {
+  try {
+    const colRef = collection(db, 'subject_grades');
+    const snapshot = await getDocs(colRef);
+    const allGrades: ExamGradeItem[] = [];
+    snapshot.forEach((d) => {
+      const data = d.data();
+      if (data && Array.isArray(data.grades)) {
+        allGrades.push(...data.grades);
+      }
+    });
+    return allGrades;
+  } catch (err) {
+    console.warn('Error fetching cloud grades:', err);
+    return [];
+  }
+}
+
 // --- GRADES REAL-TIME SYNCHRONIZATION ---
 
 export function getSafeSubjectKey(subject: string): string {

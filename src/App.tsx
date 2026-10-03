@@ -55,6 +55,7 @@ import {
   subscribeToSubjectGrades,
   saveSubjectGradesToCloud,
   syncAllGradesToCloud,
+  isCloudGradesEmpty,
   subscribeToGradingConfigs,
   saveGradingConfigsToCloud,
   subscribeToCustomSubjects,
@@ -188,6 +189,8 @@ export default function App() {
   const [attendanceRecords, setAttendanceRecords] = useState<ProctorAttendanceRecord[]>([]);
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [isGradeSyncing, setIsGradeSyncing] = useState<boolean>(false);
+  const [lastGradeCloudSyncedAt, setLastGradeCloudSyncedAt] = useState<Date | null>(() => new Date());
   const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
   const [openSubjectPickerOnLogin, setOpenSubjectPickerOnLogin] = useState<boolean>(false);
 
@@ -264,6 +267,17 @@ export default function App() {
       .catch((err) => {
         console.warn('Cloud database check note:', err);
       });
+
+    // Check if subject_grades in Cloud Firestore is empty; if so and we have local grades, push them to cloud
+    isCloudGradesEmpty()
+      .then((empty) => {
+        if (empty && grades && grades.length > 0) {
+          syncAllGradesToCloud(grades).catch((err) =>
+            console.warn('Initial cloud grades seed note:', err)
+          );
+        }
+      })
+      .catch(() => {});
 
     try {
       // Real-time listener for Exam Identity Config
@@ -352,10 +366,23 @@ export default function App() {
         subscribeToSubjectGrades(
           (cloudGrades) => {
             if (cloudGrades && cloudGrades.length > 0) {
-              setGrades(cloudGrades);
-              try {
-                localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(cloudGrades));
-              } catch (e) {}
+              setGrades((prevLocal) => {
+                const map = new Map<string, ExamGradeItem>();
+                // 1. Keep local grades for subjects not yet in cloud
+                prevLocal.forEach((item) => {
+                  map.set(`${item.studentId}_${item.subject}`, item);
+                });
+                // 2. Cloud grades take priority and overwrite/augment
+                cloudGrades.forEach((item) => {
+                  map.set(`${item.studentId}_${item.subject}`, item);
+                });
+                const merged = Array.from(map.values());
+                try {
+                  localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
+                } catch (e) {}
+                return merged;
+              });
+              setLastGradeCloudSyncedAt(new Date());
               setIsCloudConnected(true);
             }
           },
@@ -494,8 +521,11 @@ export default function App() {
       await syncStudentsToCloud(students);
       await syncProctorsToCloud(proctors);
       await syncSchedulesToCloud(schedules);
+      await syncAllGradesToCloud(grades);
+      await saveGradingConfigsToCloud(gradingConfigs);
+      await saveCustomSubjectsToCloud(subjects);
       setIsCloudConnected(true);
-      showToast('Seluruh data berhasil disinkronkan ke Cloud Firestore.');
+      showToast('Seluruh data administrasi & Nilai Siswa berhasil disinkronkan ke Cloud Firestore.');
     } catch (err) {
       console.error('Failed to sync to cloud:', err);
       showToast('Gagal sinkronisasi: ' + (err instanceof Error ? err.message : String(err)));
@@ -960,13 +990,55 @@ export default function App() {
     }
   };
 
-  // Grades Handlers
-  const handleUpdateGrades = (updatedGrades: ExamGradeItem[]) => {
+  // Grades Handlers with automatic cloud synchronization and debouncing
+  const gradesSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleUpdateGrades = (updatedGrades: ExamGradeItem[], immediateSubject?: string) => {
     setGrades(updatedGrades);
+    setIsGradeSyncing(true);
     try {
       localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(updatedGrades));
     } catch (e) {
       console.error(e);
+    }
+
+    // Debounce cloud sync (500ms) so rapid keystrokes don't flood Firestore
+    if (gradesSyncTimerRef.current) {
+      clearTimeout(gradesSyncTimerRef.current);
+    }
+    gradesSyncTimerRef.current = setTimeout(async () => {
+      try {
+        if (immediateSubject) {
+          const subGrades = updatedGrades.filter((g) => g.subject === immediateSubject);
+          await saveSubjectGradesToCloud(immediateSubject, subGrades);
+        } else {
+          await syncAllGradesToCloud(updatedGrades);
+        }
+        setLastGradeCloudSyncedAt(new Date());
+      } catch (err) {
+        console.warn('Cloud grade save note:', err);
+      } finally {
+        setIsGradeSyncing(false);
+      }
+    }, 500);
+  };
+
+  const handleSyncSubjectGradesNow = async (subject?: string) => {
+    setIsGradeSyncing(true);
+    try {
+      if (subject) {
+        const subGrades = grades.filter((g) => g.subject === subject);
+        await saveSubjectGradesToCloud(subject, subGrades);
+        showToast(`Nilai mapel "${subject}" berhasil disimpan & disinkronkan ke Cloud.`);
+      } else {
+        await syncAllGradesToCloud(grades);
+        showToast('Seluruh data nilai berhasil disinkronkan ke Cloud Firestore.');
+      }
+      setLastGradeCloudSyncedAt(new Date());
+    } catch (err) {
+      showToast('Gagal sinkronisasi nilai ke Cloud: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsGradeSyncing(false);
     }
   };
 
@@ -978,6 +1050,7 @@ export default function App() {
       } catch (e) {
         console.error(e);
       }
+      saveGradingConfigsToCloud(next).catch((err) => console.warn('Cloud grading configs save note:', err));
       return next;
     });
   };
@@ -985,16 +1058,19 @@ export default function App() {
   // Dispensation Handlers
   const handleAddDispensation = (disp: ExamDispensation) => {
     setDispensations((prev) => [disp, ...prev]);
+    saveDispensationToCloud(disp).catch((err) => console.warn('Cloud dispensation save note:', err));
     showToast(`Surat dispensasi untuk ${disp.studentName} berhasil diterbitkan.`);
   };
 
   const handleUpdateDispensation = (disp: ExamDispensation) => {
     setDispensations((prev) => prev.map((d) => (d.id === disp.id ? disp : d)));
+    saveDispensationToCloud(disp).catch((err) => console.warn('Cloud dispensation update note:', err));
     showToast(`Data dispensasi ${disp.studentName} berhasil diperbarui.`);
   };
 
   const handleDeleteDispensation = (id: string) => {
     setDispensations((prev) => prev.filter((d) => d.id !== id));
+    deleteDispensationFromCloud(id).catch((err) => console.warn('Cloud dispensation delete note:', err));
     showToast('Surat dispensasi berhasil dihapus.');
   };
 
@@ -1217,6 +1293,9 @@ export default function App() {
             onCloseSubjectPicker={() => setOpenSubjectPickerOnLogin(false)}
             customSubjects={subjects}
             onUpdateSubjects={handleUpdateSubjects}
+            isCloudConnected={isCloudConnected}
+            isSyncing={isSyncing}
+            onForceSyncCloud={handleForceSyncAllToCloud}
           />
         ) : (
           <>
@@ -1367,6 +1446,11 @@ export default function App() {
                 onCloseSubjectPicker={() => setOpenSubjectPickerOnLogin(false)}
                 customSubjects={subjects}
                 onUpdateSubjects={handleUpdateSubjects}
+                isCloudConnected={isCloudConnected}
+                isSyncing={isSyncing || isGradeSyncing}
+                onForceSyncCloud={handleForceSyncAllToCloud}
+                onSyncSubjectGradesNow={handleSyncSubjectGradesNow}
+                lastGradeCloudSyncedAt={lastGradeCloudSyncedAt}
               />
             )}
 
