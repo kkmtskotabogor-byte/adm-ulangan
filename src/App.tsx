@@ -178,6 +178,7 @@ export default function App() {
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
+  const [openSubjectPickerOnLogin, setOpenSubjectPickerOnLogin] = useState<boolean>(false);
 
   // Check URL query parameters for autoPrint when opened in a new tab
   useEffect(() => {
@@ -1027,11 +1028,14 @@ export default function App() {
       setActiveTab('cards');
     } else if (user.role === 'teacher') {
       setActiveTab('grades');
+      // Automatically prompt teacher to choose subject to input right after login!
+      setOpenSubjectPickerOnLogin(true);
     }
   };
 
   const handleLogout = () => {
     setAuthUser(null);
+    setOpenSubjectPickerOnLogin(false);
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
     setNotification('Anda telah berhasil keluar dari sesi.');
   };
@@ -1044,6 +1048,7 @@ export default function App() {
           config={config}
           proctors={proctors}
           students={students}
+          schedules={schedules}
           onLogin={handleLogin}
           isCloudConnected={isCloudConnected}
         />
@@ -1097,6 +1102,8 @@ export default function App() {
             showToast={showToast}
             setActiveTab={setActiveTab}
             authUser={authUser}
+            initialShowSubjectPicker={openSubjectPickerOnLogin}
+            onCloseSubjectPicker={() => setOpenSubjectPickerOnLogin(false)}
           />
         ) : (
           <>
@@ -1243,6 +1250,8 @@ export default function App() {
                 showToast={showToast}
                 setActiveTab={setActiveTab}
                 authUser={authUser}
+                initialShowSubjectPicker={openSubjectPickerOnLogin}
+                onCloseSubjectPicker={() => setOpenSubjectPickerOnLogin(false)}
               />
             )}
 

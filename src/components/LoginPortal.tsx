@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AuthUser, ExamConfig, Proctor, Student, UserRole } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { AuthUser, ExamConfig, ExamScheduleItem, Proctor, Student, UserRole } from '../types';
 import { 
   ShieldCheck, 
   UserCheck, 
@@ -23,11 +23,13 @@ import {
   Cloud,
   BookOpen
 } from 'lucide-react';
+import { STANDARD_SCHOOL_SUBJECTS } from '../utils/gradeUtils';
 
 interface LoginPortalProps {
   config: ExamConfig;
   proctors: Proctor[];
   students: Student[];
+  schedules?: ExamScheduleItem[];
   onLogin: (user: AuthUser) => void;
   isCloudConnected?: boolean;
 }
@@ -36,6 +38,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   config,
   proctors,
   students,
+  schedules = [],
   onLogin,
   isCloudConnected = true,
 }) => {
@@ -47,8 +50,25 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [selectedProctorId, setSelectedProctorId] = useState<string>(proctors[0]?.id || '');
   const [selectedStudentId, setSelectedStudentId] = useState<string>(students[0]?.id || '');
+  const [selectedTeacherSubject, setSelectedTeacherSubject] = useState<string>('');
   const [studentInput, setStudentInput] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
+
+  // Available subjects for teacher
+  const availableSubjects = useMemo(() => {
+    const list: string[] = [];
+    schedules.forEach((s) => {
+      if (s.subject && !s.isBreak && !list.includes(s.subject)) {
+        list.push(s.subject);
+      }
+    });
+    STANDARD_SCHOOL_SUBJECTS.forEach((sub) => {
+      if (!list.includes(sub)) {
+        list.push(sub);
+      }
+    });
+    return list;
+  }, [schedules]);
   
   // Feedback
   const [error, setError] = useState<string | null>(null);
@@ -163,10 +183,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
             const user: AuthUser = {
               id: 'user-teacher-1',
               username: 'guru',
-              name: 'Guru Mata Pelajaran',
+              name: selectedTeacherSubject ? `Guru Mapel (${selectedTeacherSubject})` : 'Guru Mata Pelajaran',
               role: 'teacher',
               roleLabel: 'Guru Mata Pelajaran',
               nipOrNis: '19880415 201201 1 002',
+              subject: selectedTeacherSubject || undefined,
               loginTime: nowStr,
             };
             onLogin(user);
@@ -622,6 +643,32 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
                       {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Mata Pelajaran (Opsional)</span>
+                    <span className="text-[10px] text-purple-400">Bisa dipilih setelah login</span>
+                  </label>
+                  <select
+                    value={selectedTeacherSubject}
+                    onChange={(e) => setSelectedTeacherSubject(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 cursor-pointer"
+                  >
+                    <option value="">-- Munculkan Pilihan Mapel Setelah Login --</option>
+                    {availableSubjects.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-purple-950/40 border border-purple-800/40 text-[11px] text-purple-200 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse"></span>
+                  <span>
+                    Setelah login, sistem akan otomatis memunculkan dialog pilihan mapel lengkap dengan status pengisian nilainya.
+                  </span>
                 </div>
               </div>
             )}

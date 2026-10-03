@@ -1,9 +1,10 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
+  setLogLevel,
   doc,
-  getDocFromServer,
+  getDoc,
   setDoc,
   deleteDoc,
   collection,
@@ -21,11 +22,21 @@ import {
   ProctorAttendanceRecord,
 } from '../types';
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+// Suppress noisy Firestore connection warnings in browser preview/sandboxes
+setLogLevel('error');
 
-// CRITICAL: Initialize Firestore with custom databaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firebase App safely
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+// CRITICAL: Initialize Firestore with custom databaseId and long polling
+// to prevent 10-second backend timeout warnings in web iframes and proxied environments
+export const db = initializeFirestore(
+  app,
+  {
+    experimentalForceLongPolling: true,
+  },
+  firebaseConfig.firestoreDatabaseId
+);
 export const auth = getAuth(app);
 
 // Error Handling Enum and Interface
@@ -84,14 +95,13 @@ export function handleFirestoreError(
 // Connection Validation on Boot
 export async function testConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'exam_config', 'current'));
+    const probe = getDoc(doc(db, 'exam_config', 'current'));
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 3000)
+    );
+    await Promise.race([probe, timeout]);
     return true;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is currently offline or unreachable.');
-    } else {
-      console.info('Firebase connection tested:', error instanceof Error ? error.message : String(error));
-    }
+  } catch {
     return false;
   }
 }

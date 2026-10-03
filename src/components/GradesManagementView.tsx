@@ -55,6 +55,7 @@ import {
   STANDARD_SCHOOL_SUBJECTS,
   generateSampleGrades
 } from '../utils/gradeUtils';
+import { SubjectPickerModal } from './SubjectPickerModal';
 
 interface GradesManagementViewProps {
   config: ExamConfig;
@@ -68,6 +69,8 @@ interface GradesManagementViewProps {
   showToast: (msg: string) => void;
   setActiveTab?: (tab: ActiveTab) => void;
   authUser?: AuthUser;
+  initialShowSubjectPicker?: boolean;
+  onCloseSubjectPicker?: () => void;
 }
 
 export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
@@ -82,6 +85,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   showToast,
   setActiveTab,
   authUser,
+  initialShowSubjectPicker,
+  onCloseSubjectPicker,
 }) => {
   // 1. Available subjects: gather from schedules + standards
   const availableSubjects = useMemo(() => {
@@ -106,10 +111,26 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   // Print mode type: 'filled' (terisi nilai) vs 'blank' (blanko kosong untuk korektor guru)
   const [printDocType, setPrintDocType] = useState<'filled' | 'blank'>('filled');
 
-  // Selected subject
+  // Selected subject: check if authUser has a subject, otherwise default
   const [selectedSubject, setSelectedSubject] = useState<string>(() => {
+    if (authUser?.subject && availableSubjects.includes(authUser.subject)) {
+      return authUser.subject;
+    }
     return availableSubjects[0] || 'Matematika';
   });
+
+  // Subject Picker Modal: open automatically right after login for teacher, or when requested
+  const [showSubjectPickerModal, setShowSubjectPickerModal] = useState<boolean>(() => {
+    if (initialShowSubjectPicker !== undefined) return initialShowSubjectPicker;
+    return authUser?.role === 'teacher';
+  });
+
+  // Watch initialShowSubjectPicker changes from App.tsx
+  React.useEffect(() => {
+    if (initialShowSubjectPicker) {
+      setShowSubjectPickerModal(true);
+    }
+  }, [initialShowSubjectPicker]);
 
   // Filter mode: 'all' | 'class' | 'room'
   const [filterMode, setFilterMode] = useState<'all' | 'class' | 'room'>('class');
@@ -643,15 +664,30 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
         {/* Mata Pelajaran Selector Horizontal Strip */}
         <div className="mt-5 pt-4 border-t border-slate-100">
-          <div className="flex items-center justify-between gap-2 mb-2.5">
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-              Pilih Mata Pelajaran:
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                Mata Pelajaran:
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSubjectPickerModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                title="Pilih Mata Pelajaran Lainnya"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Pilih / Ganti Mapel ({availableSubjects.length})</span>
+                <span className="bg-purple-800/80 px-1.5 py-0.5 rounded text-[10px] text-purple-200">
+                  {selectedSubject}
+                </span>
+              </button>
+            </div>
+
             <button
               type="button"
               onClick={() => setShowConfigDrawer(!showConfigDrawer)}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer self-start sm:self-auto"
             >
               <Calculator className="w-3.5 h-3.5" />
               <span>{showConfigDrawer ? 'Sembunyikan Pengaturan Soal & Bobot' : 'Atur Jumlah Soal & Bobot Mapel'}</span>
@@ -659,7 +695,17 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none items-center">
+            {/* Quick Open Catalog button */}
+            <button
+              type="button"
+              onClick={() => setShowSubjectPickerModal(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border shrink-0 flex items-center gap-1.5 cursor-pointer bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100 shadow-2xs"
+            >
+              <Search className="w-3.5 h-3.5 text-purple-600" />
+              <span>Katalog Semua Mapel</span>
+            </button>
+
             {availableSubjects.map((sub) => {
               const isSelected = selectedSubject === sub;
               const hasGrades = grades.some((g) => g.subject === sub);
@@ -1922,6 +1968,28 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Dialog Pilihan Mata Pelajaran (Muncul setelah Login Guru atau saat diklik) */}
+      <SubjectPickerModal
+        isOpen={showSubjectPickerModal}
+        onClose={() => {
+          setShowSubjectPickerModal(false);
+          if (onCloseSubjectPicker) onCloseSubjectPicker();
+        }}
+        subjects={availableSubjects}
+        selectedSubject={selectedSubject}
+        onSelectSubject={(sub) => {
+          setSelectedSubject(sub);
+          setActiveSubTab('input');
+          showToast(`Mata pelajaran "${sub}" dipilih. Silakan masukkan nilai Benar & Salah siswa.`);
+        }}
+        gradingConfigs={gradingConfigs}
+        grades={grades}
+        totalStudents={students.length}
+        examTitle={config.examTitle}
+        schoolName={config.schoolName}
+        teacherName={authUser?.name}
+      />
     </div>
   );
 };
