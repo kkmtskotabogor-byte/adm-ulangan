@@ -150,6 +150,8 @@ export interface ExamGradeItem {
 
 export interface SubjectGradingConfig {
   subject: string;
+  code?: string; // Kode singkat mapel, misal "MTK", "IPA", "SKI"
+  category?: string; // Kategori: "Umum", "PAI / Keagamaan", "MIPA & Sains", "Sosial & Bahasa", "Muatan Lokal", dll
   kkm: number; // default 75
   totalPgQuestions: number; // Jumlah butir soal PG (misal 40 atau 30)
   totalEssayQuestions: number; // Jumlah butir soal Esai (misal 5)

@@ -30,6 +30,7 @@ interface LoginPortalProps {
   proctors: Proctor[];
   students: Student[];
   schedules?: ExamScheduleItem[];
+  customSubjects?: string[];
   onLogin: (user: AuthUser) => void;
   isCloudConnected?: boolean;
 }
@@ -39,6 +40,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
   proctors,
   students,
   schedules = [],
+  customSubjects,
   onLogin,
   isCloudConnected = true,
 }) => {
@@ -56,6 +58,16 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
 
   // Available subjects for teacher
   const availableSubjects = useMemo(() => {
+    if (customSubjects && customSubjects.length > 0) return customSubjects;
+    try {
+      const saved = localStorage.getItem('sim_ujian_subjects_catalog_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error(e);
+    }
     const list: string[] = [];
     schedules.forEach((s) => {
       if (s.subject && !s.isBreak && !list.includes(s.subject)) {
@@ -68,7 +80,7 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
       }
     });
     return list;
-  }, [schedules]);
+  }, [customSubjects, schedules]);
   
   // Feedback
   const [error, setError] = useState<string | null>(null);

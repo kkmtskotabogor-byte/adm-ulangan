@@ -22,16 +22,107 @@ export const STANDARD_SCHOOL_SUBJECTS = [
   'BTQ (Baca Tulis Al-Qur\'an)',
 ];
 
+export function getSubjectCategory(subject: string): string {
+  const s = subject.toLowerCase();
+  if (
+    s.includes("qur'an") ||
+    s.includes('hadis') ||
+    s.includes('akidah') ||
+    s.includes('akhlak') ||
+    s.includes('fikih') ||
+    s.includes('ski') ||
+    s.includes('sejarah kebudayaan') ||
+    s.includes('btq') ||
+    s.includes('tahfidz') ||
+    s.includes('pai') ||
+    s.includes('agama')
+  ) {
+    return 'PAI / Keagamaan';
+  }
+  if (
+    s.includes('matematika') ||
+    s.includes('ipa') ||
+    s.includes('alam') ||
+    s.includes('fisika') ||
+    s.includes('biologi') ||
+    s.includes('kimia')
+  ) {
+    return 'MIPA & Sains';
+  }
+  if (
+    s.includes('indonesia') ||
+    s.includes('inggris') ||
+    s.includes('arab') ||
+    s.includes('jepang') ||
+    s.includes('jerman') ||
+    s.includes('mandarin')
+  ) {
+    return 'Bahasa & Sastra';
+  }
+  if (
+    s.includes('sunda') ||
+    s.includes('jawa') ||
+    s.includes('madura') ||
+    s.includes('mulok') ||
+    s.includes('muatan lokal')
+  ) {
+    return 'Muatan Lokal';
+  }
+  if (
+    s.includes('ips') ||
+    s.includes('sosial') ||
+    s.includes('sejarah') ||
+    s.includes('geografi') ||
+    s.includes('ekonomi') ||
+    s.includes('sosiologi') ||
+    s.includes('pancasila') ||
+    s.includes('pkn')
+  ) {
+    return 'Sosial & Humaniora';
+  }
+  return 'Umum';
+}
+
+export function getSubjectCode(subject: string): string {
+  const s = subject.toLowerCase();
+  if (s.includes('matematika')) return 'MTK';
+  if (s.includes('ipa') || s.includes('alam')) return 'IPA';
+  if (s.includes('ips') || s.includes('sosial')) return 'IPS';
+  if (s.includes('indonesia')) return 'BIN';
+  if (s.includes('inggris')) return 'BIG';
+  if (s.includes('arab')) return 'ARB';
+  if (s.includes("qur'an") || s.includes('hadis')) return 'QRD';
+  if (s.includes('akidah') || s.includes('akhlak')) return 'AAK';
+  if (s.includes('fikih')) return 'FKH';
+  if (s.includes('ski') || s.includes('sejarah kebudayaan')) return 'SKI';
+  if (s.includes('pancasila') || s.includes('pkn')) return 'PKN';
+  if (s.includes('pjok') || s.includes('jasmani')) return 'PJK';
+  if (s.includes('seni')) return 'SBD';
+  if (s.includes('prakarya') || s.includes('informatika') || s.includes('tik')) return 'INF';
+  if (s.includes('sunda')) return 'SND';
+  if (s.includes('btq')) return 'BTQ';
+  if (s.includes('tahfidz')) return 'THF';
+
+  // Fallback abbreviation
+  const words = subject.trim().split(/\s+/);
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+  return words.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
+}
+
 /**
  * Default preset for subject question counts and weights
  */
 export function getDefaultSubjectConfig(subject: string): SubjectGradingConfig {
   const s = subject.toLowerCase();
+  const code = getSubjectCode(subject);
+  const category = getSubjectCategory(subject);
   
   // Matematika & IPA usually have fewer questions due to calculations
   if (s.includes('matematika')) {
     return {
       subject,
+      code,
+      category,
       kkm: 75,
       totalPgQuestions: 30,
       totalEssayQuestions: 5,
@@ -46,6 +137,8 @@ export function getDefaultSubjectConfig(subject: string): SubjectGradingConfig {
   if (s.includes('ipa') || s.includes('alam')) {
     return {
       subject,
+      code,
+      category,
       kkm: 75,
       totalPgQuestions: 35,
       totalEssayQuestions: 5,
@@ -60,6 +153,8 @@ export function getDefaultSubjectConfig(subject: string): SubjectGradingConfig {
   if (s.includes('informatika') || s.includes('tik')) {
     return {
       subject,
+      code,
+      category,
       kkm: 75,
       totalPgQuestions: 50,
       totalEssayQuestions: 0,
@@ -75,6 +170,8 @@ export function getDefaultSubjectConfig(subject: string): SubjectGradingConfig {
   // Standard 40 PG & 5 Esai for languages, religion, humanities
   return {
     subject,
+    code,
+    category,
     kkm: 75,
     totalPgQuestions: 40,
     totalEssayQuestions: 5,

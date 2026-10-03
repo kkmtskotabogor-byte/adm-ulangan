@@ -14,7 +14,7 @@ import {
 } from './types';
 import { initialConfig, initialDispensations, initialProctors, initialRooms, initialSchedule, initialStudents } from './data/initialData';
 import { distributeCrossClass, distributeSequential, generateExamNumbers, distributeCrossLevelDoubleDesk } from './utils/distribution';
-import { generateSampleGrades } from './utils/gradeUtils';
+import { generateSampleGrades, STANDARD_SCHOOL_SUBJECTS } from './utils/gradeUtils';
 import { Header } from './components/Header';
 import { DashboardView } from './components/DashboardView';
 import { ConfigView } from './components/ConfigView';
@@ -65,6 +65,7 @@ const STORAGE_KEYS = {
   GRADES: 'sim_ujian_grades_v1',
   GRADING_CONFIGS: 'sim_ujian_grading_configs_v1',
   AUTH_USER: 'sim_ujian_auth_user_v2',
+  CUSTOM_SUBJECTS: 'sim_ujian_subjects_catalog_v1',
 };
 
 export default function App() {
@@ -179,6 +180,34 @@ export default function App() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [showCloudSyncModal, setShowCloudSyncModal] = useState<boolean>(false);
   const [openSubjectPickerOnLogin, setOpenSubjectPickerOnLogin] = useState<boolean>(false);
+
+  // Subjects catalog state (Master Daftar Mata Pelajaran)
+  const [subjects, setSubjects] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_SUBJECTS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Error loading custom subjects in App:', e);
+    }
+    const list: string[] = [];
+    initialSchedule.forEach((s) => {
+      if (s.subject && !s.isBreak && !list.includes(s.subject)) {
+        list.push(s.subject);
+      }
+    });
+    STANDARD_SCHOOL_SUBJECTS.forEach((sub) => {
+      if (!list.includes(sub)) list.push(sub);
+    });
+    return list;
+  });
+
+  const handleUpdateSubjects = (newSubjects: string[]) => {
+    setSubjects(newSubjects);
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(newSubjects));
+  };
 
   // Check URL query parameters for autoPrint when opened in a new tab
   useEffect(() => {
@@ -1049,6 +1078,7 @@ export default function App() {
           proctors={proctors}
           students={students}
           schedules={schedules}
+          customSubjects={subjects}
           onLogin={handleLogin}
           isCloudConnected={isCloudConnected}
         />
@@ -1104,6 +1134,8 @@ export default function App() {
             authUser={authUser}
             initialShowSubjectPicker={openSubjectPickerOnLogin}
             onCloseSubjectPicker={() => setOpenSubjectPickerOnLogin(false)}
+            customSubjects={subjects}
+            onUpdateSubjects={handleUpdateSubjects}
           />
         ) : (
           <>
@@ -1252,6 +1284,8 @@ export default function App() {
                 authUser={authUser}
                 initialShowSubjectPicker={openSubjectPickerOnLogin}
                 onCloseSubjectPicker={() => setOpenSubjectPickerOnLogin(false)}
+                customSubjects={subjects}
+                onUpdateSubjects={handleUpdateSubjects}
               />
             )}
 

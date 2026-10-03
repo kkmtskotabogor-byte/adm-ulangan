@@ -56,6 +56,7 @@ import {
   generateSampleGrades
 } from '../utils/gradeUtils';
 import { SubjectPickerModal } from './SubjectPickerModal';
+import { AdminSubjectsManager } from './AdminSubjectsManager';
 
 interface GradesManagementViewProps {
   config: ExamConfig;
@@ -71,6 +72,8 @@ interface GradesManagementViewProps {
   authUser?: AuthUser;
   initialShowSubjectPicker?: boolean;
   onCloseSubjectPicker?: () => void;
+  customSubjects?: string[];
+  onUpdateSubjects?: (subjects: string[]) => void;
 }
 
 export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
@@ -87,9 +90,21 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   authUser,
   initialShowSubjectPicker,
   onCloseSubjectPicker,
+  customSubjects,
+  onUpdateSubjects,
 }) => {
-  // 1. Available subjects: gather from schedules + standards
-  const availableSubjects = useMemo(() => {
+  // 1. Subjects catalog state: loaded from customSubjects prop, localStorage, or standard defaults
+  const [subjectsList, setSubjectsList] = useState<string[]>(() => {
+    if (customSubjects && customSubjects.length > 0) return customSubjects;
+    try {
+      const saved = localStorage.getItem('sim_ujian_subjects_catalog_v1');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Error loading subject catalog:', e);
+    }
     const list: string[] = [];
     schedules.forEach((s) => {
       if (s.subject && !s.isBreak && !list.includes(s.subject)) {
@@ -103,10 +118,88 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       }
     });
     return list;
-  }, [schedules]);
+  });
 
-  // View mode: 'input' (interactive table), 'print' (official document A4), 'leger' (matrix all subjects)
-  const [activeSubTab, setActiveSubTab] = useState<'input' | 'print' | 'leger'>('input');
+  // Keep state synced if customSubjects prop updates
+  React.useEffect(() => {
+    if (customSubjects && customSubjects.length > 0) {
+      setSubjectsList(customSubjects);
+    }
+  }, [customSubjects]);
+
+  const availableSubjects = subjectsList;
+
+  // Persist and notify subject changes
+  const updateSubjectsList = (newList: string[]) => {
+    setSubjectsList(newList);
+    localStorage.setItem('sim_ujian_subjects_catalog_v1', JSON.stringify(newList));
+    if (onUpdateSubjects) onUpdateSubjects(newList);
+  };
+
+  // Add Subject Handler
+  const handleAddSubject = (newSubject: string, newConfig: SubjectGradingConfig) => {
+    if (!subjectsList.includes(newSubject)) {
+      const updated = [...subjectsList, newSubject];
+      updateSubjectsList(updated);
+    }
+    onUpdateGradingConfig(newSubject, newConfig);
+    setSelectedSubject(newSubject);
+  };
+
+  // Edit Subject Handler
+  const handleEditSubject = (oldName: string, newName: string, newConfig: SubjectGradingConfig) => {
+    const updated = subjectsList.map((s) => (s === oldName ? newName : s));
+    updateSubjectsList(updated);
+
+    // If subject name changed, migrate existing student grades so they are preserved
+    if (oldName !== newName) {
+      const updatedGrades = grades.map((g) => {
+        if (g.subject === oldName) {
+          return {
+            ...g,
+            id: `${g.studentId}_${newName}`,
+            subject: newName,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return g;
+      });
+      onUpdateGrades(updatedGrades);
+
+      if (selectedSubject === oldName) {
+        setSelectedSubject(newName);
+      }
+    }
+
+    onUpdateGradingConfig(newName, newConfig);
+  };
+
+  // Delete Subject Handler
+  const handleDeleteSubject = (subjectName: string, deleteGrades: boolean) => {
+    const updated = subjectsList.filter((s) => s !== subjectName);
+    updateSubjectsList(updated);
+
+    if (deleteGrades) {
+      const remainingGrades = grades.filter((g) => g.subject !== subjectName);
+      onUpdateGrades(remainingGrades);
+    }
+
+    if (selectedSubject === subjectName) {
+      setSelectedSubject(updated[0] || 'Matematika');
+    }
+  };
+
+  // Reset to Default Subjects Handler
+  const handleResetToDefaultSubjects = () => {
+    const defaultList = [...STANDARD_SCHOOL_SUBJECTS];
+    updateSubjectsList(defaultList);
+    if (!defaultList.includes(selectedSubject)) {
+      setSelectedSubject(defaultList[0] || 'Matematika');
+    }
+  };
+
+  // View mode: 'input' (interactive table), 'print' (official document A4), 'leger' (matrix all subjects), 'subjects' (admin subject management)
+  const [activeSubTab, setActiveSubTab] = useState<'input' | 'print' | 'leger' | 'subjects'>('input');
 
   // Print mode type: 'filled' (terisi nilai) vs 'blank' (blanko kosong untuk korektor guru)
   const [printDocType, setPrintDocType] = useState<'filled' | 'blank'>('filled');
@@ -626,6 +719,25 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                 <Layers className="w-3.5 h-3.5" />
                 <span>Leger Kolektif</span>
               </button>
+
+              {/* Tab 4: Daftar Mata Pelajaran (Khusus Role Admin) */}
+              {(!authUser || authUser.role === 'admin') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveSubTab('subjects')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    activeSubTab === 'subjects'
+                      ? 'bg-white text-indigo-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Daftar Mata Pelajaran</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-indigo-100 text-indigo-800 font-bold font-mono">
+                    {availableSubjects.length}
+                  </span>
+                </button>
+              )}
             </div>
 
             <button
@@ -662,8 +774,9 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           </div>
         )}
 
-        {/* Mata Pelajaran Selector Horizontal Strip */}
-        <div className="mt-5 pt-4 border-t border-slate-100">
+        {/* Mata Pelajaran Selector Horizontal Strip (Hidden when in Subjects Manager) */}
+        {activeSubTab !== 'subjects' && (
+          <div className="mt-5 pt-4 border-t border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
@@ -867,10 +980,12 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             </div>
           )}
         </div>
+        )}
       </div>
 
-      {/* 2. Top Analytics Metrics Strip (Clean Cards) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 no-print">
+      {/* 2. Top Analytics Metrics Strip (Clean Cards - Hidden when in Subjects Manager) */}
+      {activeSubTab !== 'subjects' && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 no-print">
         {/* Rata-Rata Nilai */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
@@ -972,6 +1087,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           </span>
         </div>
       </div>
+      )}
 
       {/* 3. SUB-TAB 1: INPUT & REKAP NILAI INTERAKTIF BERDASARKAN BENAR & SALAH */}
       {activeSubTab === 'input' && (
@@ -2106,6 +2222,26 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 5. SUB-TAB 4: DAFTAR & MANAJEMEN MATA PELAJARAN (ROLE ADMIN) */}
+      {activeSubTab === 'subjects' && (
+        <AdminSubjectsManager
+          subjects={availableSubjects}
+          gradingConfigs={gradingConfigs}
+          grades={grades}
+          totalStudents={students.length}
+          onAddSubject={handleAddSubject}
+          onEditSubject={handleEditSubject}
+          onDeleteSubject={handleDeleteSubject}
+          onResetToDefaultSubjects={handleResetToDefaultSubjects}
+          onSelectSubjectToGrade={(sub) => {
+            setSelectedSubject(sub);
+            setActiveSubTab('input');
+            showToast(`Mata pelajaran "${sub}" dipilih. Silakan masukkan nilai siswa.`);
+          }}
+          showToast={showToast}
+        />
       )}
 
       {/* 6. MODAL: IMPORT EXCEL / CSV NILAI */}
