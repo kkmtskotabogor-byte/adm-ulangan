@@ -1100,9 +1100,10 @@ export default function App() {
     setIsGradeSyncing(true);
     try {
       const subGrades = subject ? grades.filter((g) => g.subject === subject) : grades;
-      // 1. Force push to backend server
+      // 1. Force push this subject's grades to backend server (leaves other subjects untouched)
       await saveServerGrades(subGrades, subject);
-      // 2. Secondary cloud push
+
+      // 2. Secondary cloud push for this subject
       try {
         if (subject) {
           await saveSubjectGradesToCloud(subject, subGrades);
@@ -1110,8 +1111,28 @@ export default function App() {
           await syncAllGradesToCloud(grades);
         }
       } catch {}
+
+      // 3. Pull latest grades for all subjects so this device gets updates from other teachers (e.g. MTK teacher)
+      const latestGrades = await fetchServerGrades();
+      if (latestGrades && latestGrades.length > 0) {
+        setGrades((prev) => {
+          const map = new Map<string, ExamGradeItem>();
+          prev.forEach((g) => map.set(g.id || `${g.studentId}_${g.subject}`, g));
+          latestGrades.forEach((g) => map.set(g.id || `${g.studentId}_${g.subject}`, g));
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+
       setLastGradeCloudSyncedAt(new Date());
-      showToast(`Nilai ${subject ? `mapel "${subject}"` : 'seluruh mapel'} berhasil disimpan & disinkronkan real-time!`);
+      showToast(
+        subject
+          ? `Nilai "${subject}" tersimpan aman, dan data mapel lain berhasil disinkronkan.`
+          : 'Seluruh data nilai berhasil disinkronkan real-time.'
+      );
     } catch (err) {
       showToast('Gagal sinkronisasi nilai: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
