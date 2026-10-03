@@ -457,6 +457,36 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     showToast(`Seluruh siswa (${newItems.length} siswa) berhasil diset Tuntas KKM!`);
   };
 
+  const handleSetStudentPerfect = (student: Student) => {
+    const calc = calculateExamScoreFromCounts(totalPg, maxEssay, currentGradingConfig);
+    const newGradeItem: ExamGradeItem = {
+      id: `${student.id}_${selectedSubject}`,
+      studentId: student.id,
+      studentName: student.name,
+      nisn: student.nisn || '',
+      nis: student.nis || '',
+      className: student.className,
+      examNumber: student.examNumber || '',
+      roomId: student.roomId || '',
+      roomName: student.roomName || '',
+      seatNumber: student.seatNumber,
+      subject: selectedSubject,
+      correctPg: totalPg,
+      wrongPg: 0,
+      correctEssay: maxEssay,
+      scorePg: 100,
+      scoreEssay: 100,
+      scoreFinal: 100,
+      remedialScore: null,
+      passed: true,
+      notes: 'Sempurna - Benar Semua (Nilai 100)',
+      updatedAt: new Date().toISOString(),
+    };
+    const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+    onUpdateGrades([...otherGrades, newGradeItem]);
+    showToast(`Nilai ${student.name} diset Benar Semua (100).`);
+  };
+
   const handleClearSubjectGrades = () => {
     if (!window.confirm(`Yakin ingin mengosongkan seluruh nilai mata pelajaran "${selectedSubject}"? Tindakan ini tidak dapat dibatalkan.`)) {
       return;
@@ -651,7 +681,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   Ruang Kerja Guru Mata Pelajaran — Akses Penginputan &amp; Pengelolaan Nilai Ujian
                 </p>
                 <p className="text-[11px] text-purple-700">
-                  Silakan pilih mata pelajaran Anda, atur butir soal (PG &amp; Esai), isi jumlah jawaban benar/salah, dan cetak form nilai resmi.
+                  Silakan pilih mata pelajaran Anda, atur butir soal (PG &amp; Esai), dan isi jumlah jawaban benar/salah. Pada tampilan layar HP/mobile, isian nilai tersusun rapi langsung di bawah nama siswa tanpa perlu digeser ke kanan.
                 </p>
               </div>
             </div>
@@ -1139,9 +1169,21 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             </div>
           </div>
 
-          {/* Interactive Benar-Salah Table */}
+          {/* Interactive Benar-Salah Table Container */}
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
+            {/* Mobile View Notification */}
+            <div className="md:hidden px-3.5 py-2 bg-purple-50/90 border-b border-purple-200/80 text-[11px] text-purple-900 flex items-center justify-between gap-2">
+              <span className="font-semibold flex items-center gap-1.5">
+                <span>📱</span>
+                <span>Tampilan Mobile: Isian nilai ditaruh tepat di bawah nama siswa tanpa perlu digeser ke kanan.</span>
+              </span>
+              <span className="text-[10px] bg-purple-200/70 text-purple-800 px-2 py-0.5 rounded font-mono shrink-0">
+                {filteredStudents.length} Siswa
+              </span>
+            </div>
+
+            {/* Desktop Table View (>= md breakpoint): Wide spreadsheet view */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase border-b border-slate-200">
                   <tr>
@@ -1389,6 +1431,233 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile View (< md): Tampilan Pengisian Nilai Vertikal (Isian Nilai Tepat di Bawah Nama Siswa, Tanpa Perlu Geser Kanan) */}
+            <div className="md:hidden divide-y divide-slate-200 bg-white">
+              {filteredStudents.length === 0 ? (
+                <div className="py-12 text-center text-slate-400 p-4">
+                  Tidak ada data siswa yang cocok dengan filter atau kata kunci pencarian.
+                </div>
+              ) : (
+                filteredStudents.map((student, index) => {
+                  const grade = currentSubjectGradeMap.get(student.id);
+                  const hasFinal = grade && typeof grade.scoreFinal === 'number';
+                  const finalScore = hasFinal ? grade.scoreFinal : null;
+                  const isPassed = hasFinal ? grade.passed : false;
+                  const predicateInfo = hasFinal ? getGradePredicate(grade.scoreFinal, currentGradingConfig.kkm) : null;
+
+                  const currentCorrectPg = grade?.correctPg ?? '';
+                  const currentWrongPg = grade?.wrongPg ?? (typeof grade?.correctPg === 'number' ? Math.max(0, totalPg - grade.correctPg) : '');
+                  const currentCorrectEssay = grade?.correctEssay ?? '';
+                  const currentScorePg = grade?.scorePg ?? (typeof grade?.correctPg === 'number' ? Math.round((grade.correctPg / (totalPg || 1)) * 100) : '-');
+                  const currentScoreEssay = grade?.scoreEssay ?? (typeof grade?.correctEssay === 'number' ? Math.round((grade.correctEssay / (maxEssay || 1)) * 100) : '-');
+
+                  return (
+                    <div key={student.id} className="p-3.5 space-y-3 hover:bg-slate-50/60 transition-colors">
+                      {/* Baris 1: Identitas Siswa & Skor Akhir */}
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-mono text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5 border border-slate-200">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="font-bold text-sm text-slate-900 leading-snug">
+                                {student.name}
+                              </h4>
+                              <span
+                                className={`text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
+                                  student.gender === 'L'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'bg-pink-50 text-pink-700 border border-pink-200'
+                                }`}
+                              >
+                                {student.gender}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500 mt-1">
+                              <span className="font-mono font-semibold text-slate-700">{student.examNumber || '-'}</span>
+                              <span>•</span>
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px] border border-slate-200">
+                                {student.className}
+                              </span>
+                              <span>•</span>
+                              <span className="text-slate-600 text-[10px]">
+                                {student.roomName ? student.roomName.replace('Ruang ', 'R.') : '-'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Skor Nilai Akhir & Status Badge (Kanan Atas) */}
+                        <div className="text-right shrink-0">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <div
+                              className={`px-2.5 py-1 rounded-lg font-mono font-bold text-base leading-none shadow-2xs border ${
+                                hasFinal
+                                  ? finalScore === 100
+                                    ? 'bg-indigo-600 text-white border-indigo-700 ring-2 ring-indigo-300'
+                                    : isPassed
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                    : 'bg-rose-50 text-rose-800 border-rose-300'
+                                  : 'bg-slate-100 text-slate-400 border-slate-200'
+                              }`}
+                              title="Nilai Akhir (100 jika benar semua)"
+                            >
+                              {hasFinal ? finalScore : '-'}
+                            </div>
+                            {predicateInfo && (
+                              <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${predicateInfo.badgeClass}`}>
+                                {predicateInfo.predicate}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1">
+                            {hasFinal ? (
+                              isPassed ? (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Tuntas
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-700">
+                                  <AlertTriangle className="w-3 h-3 text-rose-600" /> Remedial
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">Belum Dinilai</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Baris 2: Isian Nilai Tepat di Bawah Nama Siswa (Tanpa Perlu Geser Kanan) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                        {/* 1. Blok Pilihan Ganda (PG) */}
+                        <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-blue-950 flex items-center gap-1">
+                              <span>Pilihan Ganda</span>
+                              <span className="text-[10px] font-normal text-blue-700">({weightPg}%)</span>
+                            </span>
+                            <span className="text-[11px] font-bold text-blue-800 font-mono bg-white px-2 py-0.5 rounded border border-blue-200 shadow-2xs">
+                              Nilai PG: {currentScorePg}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-blue-900 mb-1">
+                                Benar (Max {totalPg})
+                              </label>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                min={0}
+                                max={totalPg}
+                                placeholder={`0-${totalPg}`}
+                                value={currentCorrectPg}
+                                onChange={(e) => handleCountChange(student, 'correctPg', e.target.value)}
+                                className="w-full px-2 py-1.5 text-center font-mono font-bold text-sm bg-white border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-hidden shadow-2xs text-slate-900"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-600 mb-1">
+                                Salah PG
+                              </label>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                min={0}
+                                max={totalPg}
+                                placeholder="0"
+                                value={currentWrongPg}
+                                onChange={(e) => handleCountChange(student, 'wrongPg', e.target.value)}
+                                className="w-full px-2 py-1.5 text-center font-mono text-sm bg-white/90 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-400 focus:outline-hidden text-slate-900"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Blok Soal Esai */}
+                        <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-amber-950 flex items-center gap-1">
+                              <span>Soal Esai</span>
+                              <span className="text-[10px] font-normal text-amber-700">({weightEssay}%)</span>
+                            </span>
+                            <span className="text-[11px] font-bold text-amber-800 font-mono bg-white px-2 py-0.5 rounded border border-amber-200 shadow-2xs">
+                              Nilai Esai: {totalEssay > 0 ? currentScoreEssay : '-'}
+                            </span>
+                          </div>
+
+                          {totalEssay > 0 ? (
+                            <div>
+                              <label className="block text-[10px] font-semibold text-amber-900 mb-1">
+                                Skor Jawaban Benar (Max {maxEssay})
+                              </label>
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                step="0.5"
+                                min={0}
+                                max={maxEssay}
+                                placeholder={`0-${maxEssay}`}
+                                value={currentCorrectEssay}
+                                onChange={(e) => handleCountChange(student, 'correctEssay', e.target.value)}
+                                className="w-full px-2 py-1.5 text-center font-mono font-bold text-sm bg-white border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-hidden shadow-2xs text-slate-900"
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-14 flex items-center justify-center text-[11px] text-slate-400 italic bg-white/60 rounded-lg border border-dashed border-amber-200">
+                              Mapel ini tanpa butir esai
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Baris 3: Catatan, Remedial (jika belum tuntas), dan Tombol Cepat 100 */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Catatan / evaluasi siswa..."
+                            value={grade?.notes || ''}
+                            onChange={(e) => handleCountChange(student, 'notes', e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-indigo-500 focus:outline-hidden text-slate-900 placeholder-slate-400"
+                          />
+                        </div>
+                        {(!hasFinal || !isPassed) && (
+                          <div className="w-20 shrink-0">
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              max={100}
+                              placeholder="Remedial"
+                              value={grade?.remedialScore ?? ''}
+                              onChange={(e) => handleCountChange(student, 'remedialScore', e.target.value)}
+                              className="w-full px-2 py-1.5 text-center font-mono text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-hidden text-slate-900"
+                              title="Nilai Remedial Siswa"
+                            />
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleSetStudentPerfect(student)}
+                          title="Set Nilai Sempurna 100 untuk siswa ini"
+                          className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold shrink-0 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                        >
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>100</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
             {/* Bottom summary bar */}
