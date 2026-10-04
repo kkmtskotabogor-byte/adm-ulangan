@@ -94,6 +94,18 @@ export function handleFirestoreError(
   console.warn(`Firestore [${operationType}] note on ${path}:`, errInfo.error);
 }
 
+// Helper to prevent any Firebase promise from hanging indefinitely
+export async function withTimeout<T>(promise: Promise<T>, ms: number = 3500): Promise<T> {
+  let timer: any;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Firebase timeout (${ms}ms)`)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Connection Validation on Boot
 export async function testConnection(): Promise<boolean> {
@@ -553,7 +565,7 @@ export async function isCloudGradesEmpty(): Promise<boolean> {
 export async function getCloudGrades(): Promise<ExamGradeItem[]> {
   try {
     const colRef = collection(db, 'subject_grades');
-    const snapshot = await getDocs(colRef);
+    const snapshot = await withTimeout(getDocs(colRef), 3500);
     const allGrades: ExamGradeItem[] = [];
     snapshot.forEach((d) => {
       const data = d.data();
@@ -617,14 +629,18 @@ export async function saveSubjectGradesToCloud(
       return clean;
     });
 
-    await setDoc(docRef, {
-      subject,
-      safeKey,
-      grades: sanitized,
-      updatedAt: new Date().toISOString(),
-    });
+    await withTimeout(
+      setDoc(docRef, {
+        subject,
+        safeKey,
+        grades: sanitized,
+        updatedAt: new Date().toISOString(),
+      }),
+      3500
+    );
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+    throw error;
   }
 }
 
@@ -639,7 +655,7 @@ export async function syncAllGradesToCloud(grades: ExamGradeItem[]): Promise<voi
     });
 
     for (const [subject, list] of bySubject.entries()) {
-      await saveSubjectGradesToCloud(subject, list);
+      await saveSubjectGradesToCloud(subject, list).catch(() => {});
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'subject_grades');

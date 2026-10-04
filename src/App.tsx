@@ -55,6 +55,7 @@ import {
   subscribeToSubjectGrades,
   saveSubjectGradesToCloud,
   syncAllGradesToCloud,
+  getCloudGrades,
   isCloudGradesEmpty,
   subscribeToGradingConfigs,
   saveGradingConfigsToCloud,
@@ -246,6 +247,25 @@ export default function App() {
       }
     }
   }, []);
+
+  // Safety Watchdog: Prevent sync indicators from spinning infinitely if network/SDK stalls
+  useEffect(() => {
+    if (isGradeSyncing) {
+      const timer = setTimeout(() => {
+        setIsGradeSyncing(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [isGradeSyncing]);
+
+  useEffect(() => {
+    if (isSyncing) {
+      const timer = setTimeout(() => {
+        setIsSyncing(false);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSyncing]);
 
   // 1. Initialize Cloud Firestore Database if empty & Subscribe to Real-Time Updates
   useEffect(() => {
@@ -1113,7 +1133,13 @@ export default function App() {
       } catch {}
 
       // 3. Pull latest grades for all subjects so this device gets updates from other teachers (e.g. MTK teacher)
-      const latestGrades = await fetchServerGrades();
+      let latestGrades = await fetchServerGrades();
+      if (!latestGrades || latestGrades.length === 0) {
+        try {
+          latestGrades = await getCloudGrades();
+        } catch {}
+      }
+
       if (latestGrades && latestGrades.length > 0) {
         setGrades((prev) => {
           const map = new Map<string, ExamGradeItem>();
