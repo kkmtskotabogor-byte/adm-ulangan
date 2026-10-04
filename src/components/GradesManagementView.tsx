@@ -51,6 +51,7 @@ import {
   getDefaultSubjectConfig,
   getGradePredicate, 
   exportGradesToExcel, 
+  exportAllSubjectsGradesToExcel,
   exportGradesTemplateToExcel, 
   parseGradesFile, 
   DEFAULT_KKM, 
@@ -682,8 +683,9 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     showToast(`Seluruh nilai mata pelajaran ${selectedSubject} telah dikosongkan.`);
   };
 
-  // Export to Excel
-  const handleExportExcel = () => {
+  // Export to Excel for a specific subject
+  const handleExportExcel = (targetSubject?: string) => {
+    const sub = targetSubject || selectedSubject;
     const filterLabel =
       filterMode === 'class'
         ? selectedClass === 'all'
@@ -695,15 +697,29 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           : rooms.find((r) => r.id === selectedRoomId)?.name || 'Ruang'
         : 'Semua Siswa';
 
+    const targetConfig = gradingConfigs[sub] || getDefaultSubjectConfig(sub);
+
     exportGradesToExcel(
-      filteredStudents,
+      filteredStudents.length > 0 ? filteredStudents : students,
       grades,
       config,
-      selectedSubject,
-      currentGradingConfig,
+      sub,
+      targetConfig,
       filterLabel
     );
-    showToast(`File Excel nilai mata pelajaran ${selectedSubject} berhasil diunduh.`);
+    showToast(`File Excel nilai mata pelajaran "${sub}" berhasil diunduh.`);
+  };
+
+  // Export All Subjects to Single Excel Workbook
+  const handleExportAllSubjectsExcel = () => {
+    exportAllSubjectsGradesToExcel(
+      students,
+      grades,
+      config,
+      availableSubjects,
+      gradingConfigs
+    );
+    showToast('File Excel rekapitulasi nilai seluruh mata pelajaran berhasil diunduh.');
   };
 
   // Export Template Excel
@@ -904,6 +920,17 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                 <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Sinkronkan Sekarang</span>
                 <span className="sm:hidden">Sinkron</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleExportExcel(selectedSubject)}
+                title={`Unduh seluruh nilai mata pelajaran ${selectedSubject} ke file Excel (.xlsx)`}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Download Excel ({selectedSubject})</span>
+                <span className="sm:hidden">Download Excel</span>
               </button>
 
               <button
@@ -1403,7 +1430,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
               <button
                 type="button"
-                onClick={handleExportExcel}
+                onClick={() => handleExportExcel()}
                 title="Unduh daftar nilai format Microsoft Excel (.xlsx)"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer"
               >
@@ -1739,6 +1766,33 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
             {/* Mobile View (< md): Tampilan Pengisian Nilai Vertikal (Isian Nilai Tepat di Bawah Nama Siswa, Tanpa Perlu Geser Kanan) */}
             <div className="md:hidden divide-y divide-slate-200 bg-white">
+              {/* Mobile Quick Download Bar */}
+              <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-b border-emerald-200 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs font-bold">
+                    <FileSpreadsheet className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs text-emerald-950 block truncate">
+                      Mapel: {selectedSubject}
+                    </span>
+                    <span className="text-[10px] text-emerald-700">
+                      {filteredStudents.filter((s) => typeof currentSubjectGradeMap.get(s.id)?.scoreFinal === 'number').length} dari {filteredStudents.length} siswa sudah dinilai
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportExcel(selectedSubject)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                  title={`Simpan nilai mapel ${selectedSubject} ke format Excel`}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Excel</span>
+                </button>
+              </div>
+
               {filteredStudents.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 p-4">
                   Tidak ada data siswa yang cocok dengan filter atau kata kunci pencarian.
@@ -2595,6 +2649,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
             showToast(`Mata pelajaran "${sub}" dipilih. Silakan masukkan nilai siswa.`);
           }}
           showToast={showToast}
+          onExportSubjectExcel={(sub) => handleExportExcel(sub)}
+          onExportAllSubjectsExcel={handleExportAllSubjectsExcel}
         />
       )}
 
@@ -2709,6 +2765,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         examTitle={config.examTitle}
         schoolName={config.schoolName}
         teacherName={authUser?.name}
+        onExportSubjectExcel={(sub) => handleExportExcel(sub)}
+        onExportAllSubjectsExcel={handleExportAllSubjectsExcel}
       />
     </div>
   );

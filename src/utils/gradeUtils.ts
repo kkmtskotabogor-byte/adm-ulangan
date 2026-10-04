@@ -615,6 +615,152 @@ export function exportGradesToExcel(
 }
 
 /**
+ * Export all subjects into a single comprehensive Excel workbook (Multi-sheet)
+ */
+export function exportAllSubjectsGradesToExcel(
+  students: Student[],
+  grades: ExamGradeItem[],
+  config: ExamConfig,
+  subjects: string[],
+  gradingConfigs: Record<string, SubjectGradingConfig>
+): void {
+  const workbook = XLSX.utils.book_new();
+
+  // 1. Master Leger Sheet (Rekap Semua Mapel)
+  const masterHeaders = [
+    'No',
+    'No. Peserta',
+    'NISN',
+    'Nama Lengkap Siswa',
+    'Kelas',
+    ...subjects,
+    'Jumlah Nilai',
+    'Rata-rata',
+    'Status Umum',
+  ];
+
+  const masterRows: any[][] = [
+    [`${config.schoolName.toUpperCase()}`],
+    [`LEGER REKAPITULASI HASIL ${config.examTitle.toUpperCase()}`],
+    [`TAHUN AJARAN ${config.academicYear} - SEMESTER ${config.semester.toUpperCase()}`],
+    [],
+    masterHeaders,
+  ];
+
+  students.forEach((student, idx) => {
+    let sum = 0;
+    let count = 0;
+    let hasFailed = false;
+
+    const subjectScores = subjects.map((sub) => {
+      const g = grades.find((item) => item.studentId === student.id && item.subject === sub);
+      const score = typeof g?.scoreFinal === 'number' ? g.scoreFinal : null;
+      if (score !== null) {
+        sum += score;
+        count++;
+        const kkm = gradingConfigs[sub]?.kkm || DEFAULT_KKM;
+        if (score < kkm) hasFailed = true;
+        return score;
+      }
+      return '-';
+    });
+
+    const avg = count > 0 ? Math.round((sum / count) * 10) / 10 : '-';
+    const status = count === 0 ? 'Belum Ada Nilai' : hasFailed ? 'Ada Remedial' : 'Tuntas Semua';
+
+    masterRows.push([
+      idx + 1,
+      student.examNumber,
+      student.nisn,
+      student.name,
+      student.className,
+      ...subjectScores,
+      count > 0 ? Math.round(sum * 10) / 10 : '-',
+      avg,
+      status,
+    ]);
+  });
+
+  const masterWs = XLSX.utils.aoa_to_sheet(masterRows);
+  XLSX.utils.book_append_sheet(workbook, masterWs, 'REKAP_LEGER');
+
+  // 2. Individual Sheet for each subject
+  subjects.forEach((sub) => {
+    const subConfig = gradingConfigs[sub] || getDefaultSubjectConfig(sub);
+    const kkm = subConfig.kkm || DEFAULT_KKM;
+    const totalPg = subConfig.totalPgQuestions ?? 40;
+    const totalEssay = subConfig.totalEssayQuestions ?? 5;
+    const weightPg = subConfig.weightPg ?? 70;
+    const weightEssay = subConfig.weightEssay ?? 30;
+
+    const subGradeMap = new Map<string, ExamGradeItem>();
+    grades.filter((g) => g.subject === sub).forEach((g) => {
+      subGradeMap.set(g.studentId, g);
+    });
+
+    const headers = [
+      'No',
+      'No. Peserta',
+      'NISN',
+      'Nama Siswa',
+      'Kelas',
+      'Ruang',
+      `Benar PG (dari ${totalPg})`,
+      `Salah PG`,
+      `Nilai PG (${weightPg}%)`,
+      `Benar/Skor Esai`,
+      `Nilai Esai (${weightEssay}%)`,
+      'Nilai Akhir (100 jika benar semua)',
+      'Nilai Remedial',
+      'Predikat',
+      'Status (KKM ' + kkm + ')',
+      'Catatan',
+    ];
+
+    const subRows: any[][] = [
+      [`${config.schoolName.toUpperCase()}`],
+      [`DAFTAR NILAI ${sub.toUpperCase()}`],
+      [`KKM: ${kkm} | Pengampu: ${subConfig.teacherName || '-'}`],
+      [],
+      headers,
+    ];
+
+    students.forEach((student, idx) => {
+      const g = subGradeMap.get(student.id);
+      const finalScore = typeof g?.scoreFinal === 'number' ? g.scoreFinal : '';
+      const pred = typeof g?.scoreFinal === 'number' ? getGradePredicate(g.scoreFinal, kkm).predicate : '';
+      const status = typeof g?.scoreFinal === 'number' ? (g.scoreFinal >= kkm ? 'TUNTAS' : 'REMEDIAL') : '';
+
+      subRows.push([
+        idx + 1,
+        student.examNumber,
+        student.nisn,
+        student.name,
+        student.className,
+        student.roomName || '-',
+        g?.correctPg ?? '',
+        g?.wrongPg ?? '',
+        g?.scorePg ?? '',
+        g?.correctEssay ?? '',
+        g?.scoreEssay ?? '',
+        finalScore,
+        g?.remedialScore ?? '',
+        pred,
+        status,
+        g?.notes || '',
+      ]);
+    });
+
+    const subWs = XLSX.utils.aoa_to_sheet(subRows);
+    const safeSheetName = sub.substring(0, 28).replace(/[\\/?*:[\]]/g, '_');
+    XLSX.utils.book_append_sheet(workbook, subWs, safeSheetName);
+  });
+
+  const fileName = `Semua_Nilai_Mapel_${config.examType}_${config.schoolName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+  XLSX.writeFile(workbook, fileName);
+}
+
+/**
  * Export Blank or Pre-Filled Excel Template with Benar/Salah Columns
  */
 export function exportGradesTemplateToExcel(

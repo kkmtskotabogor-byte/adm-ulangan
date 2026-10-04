@@ -13,7 +13,9 @@ import {
   Users, 
   HelpCircle,
   Clock,
-  Filter
+  Filter,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { ExamGradeItem, SubjectGradingConfig } from '../types';
 import { getDefaultSubjectConfig, DEFAULT_KKM } from '../utils/gradeUtils';
@@ -30,6 +32,8 @@ interface SubjectPickerModalProps {
   examTitle?: string;
   schoolName?: string;
   teacherName?: string;
+  onExportSubjectExcel?: (subject: string) => void;
+  onExportAllSubjectsExcel?: () => void;
 }
 
 // Subject color and category mapper
@@ -176,6 +180,8 @@ export const SubjectPickerModal: React.FC<SubjectPickerModalProps> = ({
   examTitle = 'Ujian Madrasah / Sekolah',
   schoolName = 'MTs Manbaul Islam',
   teacherName,
+  onExportSubjectExcel,
+  onExportAllSubjectsExcel,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'scored' | 'unscored' | 'pai' | 'umum'>('all');
@@ -515,8 +521,8 @@ export const SubjectPickerModal: React.FC<SubjectPickerModalProps> = ({
                       )}
                     </div>
 
-                    {/* Action Button */}
-                    <div className="pt-2">
+                    {/* Action Buttons */}
+                    <div className="pt-2 flex items-center gap-2">
                       {isSelected ? (
                         <button
                           type="button"
@@ -524,10 +530,10 @@ export const SubjectPickerModal: React.FC<SubjectPickerModalProps> = ({
                             e.stopPropagation();
                             handlePick(sub);
                           }}
-                          className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                          className="flex-1 py-2 px-3 rounded-lg text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Sedang Dipilih • Buka Form Input Nilai</span>
+                          <span>Input Nilai</span>
                         </button>
                       ) : (
                         <button
@@ -536,10 +542,25 @@ export const SubjectPickerModal: React.FC<SubjectPickerModalProps> = ({
                             e.stopPropagation();
                             handlePick(sub);
                           }}
-                          className="w-full py-2 px-3 rounded-lg text-xs font-bold bg-white border border-slate-300 text-slate-700 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600 flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                          className="flex-1 py-2 px-3 rounded-lg text-xs font-bold bg-white border border-slate-300 text-slate-700 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600 flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                         >
-                          <span>Pilih Mapel Ini &amp; Mulai Input</span>
+                          <span>Pilih Mapel</span>
                           <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {onExportSubjectExcel && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onExportSubjectExcel(sub);
+                          }}
+                          title={`Download nilai mapel ${sub} format Excel (.xlsx)`}
+                          className="py-2 px-2.5 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 shadow-2xs transition-colors cursor-pointer shrink-0"
+                        >
+                          <Download className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Excel</span>
                         </button>
                       )}
                     </div>
@@ -553,10 +574,22 @@ export const SubjectPickerModal: React.FC<SubjectPickerModalProps> = ({
         {/* Modal Footer */}
         <div className="p-4 sm:px-6 bg-white border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <p className="text-[11px] text-slate-500 text-center sm:text-left">
-            💡 <strong>Info:</strong> Setelah memilih mapel, Anda dapat mengatur butir soal, memasukkan jumlah benar/salah, mengunggah template Excel, atau mencetak lembar nilai.
+            💡 <strong>Tips:</strong> Anda bisa langsung klik tombol hijau <strong>Excel</strong> pada setiap mapel di atas untuk mengunduh rekap nilainya.
           </p>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {onExportAllSubjectsExcel && (
+              <button
+                type="button"
+                onClick={onExportAllSubjectsExcel}
+                className="px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                title="Download seluruh nilai semua mata pelajaran ke dalam satu file Excel (multi-sheet)"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Download Semua Mapel (.xlsx)</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onClose}
