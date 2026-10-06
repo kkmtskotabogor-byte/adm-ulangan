@@ -1017,20 +1017,38 @@ export async function parseGradesFile(
           });
         }
 
-        // Student indexing maps with normalization
-        const cleanStr = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
-        const cleanName = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z]/g, '') : '');
+        // Validation helper for unique identifiers (ignores empty, dashes, zeroes)
+        const isValidId = (val: string | undefined): boolean => {
+          if (!val) return false;
+          const s = val.trim().toLowerCase();
+          if (
+            s === '' ||
+            s === '-' ||
+            s === '--' ||
+            s === '0' ||
+            s === 'null' ||
+            s === 'undefined' ||
+            s === 'none'
+          ) {
+            return false;
+          }
+          const clean = s.replace(/[^a-z0-9]/g, '');
+          return clean.length >= 2;
+        };
 
-        const studentByNisn = new Map<string, Student>();
+        const cleanKey = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+        const cleanName = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+
         const studentByExamNo = new Map<string, Student>();
-        const studentByNis = new Map<string, Student>();
         const studentByName = new Map<string, Student>();
+        const studentByNisn = new Map<string, Student>();
+        const studentByNis = new Map<string, Student>();
 
         students.forEach((s) => {
-          if (s.nisn) studentByNisn.set(cleanStr(s.nisn), s);
-          if (s.examNumber) studentByExamNo.set(cleanStr(s.examNumber), s);
-          if (s.nis) studentByNis.set(cleanStr(s.nis), s);
-          if (s.name) studentByName.set(cleanName(s.name), s);
+          if (isValidId(s.examNumber)) studentByExamNo.set(cleanKey(s.examNumber), s);
+          if (isValidId(s.name)) studentByName.set(cleanName(s.name), s);
+          if (isValidId(s.nisn)) studentByNisn.set(cleanKey(s.nisn), s);
+          if (isValidId(s.nis)) studentByNis.set(cleanKey(s.nis), s);
         });
 
         const totalPg = gradingConfig.totalPgQuestions ?? 40;
@@ -1066,20 +1084,38 @@ export async function parseGradesFile(
             continue;
           }
 
-          const rawNisn = colIndexNisn !== -1 ? String(row[colIndexNisn] || '').trim() : '';
           const rawExamNo = colIndexExamNo !== -1 ? String(row[colIndexExamNo] || '').trim() : '';
-          const rawNis = colIndexNis !== -1 ? String(row[colIndexNis] || '').trim() : '';
           const rawName = colIndexName !== -1 ? String(row[colIndexName] || '').trim() : '';
+          const rawNisn = colIndexNisn !== -1 ? String(row[colIndexNisn] || '').trim() : '';
+          const rawNis = colIndexNis !== -1 ? String(row[colIndexNis] || '').trim() : '';
 
           let matchedStudent: Student | undefined;
-          if (rawNisn && studentByNisn.has(cleanStr(rawNisn))) {
-            matchedStudent = studentByNisn.get(cleanStr(rawNisn));
-          } else if (rawExamNo && studentByExamNo.has(cleanStr(rawExamNo))) {
-            matchedStudent = studentByExamNo.get(cleanStr(rawExamNo));
-          } else if (rawNis && studentByNis.has(cleanStr(rawNis))) {
-            matchedStudent = studentByNis.get(cleanStr(rawNis));
-          } else if (rawName && studentByName.has(cleanName(rawName))) {
+
+          // Priority 1: Match by Exam Number (No. Peserta Ujian)
+          if (isValidId(rawExamNo) && studentByExamNo.has(cleanKey(rawExamNo))) {
+            matchedStudent = studentByExamNo.get(cleanKey(rawExamNo));
+          }
+          // Priority 2: Match by Student Name (Nama Lengkap)
+          else if (isValidId(rawName) && studentByName.has(cleanName(rawName))) {
             matchedStudent = studentByName.get(cleanName(rawName));
+          }
+          // Priority 3: Match by NISN (only if valid, not '-')
+          else if (isValidId(rawNisn) && studentByNisn.has(cleanKey(rawNisn))) {
+            matchedStudent = studentByNisn.get(cleanKey(rawNisn));
+          }
+          // Priority 4: Match by NIS (only if valid, not '-')
+          else if (isValidId(rawNis) && studentByNis.has(cleanKey(rawNis))) {
+            matchedStudent = studentByNis.get(cleanKey(rawNis));
+          }
+          // Priority 5: Fallback match by exact sequential row index in template
+          else {
+            const seqIdx = i - (headerRowIndex + 1);
+            if (seqIdx >= 0 && seqIdx < students.length) {
+              const candidate = students[seqIdx];
+              if (candidate) {
+                matchedStudent = candidate;
+              }
+            }
           }
 
           if (!matchedStudent) {

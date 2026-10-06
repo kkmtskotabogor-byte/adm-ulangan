@@ -759,10 +759,36 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         return;
       }
 
-      // Merge imported grades
-      const importedIds = new Set(result.updatedGrades.map((g) => g.id));
-      const untouchedGrades = grades.filter((g) => !importedIds.has(g.id));
-      onUpdateGrades([...untouchedGrades, ...result.updatedGrades], selectedSubject);
+      if (result.importedCount === 0) {
+        alert(
+          `Tidak ada nilai siswa yang terbaca dari file "${importFile.name}".\n\nPastikan Anda sudah mengisi angka di kolom "Jumlah Benar PG" atau "Benar Esai" atau "Nilai Akhir" pada file Excel tersebut sebelum diunggah.`
+        );
+        setIsImporting(false);
+        return;
+      }
+
+      // Safe merge by studentId + subject
+      const updatedMap = new Map<string, ExamGradeItem>();
+      result.updatedGrades.forEach((g) => {
+        updatedMap.set(`${g.studentId}_${g.subject}`, g);
+      });
+
+      const mergedGrades = grades.map((g) => {
+        const key = `${g.studentId}_${g.subject}`;
+        if (updatedMap.has(key)) {
+          const replacement = updatedMap.get(key)!;
+          updatedMap.delete(key);
+          return replacement;
+        }
+        return g;
+      });
+
+      // Append any new student grades that weren't in existing list
+      updatedMap.forEach((newGrade) => {
+        mergedGrades.push(newGrade);
+      });
+
+      onUpdateGrades(mergedGrades, selectedSubject);
 
       showToast(`Berhasil mengimpor ${result.importedCount} nilai siswa untuk mapel "${selectedSubject}" dari file Excel!`);
       setShowImportModal(false);
