@@ -6,14 +6,23 @@ export const isStaticHosting =
     window.location.hostname.includes('pages.dev') ||
     window.location.protocol === 'file:');
 
-export async function fetchServerGrades(subject?: string): Promise<ExamGradeItem[]> {
-  if (isStaticHosting) return [];
+// Cloud Run backend URL for high-speed cross-device sync even on GitHub Pages
+const CLOUD_SYNC_SERVER = 'https://ais-pre-wjusrbgpivzcactbf6lqre-433871701492.asia-southeast1.run.app';
 
+export function getApiBaseUrl(): string {
+  if (isStaticHosting) {
+    return CLOUD_SYNC_SERVER;
+  }
+  return '';
+}
+
+export async function fetchServerGrades(subject?: string): Promise<ExamGradeItem[]> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3000);
+  const timer = setTimeout(() => controller.abort(), 3500);
 
   try {
-    const url = subject ? `/api/grades?subject=${encodeURIComponent(subject)}` : '/api/grades';
+    const base = getApiBaseUrl();
+    const url = subject ? `${base}/api/grades?subject=${encodeURIComponent(subject)}` : `${base}/api/grades`;
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     const data = await res.json();
@@ -30,13 +39,12 @@ export async function saveServerGrades(
   subject?: string,
   replaceSubject: boolean = false
 ): Promise<boolean> {
-  if (isStaticHosting) return false;
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 3500);
 
   try {
-    const res = await fetch('/api/grades', {
+    const base = getApiBaseUrl();
+    const res = await fetch(`${base}/api/grades`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -61,9 +69,7 @@ export async function saveServerGrades(
 export function subscribeToServerGrades(
   onUpdate: (grades: ExamGradeItem[], subject?: string) => void
 ): () => void {
-  if (isStaticHosting) {
-    return () => {};
-  }
+  const base = getApiBaseUrl();
 
   let eventSource: EventSource | null = null;
   let pollingInterval: any = null;
@@ -73,7 +79,8 @@ export function subscribeToServerGrades(
   function connectSSE() {
     if (isClosed || failedAttempts > 3) return;
     try {
-      eventSource = new EventSource('/api/grades/stream');
+      const streamUrl = base ? `${base}/api/grades/stream` : '/api/grades/stream';
+      eventSource = new EventSource(streamUrl);
 
       eventSource.onmessage = (event) => {
         try {

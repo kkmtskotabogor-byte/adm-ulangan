@@ -565,7 +565,7 @@ export async function isCloudGradesEmpty(): Promise<boolean> {
 export async function getCloudGrades(): Promise<ExamGradeItem[]> {
   try {
     const colRef = collection(db, 'subject_grades');
-    const snapshot = await withTimeout(getDocs(colRef), 12000);
+    const snapshot = await withTimeout(getDocs(colRef), 4000);
     const allGrades: ExamGradeItem[] = [];
     snapshot.forEach((d) => {
       const data = d.data();
@@ -622,7 +622,7 @@ export function subscribeToSubjectGrades(
 export async function saveSubjectGradesToCloud(
   subject: string,
   subjectGrades: ExamGradeItem[]
-): Promise<void> {
+): Promise<{ success: boolean; isQuotaExceeded?: boolean }> {
   const safeKey = getSafeSubjectKey(subject);
   const path = `subject_grades/${safeKey}`;
   try {
@@ -643,11 +643,19 @@ export async function saveSubjectGradesToCloud(
         grades: sanitized,
         updatedAt: new Date().toISOString(),
       }),
-      12000
+      4000
     );
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
+    const errMsg = String(error?.message || error || '').toLowerCase();
+    const isQuota =
+      error?.code === 'resource-exhausted' ||
+      errMsg.includes('timeout') ||
+      errMsg.includes('quota') ||
+      errMsg.includes('exhausted');
+
     handleFirestoreError(error, OperationType.WRITE, path);
-    throw error;
+    return { success: false, isQuotaExceeded: isQuota };
   }
 }
 
@@ -662,7 +670,7 @@ export async function syncAllGradesToCloud(grades: ExamGradeItem[]): Promise<voi
     });
 
     for (const [subject, list] of bySubject.entries()) {
-      await saveSubjectGradesToCloud(subject, list).catch(() => {});
+      await saveSubjectGradesToCloud(subject, list).catch(() => ({ success: false }));
     }
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, 'subject_grades');

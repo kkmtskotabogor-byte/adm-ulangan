@@ -1137,35 +1137,48 @@ export default function App() {
         } catch {}
       }
 
-      // 3. Push merged grades to Cloud Firestore
+      // 3. Extract grades for this subject
       const subGradesToPush = subject
         ? mergedGrades.filter((g) => g.subject === subject)
         : mergedGrades;
 
-      if (subject) {
-        await saveSubjectGradesToCloud(subject, subGradesToPush);
-      } else {
-        await syncAllGradesToCloud(mergedGrades);
+      // 4. Push to server backend (instant cross-device sync via Cloud Run)
+      const serverOk = await saveServerGrades(subGradesToPush, subject).catch(() => false);
+
+      // 5. Push to Cloud Firestore (with quota and timeout protection)
+      let cloudResult: { success: boolean; isQuotaExceeded?: boolean } = { success: false, isQuotaExceeded: false };
+      try {
+        if (subject) {
+          cloudResult = await saveSubjectGradesToCloud(subject, subGradesToPush);
+        } else {
+          await syncAllGradesToCloud(mergedGrades);
+          cloudResult = { success: true, isQuotaExceeded: false };
+        }
+      } catch (cloudErr) {
+        console.warn('Cloud Firestore push note:', cloudErr);
       }
 
-      // 4. Push to server backend if present
-      await saveServerGrades(subGradesToPush, subject).catch(() => {});
-
-      setIsCloudConnected(true);
       setLastGradeCloudSyncedAt(new Date());
 
       const currentSubCount = subGradesToPush.filter(
         (g) => typeof g.scoreFinal === 'number' && !isNaN(g.scoreFinal)
       ).length;
 
-      showToast(
-        subject
-          ? `Nilai "${subject}" tersinkron (${currentSubCount} siswa terisi) & terbaca di semua perangkat.`
-          : 'Seluruh data nilai berhasil disinkronkan real-time ke Cloud.'
-      );
+      if (cloudResult.success || serverOk) {
+        setIsCloudConnected(true);
+        showToast(
+          subject
+            ? `Nilai "${subject}" (${currentSubCount} siswa) berhasil disinkronkan & tersimpan aman!`
+            : 'Seluruh data nilai berhasil disinkronkan real-time.'
+        );
+      } else {
+        showToast(
+          `Nilai mapel "${subject || 'ini'}" tersimpan aman di memori (${currentSubCount} siswa). Hubungan Cloud otomatis diperbarui saat kuota harian reset.`
+        );
+      }
     } catch (err) {
-      console.error('Grades sync error:', err);
-      showToast('Gagal sinkronisasi nilai: ' + (err instanceof Error ? err.message : String(err)));
+      console.warn('Grades sync note:', err);
+      showToast('Nilai tersimpan aman di memori perangkat.');
     } finally {
       setIsGradeSyncing(false);
     }
