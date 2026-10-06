@@ -325,16 +325,43 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     }
   };
 
-  // Grade Map for fast O(1) lookup
+  // Grade Map for fast O(1) lookup with multi-key resolution (studentId, examNumber, nisn, name)
   const currentSubjectGradeMap = useMemo(() => {
     const map = new Map<string, ExamGradeItem>();
+    const byExamNo = new Map<string, ExamGradeItem>();
+    const byNisn = new Map<string, ExamGradeItem>();
+    const byName = new Map<string, ExamGradeItem>();
+
     grades
       .filter((g) => g.subject === selectedSubject)
       .forEach((g) => {
-        map.set(g.studentId, g);
+        if (g.studentId) map.set(g.studentId, g);
+        if (g.examNumber) byExamNo.set(g.examNumber.trim().toLowerCase(), g);
+        if (g.nisn) byNisn.set(g.nisn.trim().toLowerCase(), g);
+        if (g.studentName) {
+          const clean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (clean) byName.set(clean, g);
+        }
       });
+
+    // Also populate student.id mapping if student matches by examNumber, nisn, or name
+    students.forEach((s) => {
+      if (!map.has(s.id)) {
+        if (s.examNumber && byExamNo.has(s.examNumber.trim().toLowerCase())) {
+          map.set(s.id, byExamNo.get(s.examNumber.trim().toLowerCase())!);
+        } else if (s.nisn && byNisn.has(s.nisn.trim().toLowerCase())) {
+          map.set(s.id, byNisn.get(s.nisn.trim().toLowerCase())!);
+        } else if (s.name) {
+          const clean = s.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (clean && byName.has(clean)) {
+            map.set(s.id, byName.get(clean)!);
+          }
+        }
+      }
+    });
+
     return map;
-  }, [grades, selectedSubject]);
+  }, [grades, selectedSubject, students]);
 
   // Filtered Students list based on filterMode, selectedClass/Room, and Search query
   const filteredStudents = useMemo(() => {

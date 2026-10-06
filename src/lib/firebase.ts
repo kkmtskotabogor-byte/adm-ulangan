@@ -95,7 +95,7 @@ export function handleFirestoreError(
 }
 
 // Helper to prevent any Firebase promise from hanging indefinitely
-export async function withTimeout<T>(promise: Promise<T>, ms: number = 3500): Promise<T> {
+export async function withTimeout<T>(promise: Promise<T>, ms: number = 12000): Promise<T> {
   let timer: any;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`Firebase timeout (${ms}ms)`)), ms);
@@ -565,7 +565,7 @@ export async function isCloudGradesEmpty(): Promise<boolean> {
 export async function getCloudGrades(): Promise<ExamGradeItem[]> {
   try {
     const colRef = collection(db, 'subject_grades');
-    const snapshot = await withTimeout(getDocs(colRef), 3500);
+    const snapshot = await withTimeout(getDocs(colRef), 12000);
     const allGrades: ExamGradeItem[] = [];
     snapshot.forEach((d) => {
       const data = d.data();
@@ -584,7 +584,14 @@ export async function getCloudGrades(): Promise<ExamGradeItem[]> {
 
 export function getSafeSubjectKey(subject: string): string {
   // Safe document ID from subject name (handles spaces, symbols, slashes)
-  return encodeURIComponent(subject.trim().toLowerCase()).replace(/%/g, '_');
+  const safe = subject
+    .trim()
+    .toLowerCase()
+    .replace(/[\/\\]/g, '_')
+    .replace(/[^a-z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  return safe || 'mapel_' + encodeURIComponent(subject).replace(/%/g, '_');
 }
 
 // 8. Subject Grades (Real-time Cross-device Sync)
@@ -636,7 +643,7 @@ export async function saveSubjectGradesToCloud(
         grades: sanitized,
         updatedAt: new Date().toISOString(),
       }),
-      3500
+      12000
     );
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);

@@ -1215,3 +1215,76 @@ export async function parseGradesFile(
     reader.readAsArrayBuffer(file);
   });
 }
+
+/**
+ * Smart conflict resolution for cross-device grades sync.
+ * Guarantees that actual entered student grades from any device (Device 1)
+ * are NEVER overwritten by blank or stale default records from another device (Device 2).
+ */
+export function mergeGradesIntelligently(
+  localGrades: ExamGradeItem[],
+  remoteGrades: ExamGradeItem[]
+): ExamGradeItem[] {
+  if (!remoteGrades || remoteGrades.length === 0) return localGrades || [];
+  if (!localGrades || localGrades.length === 0) return remoteGrades || [];
+
+  const getScorePresence = (g: ExamGradeItem): boolean => {
+    return (
+      (typeof g.scoreFinal === 'number' && !isNaN(g.scoreFinal)) ||
+      (typeof g.correctPg === 'number' && !isNaN(g.correctPg)) ||
+      (typeof g.correctEssay === 'number' && !isNaN(g.correctEssay)) ||
+      (typeof g.remedialScore === 'number' && !isNaN(g.remedialScore))
+    );
+  };
+
+  const getCleanKey = (g: ExamGradeItem): string => {
+    if (g.studentId && g.subject) {
+      return `${g.studentId}__${g.subject.trim().toLowerCase()}`;
+    }
+    const idPart = (g.examNumber || g.nisn || g.studentName || 'anon')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+    const subPart = (g.subject || 'unknown').trim().toLowerCase();
+    return `${idPart}__${subPart}`;
+  };
+
+  const map = new Map<string, ExamGradeItem>();
+
+  // 1. Populate map with local grades
+  localGrades.forEach((g) => {
+    map.set(getCleanKey(g), g);
+  });
+
+  // 2. Intelligently merge remote grades
+  remoteGrades.forEach((remoteItem) => {
+    const key = getCleanKey(remoteItem);
+    if (!map.has(key)) {
+      map.set(key, remoteItem);
+    } else {
+      const localItem = map.get(key)!;
+      const localHasScore = getScorePresence(localItem);
+      const remoteHasScore = getScorePresence(remoteItem);
+
+      if (!localHasScore && remoteHasScore) {
+        // Remote has actual score data while local is empty -> remote wins
+        map.set(key, remoteItem);
+      } else if (localHasScore && !remoteHasScore) {
+        // Local has actual score data while remote is empty -> local wins
+        map.set(key, localItem);
+      } else {
+        // Both have scores or neither has scores -> compare updatedAt timestamps
+        const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
+        const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt).getTime() : 0;
+
+        if (remoteTime >= localTime) {
+          map.set(key, remoteItem);
+        } else {
+          map.set(key, localItem);
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values());
+}

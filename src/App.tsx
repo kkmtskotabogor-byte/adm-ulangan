@@ -72,6 +72,7 @@ import {
   fetchServerGradingConfigs,
   saveServerGradingConfigs,
 } from './lib/api';
+import { mergeGradesIntelligently } from './utils/gradeUtils';
 import { ProctorAttendanceRecord } from './types';
 
 const STORAGE_KEYS = {
@@ -295,18 +296,35 @@ export default function App() {
         console.warn('Cloud database check note:', err);
       });
 
-    // Initial fetch from high-performance Backend Server (Local / Persistent)
+    // 1. Initial active fetch from Cloud Firestore (Crucial for Multi-Device & Mobile/GitHub Pages!)
+    getCloudGrades()
+      .then((cloudGrades) => {
+        if (cloudGrades && cloudGrades.length > 0) {
+          setGrades((prev) => {
+            const merged = mergeGradesIntelligently(prev, cloudGrades);
+            try {
+              localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+          setLastGradeCloudSyncedAt(new Date());
+          setIsCloudConnected(true);
+        } else if (grades && grades.length > 0) {
+          // If cloud is empty but this device has local grades, seed the cloud
+          syncAllGradesToCloud(grades).catch((err) =>
+            console.warn('Initial cloud grades seed note:', err)
+          );
+        }
+      })
+      .catch((err) => {
+        console.warn('Initial cloud grades fetch note:', err);
+      });
+
+    // 2. Initial fetch from high-performance Backend Server (if running with Node server)
     fetchServerGrades().then((serverGrades) => {
       if (serverGrades && serverGrades.length > 0) {
         setGrades((prev) => {
-          const map = new Map<string, ExamGradeItem>();
-          serverGrades.forEach((g) => map.set(`${g.studentId}_${g.subject}`, g));
-          prev.forEach((g) => {
-            if (!map.has(`${g.studentId}_${g.subject}`)) {
-              map.set(`${g.studentId}_${g.subject}`, g);
-            }
-          });
-          const merged = Array.from(map.values());
+          const merged = mergeGradesIntelligently(prev, serverGrades);
           try {
             localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
           } catch {}
@@ -314,7 +332,6 @@ export default function App() {
         });
         setLastGradeCloudSyncedAt(new Date());
       } else if (grades && grades.length > 0) {
-        // Seed server with existing local grades if server is brand new
         saveServerGrades(grades).catch(() => {});
       }
     });
@@ -330,14 +347,7 @@ export default function App() {
       subscribeToServerGrades((serverGrades) => {
         if (serverGrades && serverGrades.length > 0) {
           setGrades((prevLocal) => {
-            const map = new Map<string, ExamGradeItem>();
-            prevLocal.forEach((item) => {
-              map.set(`${item.studentId}_${item.subject}`, item);
-            });
-            serverGrades.forEach((item) => {
-              map.set(`${item.studentId}_${item.subject}`, item);
-            });
-            const merged = Array.from(map.values());
+            const merged = mergeGradesIntelligently(prevLocal, serverGrades);
             try {
               localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
             } catch (e) {}
@@ -348,17 +358,6 @@ export default function App() {
         }
       })
     );
-
-    // Check if subject_grades in Cloud Firestore is empty; if so and we have local grades, push them to cloud
-    isCloudGradesEmpty()
-      .then((empty) => {
-        if (empty && grades && grades.length > 0) {
-          syncAllGradesToCloud(grades).catch((err) =>
-            console.warn('Initial cloud grades seed note:', err)
-          );
-        }
-      })
-      .catch(() => {});
 
     try {
       // Real-time listener for Exam Identity Config
@@ -448,16 +447,7 @@ export default function App() {
           (cloudGrades) => {
             if (cloudGrades && cloudGrades.length > 0) {
               setGrades((prevLocal) => {
-                const map = new Map<string, ExamGradeItem>();
-                // 1. Keep local grades for subjects not yet in cloud
-                prevLocal.forEach((item) => {
-                  map.set(`${item.studentId}_${item.subject}`, item);
-                });
-                // 2. Cloud grades take priority and overwrite/augment
-                cloudGrades.forEach((item) => {
-                  map.set(`${item.studentId}_${item.subject}`, item);
-                });
-                const merged = Array.from(map.values());
+                const merged = mergeGradesIntelligently(prevLocal, cloudGrades);
                 try {
                   localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
                 } catch (e) {}
@@ -1083,7 +1073,7 @@ export default function App() {
       console.error(e);
     }
 
-    // Debounce server & cloud sync (200ms so rapid keystrokes feel instantaneous while preventing server spam)
+    // Debounce server & cloud sync (300ms so rapid keystrokes feel instantaneous while preventing spam)
     if (gradesSyncTimerRef.current) {
       clearTimeout(gradesSyncTimerRef.current);
     }
@@ -1093,19 +1083,20 @@ export default function App() {
           ? updatedGrades.filter((g) => g.subject === immediateSubject)
           : updatedGrades;
 
-        // 1. Direct save to High-Performance Server (Broadcasts via SSE instantly to all other laptops)
-        await saveServerGrades(subGrades, immediateSubject);
-
-        // 2. Secondary Cloud Firestore Backup (gracefully ignores quota exhaustion)
+        // 1. Save to Cloud Firestore (Primary for GitHub Pages / Multi-Device / Mobile)
         try {
           if (immediateSubject) {
             await saveSubjectGradesToCloud(immediateSubject, subGrades);
           } else {
             await syncAllGradesToCloud(updatedGrades);
           }
+          setIsCloudConnected(true);
         } catch (cloudErr) {
-          console.warn('Secondary Cloud Firestore backup note:', cloudErr);
+          console.warn('Cloud Firestore auto-save note:', cloudErr);
         }
+
+        // 2. Secondary Backend Server broadcast (if full-stack Node server is running)
+        await saveServerGrades(subGrades, immediateSubject).catch(() => {});
 
         setLastGradeCloudSyncedAt(new Date());
       } catch (err) {
@@ -1113,53 +1104,67 @@ export default function App() {
       } finally {
         setIsGradeSyncing(false);
       }
-    }, 200);
+    }, 300);
   };
 
   const handleSyncSubjectGradesNow = async (subject?: string) => {
     setIsGradeSyncing(true);
     try {
-      const subGrades = subject ? grades.filter((g) => g.subject === subject) : grades;
-      // 1. Force push this subject's grades to backend server (leaves other subjects untouched)
-      await saveServerGrades(subGrades, subject);
-
-      // 2. Secondary cloud push for this subject
+      // 1. FIRST: Pull latest grades from Cloud Firestore & Backend Server
+      // Crucial: Must pull FIRST before pushing, so Device 2 does NOT overwrite Device 1's inputs!
+      let cloudGrades: ExamGradeItem[] = [];
       try {
-        if (subject) {
-          await saveSubjectGradesToCloud(subject, subGrades);
-        } else {
-          await syncAllGradesToCloud(grades);
-        }
+        cloudGrades = await getCloudGrades();
+      } catch (cloudErr) {
+        console.warn('Cloud fetch note during sync:', cloudErr);
+      }
+
+      let serverGrades: ExamGradeItem[] = [];
+      try {
+        serverGrades = await fetchServerGrades(subject);
       } catch {}
 
-      // 3. Pull latest grades for all subjects so this device gets updates from other teachers (e.g. MTK teacher)
-      let latestGrades = await fetchServerGrades();
-      if (!latestGrades || latestGrades.length === 0) {
+      const remoteGrades = [...cloudGrades, ...serverGrades];
+
+      // 2. Intelligently merge remote grades with local grades
+      // Guarantees non-empty student scores from Device 1 are preserved and merged
+      let mergedGrades = grades;
+      if (remoteGrades.length > 0) {
+        mergedGrades = mergeGradesIntelligently(grades, remoteGrades);
+        setGrades(mergedGrades);
         try {
-          latestGrades = await getCloudGrades();
+          localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(mergedGrades));
         } catch {}
       }
 
-      if (latestGrades && latestGrades.length > 0) {
-        setGrades((prev) => {
-          const map = new Map<string, ExamGradeItem>();
-          prev.forEach((g) => map.set(g.id || `${g.studentId}_${g.subject}`, g));
-          latestGrades.forEach((g) => map.set(g.id || `${g.studentId}_${g.subject}`, g));
-          const merged = Array.from(map.values());
-          try {
-            localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
+      // 3. Push merged grades to Cloud Firestore
+      const subGradesToPush = subject
+        ? mergedGrades.filter((g) => g.subject === subject)
+        : mergedGrades;
+
+      if (subject) {
+        await saveSubjectGradesToCloud(subject, subGradesToPush);
+      } else {
+        await syncAllGradesToCloud(mergedGrades);
       }
 
+      // 4. Push to server backend if present
+      await saveServerGrades(subGradesToPush, subject).catch(() => {});
+
+      setIsCloudConnected(true);
       setLastGradeCloudSyncedAt(new Date());
+
+      const currentSubCount = subGradesToPush.filter(
+        (g) => typeof g.scoreFinal === 'number' && !isNaN(g.scoreFinal)
+      ).length;
+
       showToast(
         subject
-          ? `Nilai "${subject}" tersimpan aman, dan data mapel lain berhasil disinkronkan.`
-          : 'Seluruh data nilai berhasil disinkronkan real-time.'
+          ? `Nilai "${subject}" tersinkron (${currentSubCount} siswa terisi) & terbaca di semua perangkat.`
+          : 'Seluruh data nilai berhasil disinkronkan real-time ke Cloud.'
       );
     } catch (err) {
+      console.error('Grades sync error:', err);
       showToast('Gagal sinkronisasi nilai: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsGradeSyncing(false);
