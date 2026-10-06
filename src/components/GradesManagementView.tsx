@@ -762,9 +762,9 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       // Merge imported grades
       const importedIds = new Set(result.updatedGrades.map((g) => g.id));
       const untouchedGrades = grades.filter((g) => !importedIds.has(g.id));
-      onUpdateGrades([...untouchedGrades, ...result.updatedGrades]);
+      onUpdateGrades([...untouchedGrades, ...result.updatedGrades], selectedSubject);
 
-      showToast(`Berhasil mengimpor ${result.importedCount} data nilai dari file Excel!`);
+      showToast(`Berhasil mengimpor ${result.importedCount} nilai siswa untuk mapel "${selectedSubject}" dari file Excel!`);
       setShowImportModal(false);
       setImportFile(null);
     } catch (err: any) {
@@ -793,39 +793,64 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   return (
     <div className="space-y-6">
       {/* 1. Header Hero Card with Clean Minimalism & Badges */}
-      <div className="bg-white rounded-xl p-5 sm:p-6 border border-slate-200 shadow-xs no-print">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
-                Menu Penilaian Benar &amp; Salah
+      <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs no-print space-y-4">
+        {/* Top Header Row: Full width title & badges */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div className="space-y-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider border border-indigo-200/60">
+                Mapel: {selectedSubject}
               </span>
-              <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider border border-emerald-200/60">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider border border-emerald-200/60">
                 KKM: {currentGradingConfig.kkm || DEFAULT_KKM}
               </span>
-              <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[10px] font-bold uppercase tracking-wider border border-amber-200/60">
-                {totalPg} PG • {totalEssay} Esai (100 jika benar semua)
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 text-[10px] font-bold uppercase tracking-wider border border-amber-200/60">
+                {totalPg} PG • {totalEssay} Esai
               </span>
-              <span className="text-xs text-slate-400">
+              <span className="text-[11px] text-slate-400 font-medium">
                 {config.examType} • {config.schoolName}
               </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-              <Award className="w-6 h-6 text-indigo-600" />
+
+            <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <Award className="w-5 h-5 text-indigo-600 shrink-0" />
               <span>Daftar Nilai Hasil Ujian</span>
             </h2>
-            <p className="text-xs sm:text-sm text-slate-500 max-w-3xl leading-relaxed">
-              Perhitungan nilai akurat berbasis jumlah butir soal <strong>Pilihan Ganda (PG)</strong> dan <strong>Esai</strong>. Cukup input jumlah jawaban Benar atau Salah, sistem otomatis mengonversi ke skala 100 (jika benar semua otomatis bernilai 100).
-            </p>
           </div>
 
-          {/* Quick Sub-Tab Selector */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
-            <div className="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200">
+          {/* Sync Status Badge (Minimal & Clean) */}
+          <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+            {isSyncing ? (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-300 animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                <span>Menyimpan...</span>
+              </div>
+            ) : isCloudConnected ? (
+              <div 
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-300"
+                title="Tersimpan otomatis secara real-time"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="font-bold text-emerald-950">Tersimpan Otomatis</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
+                <Cloud className="w-3.5 h-3.5 text-slate-500" />
+                <span>Tersimpan Lokal</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Navigation Tabs & Action Controls Bar */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Sub-Tabs: Horizontal scrollable segmented control */}
+          <div className="overflow-x-auto scrollbar-none pb-1 lg:pb-0">
+            <div className="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200 shrink-0">
               <button
                 type="button"
                 onClick={() => setActiveSubTab('input')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeSubTab === 'input'
                     ? 'bg-white text-indigo-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -837,7 +862,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveSubTab('print')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeSubTab === 'print'
                     ? 'bg-white text-indigo-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -849,7 +874,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveSubTab('leger')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeSubTab === 'leger'
                     ? 'bg-white text-indigo-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -864,7 +889,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveSubTab('subjects')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                     activeSubTab === 'subjects'
                       ? 'bg-white text-indigo-700 shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
@@ -878,70 +903,56 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                 </button>
               )}
             </div>
+          </div>
 
-            {/* Cloud Sync Status & Action Controls */}
-            <div className="flex flex-wrap items-center gap-2">
-              {isSyncing ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-300 animate-pulse">
-                  <RefreshCw className="w-3.5 h-3.5 text-amber-600 animate-spin" />
-                  <span>Menyimpan Otomatis...</span>
-                </div>
-              ) : isCloudConnected ? (
-                <div 
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-300 shadow-2xs"
-                  title="Nilai otomatis tersimpan secara real-time dan langsung sinkron ke semua komputer/laptop."
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="font-bold text-emerald-950">Tersimpan Otomatis</span>
-                  <span className="hidden sm:inline text-[11px] text-emerald-700 font-mono">
-                    (Real-Time Multi-Laptop)
-                  </span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-300">
-                  <Cloud className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Lokal (Offline)</span>
-                </div>
-              )}
+          {/* Action Buttons: Clean responsive wrap */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (onSyncSubjectGradesNow) {
+                  onSyncSubjectGradesNow(selectedSubject);
+                } else if (onForceSyncCloud) {
+                  onForceSyncCloud();
+                }
+              }}
+              disabled={isSyncing}
+              title="Tekan untuk memastikan seluruh nilai tersimpan dan langsung terbaca di semua laptop"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>Sinkron</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  if (onSyncSubjectGradesNow) {
-                    onSyncSubjectGradesNow(selectedSubject);
-                  } else if (onForceSyncCloud) {
-                    onForceSyncCloud();
-                  }
-                }}
-                disabled={isSyncing}
-                title="Tekan untuk memastikan seluruh nilai tersimpan dan langsung terbaca di semua laptop"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Sinkronkan Sekarang</span>
-                <span className="sm:hidden">Sinkron</span>
-              </button>
+            <button
+              type="button"
+              onClick={() => handleExportExcel(selectedSubject)}
+              title={`Unduh seluruh nilai mata pelajaran ${selectedSubject} ke file Excel (.xlsx)`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Download Excel</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => handleExportExcel(selectedSubject)}
-                title={`Unduh seluruh nilai mata pelajaran ${selectedSubject} ke file Excel (.xlsx)`}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-xs transition-colors cursor-pointer"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Download Excel ({selectedSubject})</span>
-                <span className="sm:hidden">Download Excel</span>
-              </button>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              title={`Upload file Excel nilai untuk mata pelajaran ${selectedSubject} (format sama persis dengan hasil download)`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload Excel</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={handlePrint}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors cursor-pointer"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Cetak Halaman</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handlePrint}
+              title="Cetak tampilan halaman ini"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-600" />
+              <span>Cetak</span>
+            </button>
           </div>
         </div>
 
@@ -1782,15 +1793,26 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleExportExcel(selectedSubject)}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
-                  title={`Simpan nilai mapel ${selectedSubject} ke format Excel`}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download Excel</span>
-                </button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleExportExcel(selectedSubject)}
+                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                    title={`Download nilai mapel ${selectedSubject} ke format Excel`}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowImportModal(true)}
+                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                    title={`Upload nilai mapel ${selectedSubject} dari file Excel`}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Upload</span>
+                  </button>
+                </div>
               </div>
 
               {filteredStudents.length === 0 ? (
@@ -2660,10 +2682,17 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-base font-bold text-slate-900">
-                  Import Nilai dari File Excel
-                </h3>
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs">
+                  <Upload className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                    Upload Nilai Excel — {selectedSubject}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Format file sama persis dengan hasil tombol Download Excel
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -2671,21 +2700,31 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   setShowImportModal(false);
                   setImportFile(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-md"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4 my-4">
-              <div className="p-3 bg-indigo-50 rounded-lg text-xs text-indigo-900 leading-relaxed">
-                <strong>Petunjuk:</strong> Unggah file spreadsheet (<strong>.xlsx</strong>, <strong>.xls</strong>, atau <strong>.csv</strong>). Sistem akan otomatis membaca kolom <strong>Benar PG</strong>, <strong>Salah PG</strong>, atau <strong>Skor Esai</strong> berdasarkan NISN, No. Peserta, atau Nama Siswa untuk mapel <strong>{selectedSubject}</strong>.
+              <div className="p-3 bg-blue-50 border border-blue-200/80 rounded-xl text-xs text-blue-900 leading-relaxed space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Kompatibel 100% dengan File Download:</span>
+                </div>
+                <p>
+                  Anda cukup mengunduh file Excel mapel ini lewat tombol <strong>Download Excel</strong>, mengisi kolom <strong>Benar PG</strong>, <strong>Esai</strong>, atau <strong>Nilai Akhir</strong> di Excel laptop/HP, lalu unggah kembali file tersebut di sini.
+                </p>
               </div>
 
               {/* Upload Drop Zone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 hover:border-indigo-500 rounded-xl p-6 text-center cursor-pointer bg-slate-50 hover:bg-indigo-50/30 transition-colors"
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                  importFile
+                    ? 'border-emerald-500 bg-emerald-50/40'
+                    : 'border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/20'
+                }`}
               >
                 <input
                   ref={fileInputRef}
@@ -2697,26 +2736,52 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                     if (file) setImportFile(file);
                   }}
                 />
-                <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                <p className="text-xs font-semibold text-slate-700">
-                  {importFile ? importFile.name : 'Klik untuk memilih file Excel (.xlsx / .csv)'}
-                </p>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Format disarankan menggunakan template resmi aplikasi ini.
-                </p>
+                {importFile ? (
+                  <div className="space-y-1.5">
+                    <FileSpreadsheet className="w-10 h-10 text-emerald-600 mx-auto" />
+                    <p className="text-sm font-bold text-slate-900">
+                      {importFile.name}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      Ukuran: {(importFile.size / 1024).toFixed(1)} KB • Klik untuk mengganti file
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload className="w-10 h-10 text-blue-500 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-slate-800">
+                      Pilih atau Tarik File Excel (.xlsx / .xls / .csv)
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Klik area ini untuk mencari file Excel di perangkat Anda
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Download Template helper */}
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                <span>Belum punya formatnya?</span>
-                <button
-                  type="button"
-                  onClick={handleExportTemplate}
-                  className="text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Unduh Template Excel Kosong
-                </button>
+              {/* Download Format helper */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
+                <span className="font-semibold text-slate-700 block">
+                  Belum punya format file Excel-nya?
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleExportExcel(selectedSubject)}
+                    className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Download Format Excel Mapel Ini ({selectedSubject})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportTemplate}
+                    className="text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Template Kosong
+                  </button>
+                </div>
               </div>
             </div>
 
