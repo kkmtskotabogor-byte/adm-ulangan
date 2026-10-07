@@ -1288,3 +1288,88 @@ export function mergeGradesIntelligently(
 
   return Array.from(map.values());
 }
+
+/**
+ * Converts numbers into Indonesian words in Title Case (e.g. 1209 -> "Seribu Dua Ratus Sembilan", 80.60 -> "Delapan Puluh Koma Enam Nol")
+ * Specifically crafted for official Indonesian School Report Cards (Raport STS / PTS).
+ */
+export function terbilang(n: number | null | undefined): string {
+  if (n === null || n === undefined || isNaN(n)) return '-';
+
+  const satuan = [
+    '',
+    'Satu',
+    'Dua',
+    'Tiga',
+    'Empat',
+    'Lima',
+    'Enam',
+    'Tujuh',
+    'Delapan',
+    'Sembilan',
+    'Sepuluh',
+    'Sebelas',
+  ];
+
+  function convertInteger(val: number): string {
+    val = Math.floor(Math.abs(val));
+    if (val === 0) return 'Nol';
+    if (val < 12) return satuan[val];
+    if (val < 20) return convertInteger(val - 10) + ' Belas';
+    if (val < 100)
+      return (
+        satuan[Math.floor(val / 10)] +
+        ' Puluh' +
+        (val % 10 !== 0 ? ' ' + satuan[val % 10] : '')
+      );
+    if (val < 200) return 'Seratus' + (val % 100 !== 0 ? ' ' + convertInteger(val % 100) : '');
+    if (val < 1000)
+      return (
+        satuan[Math.floor(val / 100)] +
+        ' Ratus' +
+        (val % 100 !== 0 ? ' ' + convertInteger(val % 100) : '')
+      );
+    if (val < 2000) return 'Seribu' + (val % 1000 !== 0 ? ' ' + convertInteger(val % 1000) : '');
+    if (val < 1000000)
+      return (
+        convertInteger(Math.floor(val / 1000)) +
+        ' Ribu' +
+        (val % 1000 !== 0 ? ' ' + convertInteger(val % 1000) : '')
+      );
+    if (val < 1000000000)
+      return (
+        convertInteger(Math.floor(val / 1000000)) +
+        ' Juta' +
+        (val % 1000000 !== 0 ? ' ' + convertInteger(val % 1000000) : '')
+      );
+    return String(val);
+  }
+
+  const parts = Number(n).toFixed(2).split('.');
+  const intPart = parseInt(parts[0], 10);
+  const decimalStr = parts[1];
+
+  let result = convertInteger(intPart);
+
+  if (decimalStr && decimalStr !== '00') {
+    const digitWords: Record<string, string> = {
+      '0': 'Nol',
+      '1': 'Satu',
+      '2': 'Dua',
+      '3': 'Tiga',
+      '4': 'Empat',
+      '5': 'Lima',
+      '6': 'Enam',
+      '7': 'Tujuh',
+      '8': 'Delapan',
+      '9': 'Sembilan',
+    };
+    const decWords = decimalStr
+      .split('')
+      .map((d) => digitWords[d] || d)
+      .join(' ');
+    result += ' Koma ' + decWords;
+  }
+
+  return result.trim();
+}

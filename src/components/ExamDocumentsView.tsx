@@ -200,6 +200,25 @@ export const ExamDocumentsView: React.FC<ExamDocumentsViewProps> = ({
           })}
         </div>
 
+        {onNavigateTab && (
+          <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-amber-700 shrink-0" />
+              <div>
+                <span className="font-bold">Butuh Cetak Raport STS / PTS Resmi?</span>{' '}
+                <span className="text-amber-700">Tersedia menu khusus cetak Laporan Penilaian Hasil Belajar Siswa lengkap format resmi A4 Kemenag.</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigateTab('raport')}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg shadow-2xs text-[11px] shrink-0 transition-colors cursor-pointer"
+            >
+              Buka Raport STS &rarr;
+            </button>
+          </div>
+        )}
+
         {/* Room & Subject Filters */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2 border-t border-slate-100">
           <div>

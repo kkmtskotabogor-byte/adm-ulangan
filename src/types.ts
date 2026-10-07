@@ -88,6 +88,7 @@ export type ActiveTab =
   | 'documents'
   | 'dispensation'
   | 'grades'
+  | 'raport'
   | 'backup';
 
 export type DispensationReasonCategory = 

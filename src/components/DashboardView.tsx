@@ -15,7 +15,8 @@ import {
   UserCheck,
   Database,
   FileSignature,
-  Award
+  Award,
+  FileText
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -103,6 +104,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <Award className="w-4 h-4 text-indigo-600" />
               <span>Daftar Nilai</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('raport')}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-semibold rounded-lg border border-amber-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-amber-600" />
+              <span>Raport STS</span>
             </button>
             <button
               onClick={() => setActiveTab('dispensation')}
@@ -424,6 +432,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </button>
                 </div>
                 <p className="text-slate-500 text-[11px]">Input nilai PG/Esai, unduh template Excel, hitung KKM &amp; cetak lembar nilai resmi.</p>
+              </div>
+            </li>
+
+            <li className="flex gap-3 items-start">
+              <span className="flex-none w-5 h-5 rounded bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-[11px] border border-amber-300">
+                9
+              </span>
+              <div>
+                <div className="font-semibold text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span>Cetak Raport STS Resmi</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">Format A4</span>
+                  </span>
+                  <button 
+                    onClick={() => setActiveTab('raport')}
+                    className="text-[11px] text-amber-600 hover:text-amber-800 font-bold cursor-pointer"
+                  >
+                    Buka Raport &rarr;
+                  </button>
+                </div>
+                <p className="text-slate-500 text-[11px]">Raport Penilaian Tengah Semester (PTS/STS) per siswa atau kolektif sekelas dengan format resmi Kemenag/Madrasah.</p>
               </div>
             </li>
           </ol>

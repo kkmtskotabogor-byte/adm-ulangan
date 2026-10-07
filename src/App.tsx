@@ -26,6 +26,7 @@ import { ExamCardsView } from './components/ExamCardsView';
 import { ExamDocumentsView } from './components/ExamDocumentsView';
 import { DispensationManagementView } from './components/DispensationManagementView';
 import { GradesManagementView } from './components/GradesManagementView';
+import { RaportStsPrintView } from './components/RaportStsPrintView';
 import { ScheduleManagementView } from './components/ScheduleManagementView';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginPortal } from './components/LoginPortal';
@@ -571,9 +572,9 @@ export default function App() {
     }
   }, []);
 
-  // Enforce role-based tab restriction: Teacher only has access to 'grades'
+  // Enforce role-based tab restriction: Teacher has access to 'grades' and 'raport'
   useEffect(() => {
-    if (authUser?.role === 'teacher' && activeTab !== 'grades') {
+    if (authUser?.role === 'teacher' && activeTab !== 'grades' && activeTab !== 'raport') {
       setActiveTab('grades');
     }
   }, [authUser, activeTab]);
@@ -1596,6 +1597,17 @@ export default function App() {
                 onForceSyncCloud={handleForceSyncAllToCloud}
                 onSyncSubjectGradesNow={handleSyncSubjectGradesNow}
                 lastGradeCloudSyncedAt={lastGradeCloudSyncedAt}
+              />
+            )}
+
+            {activeTab === 'raport' && (
+              <RaportStsPrintView
+                config={config}
+                students={students}
+                grades={grades}
+                gradingConfigs={gradingConfigs}
+                subjects={subjects}
+                onClose={() => setActiveTab('grades')}
               />
             )}
 

@@ -56,11 +56,12 @@ export const Header: React.FC<HeaderProps> = ({
     US: 'bg-rose-50 text-rose-700 border-rose-200',
   };
 
-  // Role-based NavItems: If role is teacher, ONLY show "Daftar Nilai"
+  // Role-based NavItems: If role is teacher, show "Daftar Nilai" & "Raport STS"
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = 
     authUser?.role === 'teacher'
       ? [
-          { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> }
+          { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> },
+          { id: 'raport', label: 'Raport STS', icon: <FileText className="w-4 h-4" /> }
         ]
       : [
           { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -73,6 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
           { id: 'cards', label: 'Cetak Kartu', icon: <IdCard className="w-4 h-4" /> },
           { id: 'documents', label: 'Dokumen Ujian', icon: <FileText className="w-4 h-4" /> },
           { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> },
+          { id: 'raport', label: 'Raport STS', icon: <FileText className="w-4 h-4" /> },
           { id: 'dispensation', label: 'Dispensasi', icon: <FileSignature className="w-4 h-4" /> },
           { id: 'backup', label: 'Backup & Restore', icon: <Database className="w-4 h-4" /> },
         ];

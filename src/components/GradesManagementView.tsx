@@ -60,6 +60,7 @@ import {
 } from '../utils/gradeUtils';
 import { SubjectPickerModal } from './SubjectPickerModal';
 import { AdminSubjectsManager } from './AdminSubjectsManager';
+import { RaportStsPrintView } from './RaportStsPrintView';
 
 interface GradesManagementViewProps {
   config: ExamConfig;
@@ -211,8 +212,9 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     }
   };
 
-  // View mode: 'input' (interactive table), 'print' (official document A4), 'leger' (matrix all subjects), 'subjects' (admin subject management)
-  const [activeSubTab, setActiveSubTab] = useState<'input' | 'print' | 'leger' | 'subjects'>('input');
+  // View mode: 'input' (interactive table), 'raport' (cetak raport STS), 'print' (official document A4), 'leger' (matrix all subjects), 'subjects' (admin subject management)
+  const [activeSubTab, setActiveSubTab] = useState<'input' | 'raport' | 'print' | 'leger' | 'subjects'>('input');
+  const [selectedRaportStudentId, setSelectedRaportStudentId] = useState<string | undefined>(undefined);
 
   // Print mode type: 'filled' (terisi nilai) vs 'blank' (blanko kosong untuk korektor guru)
   const [printDocType, setPrintDocType] = useState<'filled' | 'blank'>('filled');
@@ -914,6 +916,21 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => setActiveSubTab('raport')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSubTab === 'raport'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Cetak Raport STS</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-100 text-emerald-800 font-bold border border-emerald-200">
+                  Format Resmi
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveSubTab('print')}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeSubTab === 'print'
@@ -1032,8 +1049,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           </div>
         )}
 
-        {/* Mata Pelajaran Selector Horizontal Strip (Hidden when in Subjects Manager) */}
-        {activeSubTab !== 'subjects' && (
+        {/* Mata Pelajaran Selector Horizontal Strip (Hidden when in Subjects Manager or Raport) */}
+        {activeSubTab !== 'subjects' && activeSubTab !== 'raport' && (
           <div className="mt-5 pt-4 border-t border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
             <div className="flex items-center gap-2">
@@ -1241,8 +1258,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         )}
       </div>
 
-      {/* 2. Top Analytics Metrics Strip (Clean Cards - Hidden when in Subjects Manager) */}
-      {activeSubTab !== 'subjects' && (
+      {/* 2. Top Analytics Metrics Strip (Clean Cards - Hidden when in Subjects Manager or Raport) */}
+      {activeSubTab !== 'subjects' && activeSubTab !== 'raport' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 no-print">
         {/* Rata-Rata Nilai */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
@@ -2707,7 +2724,21 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         </div>
       )}
 
-      {/* 5. SUB-TAB 4: DAFTAR & MANAJEMEN MATA PELAJARAN (ROLE ADMIN) */}
+      {/* 5. SUB-TAB: CETAK RAPORT STS / PTS RESMI A4 */}
+      {activeSubTab === 'raport' && (
+        <RaportStsPrintView
+          config={config}
+          students={students}
+          grades={grades}
+          gradingConfigs={gradingConfigs}
+          subjects={availableSubjects}
+          initialClass={filterMode === 'class' && selectedClass !== 'all' ? selectedClass : undefined}
+          initialStudentId={selectedRaportStudentId}
+          onClose={() => setActiveSubTab('input')}
+        />
+      )}
+
+      {/* 6. SUB-TAB 4: DAFTAR & MANAJEMEN MATA PELAJARAN (ROLE ADMIN) */}
       {activeSubTab === 'subjects' && (
         <AdminSubjectsManager
           subjects={availableSubjects}
