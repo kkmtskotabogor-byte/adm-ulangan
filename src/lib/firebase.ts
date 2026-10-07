@@ -23,6 +23,7 @@ import {
   ExamGradeItem,
   SubjectGradingConfig,
   ExamDispensation,
+  StudentRaportExtraData,
 } from '../types';
 
 // Suppress noisy Firestore connection warnings in browser preview/sandboxes
@@ -793,5 +794,44 @@ export async function deleteDispensationFromCloud(dispId: string): Promise<void>
     await deleteDoc(doc(db, 'dispensations', dispId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+// 12. Raport Extra Data (Ketidakhadiran, Kepribadian, Ekstrakurikuler, Catatan Wali Kelas)
+export function subscribeToRaportExtraData(
+  onUpdate: (data: Record<string, StudentRaportExtraData>) => void,
+  onError?: (err: unknown) => void
+) {
+  const docRef = doc(db, 'raport_extras', 'current');
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data && data.records) {
+          onUpdate(data.records as Record<string, StudentRaportExtraData>);
+        }
+      }
+    },
+    (error) => {
+      if (onError) onError(error);
+      handleFirestoreError(error, OperationType.GET, 'raport_extras/current');
+    }
+  );
+}
+
+export async function saveRaportExtraDataToCloud(
+  records: Record<string, StudentRaportExtraData>
+): Promise<void> {
+  const path = 'raport_extras/current';
+  try {
+    const docRef = doc(db, 'raport_extras', 'current');
+    await setDoc(docRef, {
+      id: 'current',
+      records,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }

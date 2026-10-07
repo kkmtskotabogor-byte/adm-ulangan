@@ -256,3 +256,19 @@ export interface AuthUser {
   avatar?: string;
   loginTime: string;
 }
+
+export interface StudentRaportExtraData {
+  keperibadian?: {
+    kelakuan?: string;
+    kerajinan?: string;
+    kerapihan?: string;
+    kebersihan?: string;
+  };
+  absensi?: {
+    sakit?: number | string;
+    izin?: number | string;
+    alpa?: number | string;
+  };
+  ekskul?: { name: string; nilai: string }[];
+  catatanWaliKelas?: string[];
+}

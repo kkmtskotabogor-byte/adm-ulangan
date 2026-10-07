@@ -16,9 +16,11 @@ import {
   X,
   FileText
 } from 'lucide-react';
-import { ExamConfig, ExamGradeItem, Student, SubjectGradingConfig } from '../types';
+import { ExamConfig, ExamGradeItem, Student, SubjectGradingConfig, StudentRaportExtraData } from '../types';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
 import { terbilang, DEFAULT_KKM } from '../utils/gradeUtils';
+import { RaportExtrasInputModal } from './RaportExtrasInputModal';
+import { subscribeToRaportExtraData, saveRaportExtraDataToCloud } from '../lib/firebase';
 
 export interface RaportStsPrintViewProps {
   config: ExamConfig;
@@ -29,22 +31,6 @@ export interface RaportStsPrintViewProps {
   initialStudentId?: string;
   initialClass?: string;
   onClose?: () => void;
-}
-
-interface StudentRaportExtraData {
-  keperibadian?: {
-    kelakuan?: string;
-    kerajinan?: string;
-    kerapihan?: string;
-    kebersihan?: string;
-  };
-  absensi?: {
-    sakit?: number | string;
-    izin?: number | string;
-    alpa?: number | string;
-  };
-  ekskul?: { name: string; nilai: string }[];
-  catatanWaliKelas?: string[];
 }
 
 interface ClassRaportMeta {
@@ -117,6 +103,10 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   // Modal Settings Editor (Wali Kelas, Catatan, Titimangsa)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Modal Input Data Pelengkap Raport (Absensi, Kepribadian, Ekskul, Catatan)
+  const [showInputModal, setShowInputModal] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<string>('');
+
   // Extra per-student data (Keperibadian, Absensi, Ekskul, Catatan)
   const [extraDataMap, setExtraDataMap] = useState<Record<string, StudentRaportExtraData>>(() => {
     try {
@@ -127,6 +117,33 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     }
     return {};
   });
+
+  // Subscribe to real-time Cloud updates for Raport Extra Data
+  useEffect(() => {
+    const unsub = subscribeToRaportExtraData((cloudData) => {
+      if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
+        setExtraDataMap((prev) => {
+          const merged = { ...prev, ...cloudData };
+          try {
+            localStorage.setItem(STORAGE_RAPORT_EXTRA, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Save handler that updates local state, localStorage, and Firestore cloud
+  const handleSaveExtraData = (newMap: Record<string, StudentRaportExtraData>) => {
+    setExtraDataMap(newMap);
+    try {
+      localStorage.setItem(STORAGE_RAPORT_EXTRA, JSON.stringify(newMap));
+    } catch (e) {}
+    saveRaportExtraDataToCloud(newMap).catch((err) => {
+      console.warn('Failed to sync raport extra data to cloud:', err);
+    });
+  };
 
   // Per-class Homeroom Teacher (Wali Kelas & NIP)
   const [classMetaMap, setClassMetaMap] = useState<Record<string, ClassRaportMeta>>(() => {
@@ -392,6 +409,19 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
 
             {/* Right: Actions */}
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingStudentId(selectedStudentId || filteredStudents[0]?.id || '');
+                  setShowInputModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                title="Input Ketidakhadiran, Kepribadian, Ekstrakurikuler, dan Catatan Wali Kelas"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Input Data Raport</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(true)}
@@ -827,6 +857,25 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                   </tbody>
                 </table>
 
+                {/* On-Screen Quick Edit Button (Hidden when printed) */}
+                <div className="no-print mb-2.5 p-2 bg-indigo-50/90 border border-indigo-200 rounded-lg flex items-center justify-between text-[11px] text-indigo-900 font-sans shadow-2xs">
+                  <div className="flex items-center gap-2">
+                    <Edit3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span>Data Raport: <strong>Absensi, Kepribadian, Ekskul &amp; Catatan Wali Kelas</strong></span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingStudentId(student.id);
+                      setShowInputModal(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-md text-[10px] shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Edit Data Siswa Ini</span>
+                  </button>
+                </div>
+
                 {/* 4. Lower Section: 4 Compact Boxes (2x2 Grid) */}
                 <div className="grid grid-cols-2 gap-3 mb-4 text-[9.5px] leading-tight">
                   {/* Left Column: Keperibadian & Ekstrakurikuler */}
@@ -1083,6 +1132,17 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Input Data Pelengkap Raport (Ketidakhadiran, Kepribadian, Ekskul, Catatan) */}
+      <RaportExtrasInputModal
+        isOpen={showInputModal}
+        onClose={() => setShowInputModal(false)}
+        students={students}
+        selectedClass={selectedClass}
+        initialStudentId={editingStudentId || selectedStudentId}
+        extraDataMap={extraDataMap}
+        onSaveExtraData={handleSaveExtraData}
+      />
     </div>
   );
 };

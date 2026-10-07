@@ -237,6 +237,10 @@
     "/dispensations/{dispensationId}": {
       "schema": "ExamDispensation",
       "description": "Koleksi surat dispensasi ujian peserta"
+    },
+    "/raport_extras/{docId}": {
+      "schema": "RaportExtrasDocument",
+      "description": "Koleksi data absensi, kepribadian, ekstrakurikuler, dan catatan wali kelas untuk raport"
     }
   }
 }
