@@ -841,9 +841,363 @@ export function exportGradesTemplateToExcel(
   XLSX.writeFile(workbook, fileName);
 }
 
+export interface ClassParsedGroup {
+  className: string;
+  sourceFiles: string[];
+  grades: ExamGradeItem[];
+  studentCount: number;
+  totalStudentsInDb: number;
+  avgScore: number;
+  minScore: number;
+  maxScore: number;
+  passedCount: number;
+  remedialCount: number;
+}
+
+export interface MultiFileParseResult {
+  fileResults: {
+    fileName: string;
+    fileSize: number;
+    importedCount: number;
+    classes: string[];
+    errors: string[];
+  }[];
+  classes: ClassParsedGroup[];
+  allGrades: ExamGradeItem[];
+  totalStudentsParsed: number;
+  totalFiles: number;
+  errors: string[];
+}
+
+/**
+ * Parse rows of a single worksheet into student exam grades.
+ */
+export function parseSheetRows(
+  jsonRows: any[],
+  students: Student[],
+  subject: string,
+  gradingConfig: SubjectGradingConfig
+): {
+  importedCount: number;
+  updatedGrades: ExamGradeItem[];
+  errors: string[];
+} {
+  if (!jsonRows || jsonRows.length === 0) {
+    return { importedCount: 0, updatedGrades: [], errors: ['Lembar kerja kosong.'] };
+  }
+
+  // Find header row (searches first 25 rows to handle title metadata)
+  let headerRowIndex = -1;
+  let colIndexNisn = -1;
+  let colIndexExamNo = -1;
+  let colIndexNis = -1;
+  let colIndexName = -1;
+  let colIndexCorrectPg = -1;
+  let colIndexWrongPg = -1;
+  let colIndexCorrectEssay = -1;
+  let colIndexFinal = -1;
+  let colIndexRemedial = -1;
+  let colIndexNotes = -1;
+
+  for (let i = 0; i < Math.min(25, jsonRows.length); i++) {
+    const row = jsonRows[i];
+    if (!Array.isArray(row)) continue;
+
+    let foundNameOrId = false;
+    let tempNisn = -1;
+    let tempExamNo = -1;
+    let tempNis = -1;
+    let tempName = -1;
+    let tempCorrectPg = -1;
+    let tempWrongPg = -1;
+    let tempCorrectEssay = -1;
+    let tempFinal = -1;
+    let tempRemedial = -1;
+    let tempNotes = -1;
+
+    for (let j = 0; j < row.length; j++) {
+      const rawCell = String(row[j] || '').trim();
+      const cellVal = rawCell.toLowerCase();
+
+      if (cellVal.includes('nisn')) {
+        tempNisn = j;
+        foundNameOrId = true;
+      } else if (cellVal.includes('peserta') || cellVal.includes('no ujian') || cellVal === 'no peserta') {
+        tempExamNo = j;
+        foundNameOrId = true;
+      } else if (cellVal === 'nis' || (cellVal.includes('nis') && !cellVal.includes('nisn'))) {
+        tempNis = j;
+      } else if (cellVal.includes('nama') || cellVal === 'siswa') {
+        tempName = j;
+        foundNameOrId = true;
+      }
+
+      // Benar PG column
+      if (
+        (cellVal.includes('benar') && cellVal.includes('pg')) ||
+        cellVal.includes('benar pg') ||
+        cellVal.includes('jml benar pg')
+      ) {
+        tempCorrectPg = j;
+      } else if (
+        (cellVal.includes('salah') && cellVal.includes('pg')) ||
+        cellVal.includes('salah pg')
+      ) {
+        tempWrongPg = j;
+      }
+
+      // Esai column
+      if (
+        cellVal.includes('benar/skor esai') ||
+        (cellVal.includes('benar') && (cellVal.includes('esai') || cellVal.includes('essay'))) ||
+        (cellVal.includes('skor esai') && !cellVal.includes('nilai esai')) ||
+        ((cellVal.includes('esai') || cellVal.includes('essay')) && !cellVal.includes('nilai') && !cellVal.includes('bobot'))
+      ) {
+        tempCorrectEssay = j;
+      }
+
+      // Final Score column
+      if (
+        cellVal.includes('nilai akhir') ||
+        cellVal.includes('skor akhir') ||
+        cellVal.includes('100 jika benar') ||
+        cellVal.includes('skala 100') ||
+        (cellVal.includes('akhir') && !cellVal.includes('remedial')) ||
+        (cellVal === 'nilai' && !cellVal.includes('pg') && !cellVal.includes('esai'))
+      ) {
+        tempFinal = j;
+      }
+
+      // Remedial
+      if (cellVal.includes('remedial') || cellVal.includes('remedi')) {
+        tempRemedial = j;
+      }
+
+      // Notes
+      if (cellVal.includes('catatan') || cellVal.includes('evaluasi') || cellVal.includes('keterangan')) {
+        tempNotes = j;
+      }
+    }
+
+    // If row has student identifier AND at least one score/count column, we found the table header
+    if (
+      foundNameOrId &&
+      (tempCorrectPg !== -1 || tempCorrectEssay !== -1 || tempFinal !== -1 || tempWrongPg !== -1)
+    ) {
+      headerRowIndex = i;
+      colIndexNisn = tempNisn;
+      colIndexExamNo = tempExamNo;
+      colIndexNis = tempNis;
+      colIndexName = tempName;
+      colIndexCorrectPg = tempCorrectPg;
+      colIndexWrongPg = tempWrongPg;
+      colIndexCorrectEssay = tempCorrectEssay;
+      colIndexFinal = tempFinal;
+      colIndexRemedial = tempRemedial;
+      colIndexNotes = tempNotes;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    return {
+      importedCount: 0,
+      updatedGrades: [],
+      errors: [
+        'Kolom tabel nilai tidak terdeteksi. Pastikan file Excel menggunakan format dengan kolom Nama / NISN / No. Peserta serta Benar PG atau Nilai Akhir.',
+      ],
+    };
+  }
+
+  // Validation helper for unique identifiers
+  const isValidId = (val: string | undefined): boolean => {
+    if (!val) return false;
+    const s = val.trim().toLowerCase();
+    if (
+      s === '' ||
+      s === '-' ||
+      s === '--' ||
+      s === '0' ||
+      s === 'null' ||
+      s === 'undefined' ||
+      s === 'none'
+    ) {
+      return false;
+    }
+    const clean = s.replace(/[^a-z0-9]/g, '');
+    return clean.length >= 2;
+  };
+
+  const cleanKey = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+  const cleanName = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+
+  const studentByExamNo = new Map<string, Student>();
+  const studentByName = new Map<string, Student>();
+  const studentByNisn = new Map<string, Student>();
+  const studentByNis = new Map<string, Student>();
+
+  students.forEach((s) => {
+    if (isValidId(s.examNumber)) studentByExamNo.set(cleanKey(s.examNumber), s);
+    if (isValidId(s.name)) studentByName.set(cleanName(s.name), s);
+    if (isValidId(s.nisn)) studentByNisn.set(cleanKey(s.nisn), s);
+    if (isValidId(s.nis)) studentByNis.set(cleanKey(s.nis), s);
+  });
+
+  const totalPg = gradingConfig.totalPgQuestions ?? 40;
+  const totalEssay = gradingConfig.totalEssayQuestions ?? 5;
+  const updatedGrades: ExamGradeItem[] = [];
+  const errors: string[] = [];
+  let matchedCount = 0;
+
+  const parseNum = (val: any): number => {
+    if (val === undefined || val === null || val === '') return NaN;
+    if (typeof val === 'number') return isNaN(val) ? NaN : val;
+    const str = String(val).replace(/%/g, '').replace(/,/g, '.').trim();
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? NaN : parsed;
+  };
+
+  for (let i = headerRowIndex + 1; i < jsonRows.length; i++) {
+    const row = jsonRows[i];
+    if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+    // Check if this row is a footer / summary row
+    const firstCell = String(row[0] || '').toLowerCase().trim();
+    const secondCell = String(row[1] || '').toLowerCase().trim();
+    if (
+      firstCell.includes('statistik') ||
+      firstCell.includes('rata-rata') ||
+      firstCell.includes('mengetahui') ||
+      firstCell.includes('jumlah siswa') ||
+      secondCell.includes('statistik') ||
+      secondCell.includes('rata-rata')
+    ) {
+      continue;
+    }
+
+    const rawExamNo = colIndexExamNo !== -1 ? String(row[colIndexExamNo] || '').trim() : '';
+    const rawName = colIndexName !== -1 ? String(row[colIndexName] || '').trim() : '';
+    const rawNisn = colIndexNisn !== -1 ? String(row[colIndexNisn] || '').trim() : '';
+    const rawNis = colIndexNis !== -1 ? String(row[colIndexNis] || '').trim() : '';
+
+    let matchedStudent: Student | undefined;
+
+    // Priority 1: Match by Exam Number (No. Peserta Ujian)
+    if (isValidId(rawExamNo) && studentByExamNo.has(cleanKey(rawExamNo))) {
+      matchedStudent = studentByExamNo.get(cleanKey(rawExamNo));
+    }
+    // Priority 2: Match by Student Name (Nama Lengkap)
+    else if (isValidId(rawName) && studentByName.has(cleanName(rawName))) {
+      matchedStudent = studentByName.get(cleanName(rawName));
+    }
+    // Priority 3: Match by NISN
+    else if (isValidId(rawNisn) && studentByNisn.has(cleanKey(rawNisn))) {
+      matchedStudent = studentByNisn.get(cleanKey(rawNisn));
+    }
+    // Priority 4: Match by NIS
+    else if (isValidId(rawNis) && studentByNis.has(cleanKey(rawNis))) {
+      matchedStudent = studentByNis.get(cleanKey(rawNis));
+    }
+    // Priority 5: Fallback match by exact sequential row index in template
+    else {
+      const seqIdx = i - (headerRowIndex + 1);
+      if (seqIdx >= 0 && seqIdx < students.length) {
+        const candidate = students[seqIdx];
+        if (candidate) {
+          matchedStudent = candidate;
+        }
+      }
+    }
+
+    if (!matchedStudent) {
+      continue;
+    }
+
+    // Extract counts & scores
+    const valCorrectPg = colIndexCorrectPg !== -1 ? parseNum(row[colIndexCorrectPg]) : NaN;
+    const valWrongPg = colIndexWrongPg !== -1 ? parseNum(row[colIndexWrongPg]) : NaN;
+    const valCorrectEssay = colIndexCorrectEssay !== -1 ? parseNum(row[colIndexCorrectEssay]) : NaN;
+    const valFinal = colIndexFinal !== -1 ? parseNum(row[colIndexFinal]) : NaN;
+    const valRemedial = colIndexRemedial !== -1 ? parseNum(row[colIndexRemedial]) : NaN;
+    const rawNotes = colIndexNotes !== -1 ? String(row[colIndexNotes] || '').trim() : '';
+
+    // If entire score area is empty, skip this student
+    if (
+      isNaN(valCorrectPg) &&
+      isNaN(valWrongPg) &&
+      isNaN(valCorrectEssay) &&
+      isNaN(valFinal)
+    ) {
+      continue;
+    }
+
+    let correctPg: number;
+    if (!isNaN(valCorrectPg)) {
+      correctPg = Math.min(totalPg, Math.max(0, Math.round(valCorrectPg)));
+    } else if (!isNaN(valWrongPg)) {
+      correctPg = Math.max(0, totalPg - Math.min(totalPg, Math.round(valWrongPg)));
+    } else if (!isNaN(valFinal)) {
+      correctPg = Math.round((Math.min(100, Math.max(0, valFinal)) / 100) * totalPg);
+    } else {
+      correctPg = 0;
+    }
+
+    let wrongPg = Math.max(0, totalPg - correctPg);
+    let correctEssay = !isNaN(valCorrectEssay)
+      ? Math.min(totalEssay, Math.max(0, Math.round(valCorrectEssay * 10) / 10))
+      : 0;
+
+    const calculated = calculateExamScoreFromCounts(correctPg, correctEssay, gradingConfig);
+
+    let finalScore: number;
+    if (!isNaN(valFinal)) {
+      finalScore = Math.min(100, Math.max(0, Math.round(valFinal * 10) / 10));
+    } else {
+      finalScore = calculated.scoreFinal;
+    }
+
+    const remedialScore = !isNaN(valRemedial) ? Math.min(100, Math.max(0, Math.round(valRemedial * 10) / 10)) : null;
+    const kkm = gradingConfig.kkm || DEFAULT_KKM;
+    const effectiveScore = remedialScore !== null ? Math.max(finalScore, remedialScore) : finalScore;
+    const isPassed = effectiveScore >= kkm;
+
+    updatedGrades.push({
+      id: `${matchedStudent.id}_${subject}`,
+      studentId: matchedStudent.id,
+      studentName: matchedStudent.name,
+      nisn: matchedStudent.nisn || '',
+      nis: matchedStudent.nis || '',
+      className: matchedStudent.className,
+      examNumber: matchedStudent.examNumber || '',
+      roomId: matchedStudent.roomId || '',
+      roomName: matchedStudent.roomName || '',
+      seatNumber: matchedStudent.seatNumber,
+      subject,
+      correctPg: calculated.correctPg,
+      wrongPg: calculated.wrongPg,
+      correctEssay: calculated.correctEssay,
+      scorePg: calculated.scorePg,
+      scoreEssay: calculated.scoreEssay,
+      scoreFinal: finalScore,
+      remedialScore,
+      passed: isPassed,
+      notes: rawNotes || (isPassed ? 'Tuntas' : 'Remedial'),
+      updatedAt: new Date().toISOString(),
+    });
+
+    matchedCount++;
+  }
+
+  return {
+    importedCount: matchedCount,
+    updatedGrades,
+    errors,
+  };
+}
+
 /**
  * Parse uploaded Excel or CSV file to import student scores based on Benar/Salah counts or direct scores.
- * Fully compatible with the exact Excel file downloaded from exportGradesToExcel or exportGradesTemplateToExcel.
+ * Automatically inspects all sheets if workbook contains multiple sheets (e.g. per class).
  */
 export async function parseGradesFile(
   file: File,
@@ -867,344 +1221,39 @@ export async function parseGradesFile(
           return resolve({ importedCount: 0, updatedGrades: [], errors: ['File Excel kosong atau tidak terbaca.'] });
         }
 
-        // Smart sheet selection:
-        // 1. Prefer sheet with name matching subject
-        // 2. Or 'Daftar Nilai' (from exportGradesToExcel)
-        // 3. Or 'Input Nilai' (from template export)
-        // 4. Fallback to first sheet
-        let targetSheetName = workbook.SheetNames[0];
-        const subClean = subject.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const matchingSub = workbook.SheetNames.find((s) => {
-          const sClean = s.toLowerCase().replace(/[^a-z0-9]/g, '');
-          return sClean.includes(subClean) || subClean.includes(sClean);
-        });
+        // Collect candidate sheets to parse:
+        // If single sheet, parse it.
+        // If multiple sheets, parse all sheets that contain student grade tables.
+        const gradesMap = new Map<string, ExamGradeItem>();
+        const allErrors: string[] = [];
 
-        if (matchingSub) {
-          targetSheetName = matchingSub;
-        } else if (workbook.SheetNames.includes('Daftar Nilai')) {
-          targetSheetName = 'Daftar Nilai';
-        } else if (workbook.SheetNames.includes('Input Nilai')) {
-          targetSheetName = 'Input Nilai';
-        }
+        // Identify priority sheet or parse all sheets
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          if (!worksheet) continue;
 
-        const worksheet = workbook.Sheets[targetSheetName];
-        const jsonRows: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          const jsonRows: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          if (!jsonRows || jsonRows.length === 0) continue;
 
-        if (!jsonRows || jsonRows.length === 0) {
-          return resolve({ importedCount: 0, updatedGrades: [], errors: ['Lembar kerja kosong atau format tidak sesuai.'] });
-        }
-
-        // Find header row (searches first 20 rows to handle title metadata)
-        let headerRowIndex = -1;
-        let colIndexNisn = -1;
-        let colIndexExamNo = -1;
-        let colIndexNis = -1;
-        let colIndexName = -1;
-        let colIndexCorrectPg = -1;
-        let colIndexWrongPg = -1;
-        let colIndexCorrectEssay = -1;
-        let colIndexFinal = -1;
-        let colIndexRemedial = -1;
-        let colIndexNotes = -1;
-
-        for (let i = 0; i < Math.min(20, jsonRows.length); i++) {
-          const row = jsonRows[i];
-          if (!Array.isArray(row)) continue;
-
-          let foundNameOrId = false;
-          let tempNisn = -1;
-          let tempExamNo = -1;
-          let tempNis = -1;
-          let tempName = -1;
-          let tempCorrectPg = -1;
-          let tempWrongPg = -1;
-          let tempCorrectEssay = -1;
-          let tempFinal = -1;
-          let tempRemedial = -1;
-          let tempNotes = -1;
-
-          for (let j = 0; j < row.length; j++) {
-            const rawCell = String(row[j] || '').trim();
-            const cellVal = rawCell.toLowerCase();
-
-            if (cellVal.includes('nisn')) {
-              tempNisn = j;
-              foundNameOrId = true;
-            } else if (cellVal.includes('peserta') || cellVal.includes('no ujian') || cellVal === 'no peserta') {
-              tempExamNo = j;
-              foundNameOrId = true;
-            } else if (cellVal === 'nis' || (cellVal.includes('nis') && !cellVal.includes('nisn'))) {
-              tempNis = j;
-            } else if (cellVal.includes('nama') || cellVal === 'siswa') {
-              tempName = j;
-              foundNameOrId = true;
-            }
-
-            // Benar PG column
-            if (
-              (cellVal.includes('benar') && cellVal.includes('pg')) ||
-              cellVal.includes('benar pg') ||
-              cellVal.includes('jml benar pg')
-            ) {
-              tempCorrectPg = j;
-            } else if (
-              (cellVal.includes('salah') && cellVal.includes('pg')) ||
-              cellVal.includes('salah pg')
-            ) {
-              tempWrongPg = j;
-            }
-
-            // Esai column (distinguish count from percentage)
-            if (
-              cellVal.includes('benar/skor esai') ||
-              (cellVal.includes('benar') && (cellVal.includes('esai') || cellVal.includes('essay'))) ||
-              (cellVal.includes('skor esai') && !cellVal.includes('nilai esai')) ||
-              ((cellVal.includes('esai') || cellVal.includes('essay')) && !cellVal.includes('nilai') && !cellVal.includes('bobot'))
-            ) {
-              tempCorrectEssay = j;
-            }
-
-            // Final Score column
-            if (
-              cellVal.includes('nilai akhir') ||
-              cellVal.includes('skor akhir') ||
-              cellVal.includes('100 jika benar') ||
-              cellVal.includes('skala 100') ||
-              (cellVal.includes('akhir') && !cellVal.includes('remedial')) ||
-              (cellVal === 'nilai' && !cellVal.includes('pg') && !cellVal.includes('esai'))
-            ) {
-              tempFinal = j;
-            }
-
-            // Remedial
-            if (cellVal.includes('remedial') || cellVal.includes('remedi')) {
-              tempRemedial = j;
-            }
-
-            // Notes
-            if (cellVal.includes('catatan') || cellVal.includes('evaluasi') || cellVal.includes('keterangan')) {
-              tempNotes = j;
-            }
-          }
-
-          // If row has student identifier AND at least one score/count column, we found the table header
-          if (
-            foundNameOrId &&
-            (tempCorrectPg !== -1 || tempCorrectEssay !== -1 || tempFinal !== -1 || tempWrongPg !== -1)
-          ) {
-            headerRowIndex = i;
-            colIndexNisn = tempNisn;
-            colIndexExamNo = tempExamNo;
-            colIndexNis = tempNis;
-            colIndexName = tempName;
-            colIndexCorrectPg = tempCorrectPg;
-            colIndexWrongPg = tempWrongPg;
-            colIndexCorrectEssay = tempCorrectEssay;
-            colIndexFinal = tempFinal;
-            colIndexRemedial = tempRemedial;
-            colIndexNotes = tempNotes;
-            break;
-          }
-        }
-
-        if (headerRowIndex === -1) {
-          return resolve({
-            importedCount: 0,
-            updatedGrades: [],
-            errors: [
-              'Kolom tabel nilai tidak terdeteksi. Pastikan file Excel menggunakan format unduhan resmi dengan kolom Nama / NISN / No. Peserta serta Benar PG atau Nilai Akhir.',
-            ],
+          const res = parseSheetRows(jsonRows, students, subject, gradingConfig);
+          res.updatedGrades.forEach((g) => {
+            gradesMap.set(g.studentId, g);
           });
+          if (res.errors.length > 0 && res.importedCount === 0 && workbook.SheetNames.length === 1) {
+            allErrors.push(...res.errors);
+          }
         }
 
-        // Validation helper for unique identifiers (ignores empty, dashes, zeroes)
-        const isValidId = (val: string | undefined): boolean => {
-          if (!val) return false;
-          const s = val.trim().toLowerCase();
-          if (
-            s === '' ||
-            s === '-' ||
-            s === '--' ||
-            s === '0' ||
-            s === 'null' ||
-            s === 'undefined' ||
-            s === 'none'
-          ) {
-            return false;
-          }
-          const clean = s.replace(/[^a-z0-9]/g, '');
-          return clean.length >= 2;
-        };
+        const updatedGrades = Array.from(gradesMap.values());
 
-        const cleanKey = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
-        const cleanName = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
-
-        const studentByExamNo = new Map<string, Student>();
-        const studentByName = new Map<string, Student>();
-        const studentByNisn = new Map<string, Student>();
-        const studentByNis = new Map<string, Student>();
-
-        students.forEach((s) => {
-          if (isValidId(s.examNumber)) studentByExamNo.set(cleanKey(s.examNumber), s);
-          if (isValidId(s.name)) studentByName.set(cleanName(s.name), s);
-          if (isValidId(s.nisn)) studentByNisn.set(cleanKey(s.nisn), s);
-          if (isValidId(s.nis)) studentByNis.set(cleanKey(s.nis), s);
-        });
-
-        const totalPg = gradingConfig.totalPgQuestions ?? 40;
-        const totalEssay = gradingConfig.totalEssayQuestions ?? 5;
-        const updatedGrades: ExamGradeItem[] = [];
-        const errors: string[] = [];
-        let matchedCount = 0;
-
-        // Parse numeric value safely (handles commas, percentages, strings)
-        const parseNum = (val: any): number => {
-          if (val === undefined || val === null || val === '') return NaN;
-          if (typeof val === 'number') return isNaN(val) ? NaN : val;
-          const str = String(val).replace(/%/g, '').replace(/,/g, '.').trim();
-          const parsed = parseFloat(str);
-          return isNaN(parsed) ? NaN : parsed;
-        };
-
-        for (let i = headerRowIndex + 1; i < jsonRows.length; i++) {
-          const row = jsonRows[i];
-          if (!row || !Array.isArray(row) || row.length === 0) continue;
-
-          // Check if this row is a footer / summary row (e.g. 'Rata-rata', 'Mengetahui')
-          const firstCell = String(row[0] || '').toLowerCase().trim();
-          const secondCell = String(row[1] || '').toLowerCase().trim();
-          if (
-            firstCell.includes('statistik') ||
-            firstCell.includes('rata-rata') ||
-            firstCell.includes('mengetahui') ||
-            firstCell.includes('jumlah siswa') ||
-            secondCell.includes('statistik') ||
-            secondCell.includes('rata-rata')
-          ) {
-            continue;
-          }
-
-          const rawExamNo = colIndexExamNo !== -1 ? String(row[colIndexExamNo] || '').trim() : '';
-          const rawName = colIndexName !== -1 ? String(row[colIndexName] || '').trim() : '';
-          const rawNisn = colIndexNisn !== -1 ? String(row[colIndexNisn] || '').trim() : '';
-          const rawNis = colIndexNis !== -1 ? String(row[colIndexNis] || '').trim() : '';
-
-          let matchedStudent: Student | undefined;
-
-          // Priority 1: Match by Exam Number (No. Peserta Ujian)
-          if (isValidId(rawExamNo) && studentByExamNo.has(cleanKey(rawExamNo))) {
-            matchedStudent = studentByExamNo.get(cleanKey(rawExamNo));
-          }
-          // Priority 2: Match by Student Name (Nama Lengkap)
-          else if (isValidId(rawName) && studentByName.has(cleanName(rawName))) {
-            matchedStudent = studentByName.get(cleanName(rawName));
-          }
-          // Priority 3: Match by NISN (only if valid, not '-')
-          else if (isValidId(rawNisn) && studentByNisn.has(cleanKey(rawNisn))) {
-            matchedStudent = studentByNisn.get(cleanKey(rawNisn));
-          }
-          // Priority 4: Match by NIS (only if valid, not '-')
-          else if (isValidId(rawNis) && studentByNis.has(cleanKey(rawNis))) {
-            matchedStudent = studentByNis.get(cleanKey(rawNis));
-          }
-          // Priority 5: Fallback match by exact sequential row index in template
-          else {
-            const seqIdx = i - (headerRowIndex + 1);
-            if (seqIdx >= 0 && seqIdx < students.length) {
-              const candidate = students[seqIdx];
-              if (candidate) {
-                matchedStudent = candidate;
-              }
-            }
-          }
-
-          if (!matchedStudent) {
-            continue;
-          }
-
-          // Extract counts & scores
-          const valCorrectPg = colIndexCorrectPg !== -1 ? parseNum(row[colIndexCorrectPg]) : NaN;
-          const valWrongPg = colIndexWrongPg !== -1 ? parseNum(row[colIndexWrongPg]) : NaN;
-          const valCorrectEssay = colIndexCorrectEssay !== -1 ? parseNum(row[colIndexCorrectEssay]) : NaN;
-          const valFinal = colIndexFinal !== -1 ? parseNum(row[colIndexFinal]) : NaN;
-          const valRemedial = colIndexRemedial !== -1 ? parseNum(row[colIndexRemedial]) : NaN;
-          const rawNotes = colIndexNotes !== -1 ? String(row[colIndexNotes] || '').trim() : '';
-
-          // If entire score area is empty, skip this student (don't overwrite with zero)
-          if (
-            isNaN(valCorrectPg) &&
-            isNaN(valWrongPg) &&
-            isNaN(valCorrectEssay) &&
-            isNaN(valFinal)
-          ) {
-            continue;
-          }
-
-          let correctPg: number;
-          if (!isNaN(valCorrectPg)) {
-            correctPg = Math.min(totalPg, Math.max(0, Math.round(valCorrectPg)));
-          } else if (!isNaN(valWrongPg)) {
-            correctPg = Math.max(0, totalPg - Math.min(totalPg, Math.round(valWrongPg)));
-          } else if (!isNaN(valFinal)) {
-            // Estimate correctPg from final score if only final score provided
-            correctPg = Math.round((Math.min(100, Math.max(0, valFinal)) / 100) * totalPg);
-          } else {
-            correctPg = 0;
-          }
-
-          let wrongPg = Math.max(0, totalPg - correctPg);
-          let correctEssay = !isNaN(valCorrectEssay)
-            ? Math.min(totalEssay, Math.max(0, Math.round(valCorrectEssay * 10) / 10))
-            : 0;
-
-          // Calculate score based on PG & Esai counts and weights
-          const calculated = calculateExamScoreFromCounts(correctPg, correctEssay, gradingConfig);
-
-          // Final score preference:
-          // If explicit final score was provided in Excel (e.g. teacher typed 85), respect it!
-          let finalScore: number;
-          if (!isNaN(valFinal)) {
-            finalScore = Math.min(100, Math.max(0, Math.round(valFinal * 10) / 10));
-          } else {
-            finalScore = calculated.scoreFinal;
-          }
-
-          const remedialScore = !isNaN(valRemedial) ? Math.min(100, Math.max(0, Math.round(valRemedial * 10) / 10)) : null;
-          const kkm = gradingConfig.kkm || DEFAULT_KKM;
-          const effectiveScore = remedialScore !== null ? Math.max(finalScore, remedialScore) : finalScore;
-          const isPassed = effectiveScore >= kkm;
-
-          updatedGrades.push({
-            id: `${matchedStudent.id}_${subject}`,
-            studentId: matchedStudent.id,
-            studentName: matchedStudent.name,
-            nisn: matchedStudent.nisn || '',
-            nis: matchedStudent.nis || '',
-            className: matchedStudent.className,
-            examNumber: matchedStudent.examNumber || '',
-            roomId: matchedStudent.roomId || '',
-            roomName: matchedStudent.roomName || '',
-            seatNumber: matchedStudent.seatNumber,
-            subject,
-            correctPg: calculated.correctPg,
-            wrongPg: calculated.wrongPg,
-            correctEssay: calculated.correctEssay,
-            scorePg: calculated.scorePg,
-            scoreEssay: calculated.scoreEssay,
-            scoreFinal: finalScore,
-            remedialScore,
-            passed: isPassed,
-            notes: rawNotes || (isPassed ? 'Tuntas' : 'Remedial'),
-            updatedAt: new Date().toISOString(),
-          });
-
-          matchedCount++;
+        if (updatedGrades.length === 0 && allErrors.length === 0) {
+          allErrors.push('Tidak ditemukan tabel nilai siswa yang cocok pada file Excel ini.');
         }
 
         resolve({
-          importedCount: matchedCount,
+          importedCount: updatedGrades.length,
           updatedGrades,
-          errors,
+          errors: allErrors,
         });
       } catch (err: any) {
         reject(err);
@@ -1214,6 +1263,108 @@ export async function parseGradesFile(
     reader.onerror = () => reject(new Error('Gagal membaca file Excel'));
     reader.readAsArrayBuffer(file);
   });
+}
+
+/**
+ * Parse multiple uploaded Excel or CSV files and group results by class.
+ * Allows teachers and admins to inspect and confirm which classes to save.
+ */
+export async function parseMultipleGradesFiles(
+  files: File[],
+  students: Student[],
+  subject: string,
+  gradingConfig: SubjectGradingConfig
+): Promise<MultiFileParseResult> {
+  const fileResults: MultiFileParseResult['fileResults'] = [];
+  const allGradesMap = new Map<string, { grade: ExamGradeItem; sourceFile: string }>();
+  const generalErrors: string[] = [];
+
+  for (const file of files) {
+    try {
+      const res = await parseGradesFile(file, students, subject, gradingConfig);
+      const classesInThisFile = new Set<string>();
+
+      res.updatedGrades.forEach((g) => {
+        const cls = g.className || 'Tanpa Kelas';
+        classesInThisFile.add(cls);
+        allGradesMap.set(g.studentId, { grade: g, sourceFile: file.name });
+      });
+
+      fileResults.push({
+        fileName: file.name,
+        fileSize: file.size,
+        importedCount: res.importedCount,
+        classes: Array.from(classesInThisFile).sort(),
+        errors: res.errors,
+      });
+    } catch (err: any) {
+      fileResults.push({
+        fileName: file.name,
+        fileSize: file.size,
+        importedCount: 0,
+        classes: [],
+        errors: [err.message || 'Gagal membaca file'],
+      });
+      generalErrors.push(`File "${file.name}": ${err.message || 'Gagal dibaca'}`);
+    }
+  }
+
+  // Group all grades by className
+  const classMap = new Map<string, { grades: ExamGradeItem[]; sourceFiles: Set<string> }>();
+
+  allGradesMap.forEach(({ grade, sourceFile }) => {
+    const cls = grade.className || 'Tanpa Kelas';
+    if (!classMap.has(cls)) {
+      classMap.set(cls, { grades: [], sourceFiles: new Set() });
+    }
+    const entry = classMap.get(cls)!;
+    entry.grades.push(grade);
+    entry.sourceFiles.add(sourceFile);
+  });
+
+  const kkm = gradingConfig.kkm || DEFAULT_KKM;
+  const classes: ClassParsedGroup[] = [];
+
+  classMap.forEach(({ grades, sourceFiles }, className) => {
+    // Sort student grades alphabetically by studentName
+    grades.sort((a, b) => a.studentName.localeCompare(b.studentName));
+
+    const scores = grades.map((g) => g.scoreFinal);
+    const sum = scores.reduce((acc, v) => acc + v, 0);
+    const avg = scores.length > 0 ? Math.round((sum / scores.length) * 10) / 10 : 0;
+    const min = scores.length > 0 ? Math.min(...scores) : 0;
+    const max = scores.length > 0 ? Math.max(...scores) : 0;
+    const passed = grades.filter((g) => (g.remedialScore ?? g.scoreFinal) >= kkm).length;
+    const remedial = grades.length - passed;
+    const totalInDb = students.filter((s) => (s.className || 'Tanpa Kelas') === className).length;
+
+    classes.push({
+      className,
+      sourceFiles: Array.from(sourceFiles),
+      grades,
+      studentCount: grades.length,
+      totalStudentsInDb: totalInDb,
+      avgScore: avg,
+      minScore: min,
+      maxScore: max,
+      passedCount: passed,
+      remedialCount: remedial,
+    });
+  });
+
+  // Sort classes naturally (e.g. 7A, 7B, 8A, etc.)
+  classes.sort((a, b) => a.className.localeCompare(b.className, undefined, { numeric: true }));
+
+  const allGrades = Array.from(allGradesMap.values()).map((v) => v.grade);
+
+  return {
+    fileResults,
+    classes,
+    allGrades,
+    totalStudentsParsed: allGrades.length,
+    totalFiles: files.length,
+    errors: generalErrors,
+  };
 }
 
 /**

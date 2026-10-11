@@ -44,7 +44,10 @@ import {
   Calculator,
   HelpCircle,
   Cloud,
-  RefreshCw
+  RefreshCw,
+  Files,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { 
   calculateExamScoreFromCounts,
@@ -54,6 +57,9 @@ import {
   exportAllSubjectsGradesToExcel,
   exportGradesTemplateToExcel, 
   parseGradesFile, 
+  parseMultipleGradesFiles,
+  MultiFileParseResult,
+  ClassParsedGroup,
   DEFAULT_KKM, 
   STANDARD_SCHOOL_SUBJECTS,
   generateSampleGrades
@@ -266,11 +272,29 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     });
   };
 
-  // Import Modal state
+  // Import Modal state (multi-file & class confirmation)
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFiles, setImportFiles] = useState<File[]>([]);
+  const [importStep, setImportStep] = useState<'select' | 'confirm'>('select');
+  const [isParsingFiles, setIsParsingFiles] = useState<boolean>(false);
   const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [parseResult, setParseResult] = useState<MultiFileParseResult | null>(null);
+  const [selectedClassesToSave, setSelectedClassesToSave] = useState<Record<string, boolean>>({});
+  const [expandedClassPreview, setExpandedClassPreview] = useState<string | null>(null);
+  const [searchClassQuery, setSearchClassQuery] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenImportModal = () => {
+    setImportFiles([]);
+    setImportStep('select');
+    setIsParsingFiles(false);
+    setIsImporting(false);
+    setParseResult(null);
+    setSelectedClassesToSave({});
+    setExpandedClassPreview(null);
+    setSearchClassQuery('');
+    setShowImportModal(true);
+  };
 
   // Extract distinct classes from students
   const availableClasses = useMemo(() => {
@@ -770,35 +794,106 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     showToast(`Template Excel nilai Benar-Salah ${selectedSubject} berhasil diunduh.`);
   };
 
-  // Import Excel / CSV Handler
-  const handleExecuteImport = async () => {
-    if (!importFile) return;
-    setIsImporting(true);
+  // Multi-file Import & Confirmation Handlers
+  const handleAddImportFiles = (files: FileList | File[]) => {
+    const valid = Array.from(files).filter((f) => {
+      const ext = f.name.toLowerCase();
+      return ext.endsWith('.xlsx') || ext.endsWith('.xls') || ext.endsWith('.csv');
+    });
+    if (valid.length === 0) {
+      alert('Pilih file berformat Excel (.xlsx, .xls) atau .csv');
+      return;
+    }
+    setImportFiles((prev) => {
+      const existingKeys = new Set(prev.map((f) => `${f.name}_${f.size}`));
+      const nonDupes = valid.filter((f) => !existingKeys.has(`${f.name}_${f.size}`));
+      return [...prev, ...nonDupes];
+    });
+  };
+
+  const handleRemoveImportFile = (index: number) => {
+    setImportFiles((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleParseAndProceedToConfirm = async () => {
+    if (importFiles.length === 0) return;
+    setIsParsingFiles(true);
     try {
-      const result = await parseGradesFile(
-        importFile,
+      const result = await parseMultipleGradesFiles(
+        importFiles,
         students,
         selectedSubject,
         currentGradingConfig
       );
 
-      if (result.errors.length > 0 && result.importedCount === 0) {
-        alert(result.errors.join('\n'));
-        setIsImporting(false);
+      if (result.totalStudentsParsed === 0) {
+        alert(
+          `Tidak ada nilai siswa yang berhasil dibaca dari ${importFiles.length} file yang dipilih.\n\n` +
+          (result.errors.length > 0 ? result.errors.join('\n') : 'Pastikan file Excel menggunakan format dengan kolom Nama / NISN / No. Peserta serta Jumlah Benar PG / Esai / Nilai Akhir.')
+        );
+        setIsParsingFiles(false);
         return;
       }
 
-      if (result.importedCount === 0) {
-        alert(
-          `Tidak ada nilai siswa yang terbaca dari file "${importFile.name}".\n\nPastikan Anda sudah mengisi angka di kolom "Jumlah Benar PG" atau "Benar Esai" atau "Nilai Akhir" pada file Excel tersebut sebelum diunggah.`
-        );
+      setParseResult(result);
+      // Centang seluruh kelas secara default
+      const initialChecked: Record<string, boolean> = {};
+      result.classes.forEach((c) => {
+        initialChecked[c.className] = true;
+      });
+      setSelectedClassesToSave(initialChecked);
+      setImportStep('confirm');
+    } catch (err: any) {
+      alert(`Gagal memproses file: ${err.message || String(err)}`);
+    } finally {
+      setIsParsingFiles(false);
+    }
+  };
+
+  const handleToggleClassToSave = (className: string) => {
+    setSelectedClassesToSave((prev) => ({
+      ...prev,
+      [className]: !prev[className],
+    }));
+  };
+
+  const handleSelectAllClassesToSave = (select: boolean) => {
+    if (!parseResult) return;
+    const updated: Record<string, boolean> = {};
+    parseResult.classes.forEach((c) => {
+      updated[c.className] = select;
+    });
+    setSelectedClassesToSave(updated);
+  };
+
+  const handleExecuteSaveSelectedClasses = () => {
+    if (!parseResult) return;
+
+    const checkedClassNames = Object.entries(selectedClassesToSave)
+      .filter(([_, checked]) => checked)
+      .map(([cls]) => cls);
+
+    if (checkedClassNames.length === 0) {
+      alert('Pilih minimal 1 kelas yang akan disimpan datanya.');
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const checkedSet = new Set(checkedClassNames);
+      const gradesToSave = parseResult.allGrades.filter((g) =>
+        checkedSet.has(g.className || 'Tanpa Kelas')
+      );
+
+      if (gradesToSave.length === 0) {
+        alert('Tidak ada data nilai siswa pada kelas yang dipilih.');
         setIsImporting(false);
         return;
       }
 
       // Safe merge by studentId + subject
       const updatedMap = new Map<string, ExamGradeItem>();
-      result.updatedGrades.forEach((g) => {
+      gradesToSave.forEach((g) => {
         updatedMap.set(`${g.studentId}_${g.subject}`, g);
       });
 
@@ -819,11 +914,15 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
       onUpdateGrades(mergedGrades, selectedSubject);
 
-      showToast(`Berhasil mengimpor ${result.importedCount} nilai siswa untuk mapel "${selectedSubject}" dari file Excel!`);
+      showToast(
+        `Berhasil menyimpan ${gradesToSave.length} nilai siswa untuk ${checkedClassNames.length} kelas (${checkedClassNames.join(', ')})!`
+      );
       setShowImportModal(false);
-      setImportFile(null);
+      setImportFiles([]);
+      setImportStep('select');
+      setParseResult(null);
     } catch (err: any) {
-      alert(`Gagal memproses file: ${err.message || String(err)}`);
+      alert(`Gagal menyimpan data nilai: ${err.message || String(err)}`);
     } finally {
       setIsImporting(false);
     }
@@ -1006,7 +1105,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
             <button
               type="button"
-              onClick={() => setShowImportModal(true)}
+              onClick={handleOpenImportModal}
               title={`Upload file Excel nilai untuk mata pelajaran ${selectedSubject} (format sama persis dengan hasil download)`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-xs transition-colors cursor-pointer"
             >
@@ -1501,7 +1600,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => setShowImportModal(true)}
+                onClick={handleOpenImportModal}
                 title="Impor nilai dari file Excel atau CSV"
                 className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-xs transition-colors cursor-pointer"
               >
@@ -1875,7 +1974,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowImportModal(true)}
+                    onClick={handleOpenImportModal}
                     className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                     title={`Upload nilai mapel ${selectedSubject} dari file Excel`}
                   >
@@ -2760,21 +2859,31 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         />
       )}
 
-      {/* 6. MODAL: IMPORT EXCEL / CSV NILAI */}
+      {/* 6. MODAL: IMPORT EXCEL / CSV NILAI (MULTI-FILE & KONFIRMASI KELAS) */}
       {showImportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 no-print">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-2xs">
-                  <Upload className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 no-print overflow-y-auto">
+          <div className={`bg-white rounded-2xl w-full shadow-2xl border border-slate-200 transition-all duration-200 flex flex-col ${
+            importStep === 'confirm' ? 'max-w-4xl max-h-[92vh]' : 'max-w-xl max-h-[90vh]'
+          }`}>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
+                  {importStep === 'select' ? <Files className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 leading-tight">
-                    Upload Nilai Excel — {selectedSubject}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Format file sama persis dengan hasil tombol Download Excel
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 leading-tight">
+                      Upload Nilai Excel — {selectedSubject}
+                    </h3>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                      {importStep === 'select' ? 'Langkah 1/2' : 'Langkah 2/2'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {importStep === 'select'
+                      ? 'Pilih 1 atau beberapa file Excel sekaligus, lalu konfirmasi kelas yang akan disimpan'
+                      : 'Konfirmasi dan pilih kelas mana saja yang ingin disimpan ke dalam sistem'}
                   </p>
                 </div>
               </div>
@@ -2782,113 +2891,479 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                 type="button"
                 onClick={() => {
                   setShowImportModal(false);
-                  setImportFile(null);
+                  setImportFiles([]);
+                  setImportStep('select');
+                  setParseResult(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-md"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                title="Tutup dialog"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 my-4">
-              <div className="p-3 bg-blue-50 border border-blue-200/80 rounded-xl text-xs text-blue-900 leading-relaxed space-y-1.5">
-                <div className="font-bold flex items-center gap-1.5 text-blue-950">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Kompatibel 100% dengan File Download:</span>
-                </div>
-                <p>
-                  Anda cukup mengunduh file Excel mapel ini lewat tombol <strong>Download Excel</strong>, mengisi kolom <strong>Benar PG</strong>, <strong>Esai</strong>, atau <strong>Nilai Akhir</strong> di Excel laptop/HP, lalu unggah kembali file tersebut di sini.
-                </p>
-              </div>
-
-              {/* Upload Drop Zone */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-                  importFile
-                    ? 'border-emerald-500 bg-emerald-50/40'
-                    : 'border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-blue-50/20'
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx, .xls, .csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) setImportFile(file);
-                  }}
-                />
-                {importFile ? (
-                  <div className="space-y-1.5">
-                    <FileSpreadsheet className="w-10 h-10 text-emerald-600 mx-auto" />
-                    <p className="text-sm font-bold text-slate-900">
-                      {importFile.name}
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      Ukuran: {(importFile.size / 1024).toFixed(1)} KB • Klik untuk mengganti file
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+              {importStep === 'select' ? (
+                <>
+                  {/* Step 1 Helper Banner */}
+                  <div className="p-3.5 bg-blue-50/80 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed space-y-1.5">
+                    <div className="font-bold flex items-center gap-1.5 text-blue-950">
+                      <Sparkles className="w-4 h-4 text-blue-600" />
+                      <span>Dukungan Multi-File & Konfirmasi Kelas:</span>
+                    </div>
+                    <p>
+                      Anda dapat memilih <strong>beberapa file Excel sekaligus</strong> (misalnya file terpisah untuk kelas <strong>7A, 7B, 7C</strong>, dst.). Sistem akan otomatis membaca seluruh file dan meminta konfirmasi kelas mana saja yang ingin Anda simpan.
                     </p>
                   </div>
-                ) : (
-                  <div>
-                    <Upload className="w-10 h-10 text-blue-500 mx-auto mb-2" />
+
+                  {/* Multi-File Upload Drop Zone */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                        handleAddImportFiles(e.dataTransfer.files);
+                      }
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/30 hover:bg-indigo-50/60 rounded-xl p-6 sm:p-8 text-center cursor-pointer transition-all group"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept=".xlsx, .xls, .csv"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleAddImportFiles(e.target.files);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                    <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform">
+                      <Upload className="w-6 h-6" />
+                    </div>
                     <p className="text-sm font-bold text-slate-800">
-                      Pilih atau Tarik File Excel (.xlsx / .xls / .csv)
+                      Pilih atau Tarik File Excel ke Sini
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Klik area ini untuk mencari file Excel di perangkat Anda
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Mendukung pemilihan <strong className="text-indigo-600">banyak file sekaligus</strong> (.xlsx, .xls, .csv). Format sama persis dengan hasil tombol Download Excel.
                     </p>
+                    <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-white border border-indigo-200 px-3 py-1.5 rounded-lg shadow-2xs group-hover:bg-indigo-50">
+                      <Files className="w-3.5 h-3.5" />
+                      <span>Jelajahi File di Perangkat Anda</span>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              {/* Download Format helper */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
-                <span className="font-semibold text-slate-700 block">
-                  Belum punya format file Excel-nya?
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleExportExcel(selectedSubject)}
-                    className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Download Format Excel Mapel Ini ({selectedSubject})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleExportTemplate}
-                    className="text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Template Kosong
-                  </button>
-                </div>
-              </div>
+                  {/* List of Selected Files */}
+                  {importFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                        <span className="flex items-center gap-1.5">
+                          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                          File yang Dipilih ({importFiles.length} file):
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-indigo-600 hover:text-indigo-800 font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                        >
+                          + Tambah File Lagi
+                        </button>
+                      </div>
+
+                      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                        {importFiles.map((f, idx) => (
+                          <div
+                            key={`${f.name}_${idx}`}
+                            className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="w-5 h-5 rounded-md bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-900 truncate" title={f.name}>
+                                  {f.name}
+                                </p>
+                                <p className="text-[10px] text-slate-500">
+                                  {(f.size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImportFile(idx)}
+                              className="text-slate-400 hover:text-rose-600 p-1 rounded-md transition-colors cursor-pointer shrink-0 ml-2"
+                              title="Hapus file ini"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Template download helper */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2">
+                    <span className="font-semibold text-slate-700 block">
+                      Belum memiliki format file Excel?
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleExportExcel(selectedSubject)}
+                        className="text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1.5 rounded-lg font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Download Format Excel Mapel Ini ({selectedSubject})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportTemplate}
+                        className="text-slate-600 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 px-2.5 py-1.5 rounded-lg font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Template Kosong
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Step 2: Confirmation & Class Selection */
+                parseResult && (
+                  <div className="space-y-4">
+                    {/* Summary Metrics Bar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                          File Dibaca
+                        </span>
+                        <span className="text-base font-extrabold text-slate-900 mt-0.5 block">
+                          {parseResult.totalFiles} File
+                        </span>
+                      </div>
+                      <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                          Kelas Terdeteksi
+                        </span>
+                        <span className="text-base font-extrabold text-indigo-900 mt-0.5 block">
+                          {parseResult.classes.length} Kelas
+                        </span>
+                      </div>
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                          Total Siswa
+                        </span>
+                        <span className="text-base font-extrabold text-emerald-900 mt-0.5 block">
+                          {parseResult.totalStudentsParsed} Siswa
+                        </span>
+                      </div>
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
+                          Kelas Terpilih
+                        </span>
+                        <span className="text-base font-extrabold text-purple-900 mt-0.5 block">
+                          {parseResult.classes.filter((c) => selectedClassesToSave[c.className]).length} / {parseResult.classes.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Notice & Instructions */}
+                    <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="leading-relaxed">
+                        <strong>Konfirmasi Pilihan Kelas:</strong> Beri centang (✓) pada kelas yang ingin Anda simpan nilainya. Data kelas yang <strong>tidak dicentang tidak akan diubah/ditimpa</strong>.
+                      </div>
+                    </div>
+
+                    {/* Warning if any errors occurred during file parsing */}
+                    {parseResult.errors.length > 0 && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-rose-900">
+                          <AlertTriangle className="w-4 h-4 text-rose-600" />
+                          <span>Pemberitahuan Pembacaan File:</span>
+                        </div>
+                        <ul className="list-disc list-inside space-y-0.5 text-[11px]">
+                          {parseResult.errors.map((err, i) => (
+                            <li key={i}>{err}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Action Controls & Search Filter */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAllClassesToSave(true)}
+                          className="px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Pilih Semua Kelas
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAllClassesToSave(false)}
+                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                        >
+                          Batal Pilih Semua
+                        </button>
+                      </div>
+
+                      {parseResult.classes.length > 4 && (
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Cari nama kelas..."
+                            value={searchClassQuery}
+                            onChange={(e) => setSearchClassQuery(e.target.value)}
+                            className="text-xs pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 w-full sm:w-44"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* List of Classes */}
+                    <div className="space-y-3">
+                      {parseResult.classes
+                        .filter((c) =>
+                          searchClassQuery
+                            ? c.className.toLowerCase().includes(searchClassQuery.toLowerCase())
+                            : true
+                        )
+                        .map((c) => {
+                          const isChecked = !!selectedClassesToSave[c.className];
+                          const isExpanded = expandedClassPreview === c.className;
+
+                          return (
+                            <div
+                              key={c.className}
+                              className={`border rounded-xl transition-all ${
+                                isChecked
+                                  ? 'border-indigo-300 bg-indigo-50/20 shadow-2xs'
+                                  : 'border-slate-200 bg-white opacity-70 hover:opacity-100'
+                              }`}
+                            >
+                              {/* Class Row Header */}
+                              <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <label className="flex items-center gap-3 cursor-pointer select-none min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => handleToggleClassToSave(c.className)}
+                                    className="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                                  />
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-extrabold text-sm text-slate-900 bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md">
+                                        Kelas {c.className}
+                                      </span>
+                                      <span className="text-xs text-slate-500 truncate" title={c.sourceFiles.join(', ')}>
+                                        📁 {c.sourceFiles.join(', ')}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-600">
+                                      <span className="font-semibold text-slate-800">
+                                        👥 {c.studentCount} Siswa terisi
+                                        {c.totalStudentsInDb > 0 && ` (dari ${c.totalStudentsInDb} di database)`}
+                                      </span>
+                                      <span>•</span>
+                                      <span>
+                                        Rata-rata: <strong className="text-slate-800">{c.avgScore}</strong>
+                                      </span>
+                                      <span>•</span>
+                                      <span>
+                                        Rentang: <strong className="text-slate-800">{c.minScore} - {c.maxScore}</strong>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </label>
+
+                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                                    {c.passedCount} Tuntas
+                                  </span>
+                                  {c.remedialCount > 0 && (
+                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
+                                      {c.remedialCount} Remedial
+                                    </span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedClassPreview(isExpanded ? null : c.className)
+                                    }
+                                    className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1"
+                                    title="Tampilkan daftar nilai siswa"
+                                  >
+                                    <span>{isExpanded ? 'Tutup' : 'Rincian'}</span>
+                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Expanded Student Preview Table */}
+                              {isExpanded && (
+                                <div className="border-t border-slate-200 p-3 bg-white rounded-b-xl overflow-x-auto max-h-60 overflow-y-auto">
+                                  <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                      <tr className="border-b border-slate-200 text-slate-500 text-[11px] bg-slate-50">
+                                        <th className="py-1.5 px-2 font-bold text-center w-8">No</th>
+                                        <th className="py-1.5 px-2 font-bold">No. Peserta</th>
+                                        <th className="py-1.5 px-2 font-bold">Nama Lengkap</th>
+                                        <th className="py-1.5 px-2 font-bold text-center">Benar PG</th>
+                                        <th className="py-1.5 px-2 font-bold text-center">Esai</th>
+                                        <th className="py-1.5 px-2 font-bold text-center">Nilai Akhir</th>
+                                        <th className="py-1.5 px-2 font-bold text-center">Status</th>
+                                        <th className="py-1.5 px-2 font-bold">Catatan</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                      {c.grades.map((g, sIdx) => {
+                                        const isPass = (g.remedialScore ?? g.scoreFinal) >= (currentGradingConfig.kkm || DEFAULT_KKM);
+                                        return (
+                                          <tr key={g.studentId} className="hover:bg-slate-50/80">
+                                            <td className="py-1.5 px-2 text-center text-slate-400 font-mono text-[11px]">
+                                              {sIdx + 1}
+                                            </td>
+                                            <td className="py-1.5 px-2 font-mono text-slate-600 text-[11px]">
+                                              {g.examNumber || '-'}
+                                            </td>
+                                            <td className="py-1.5 px-2 font-semibold text-slate-900">
+                                              {g.studentName}
+                                            </td>
+                                            <td className="py-1.5 px-2 text-center font-mono">
+                                              {g.correctPg ?? '-'}
+                                            </td>
+                                            <td className="py-1.5 px-2 text-center font-mono">
+                                              {g.correctEssay ?? '-'}
+                                            </td>
+                                            <td className="py-1.5 px-2 text-center font-extrabold text-indigo-700">
+                                              {g.scoreFinal}
+                                            </td>
+                                            <td className="py-1.5 px-2 text-center">
+                                              <span
+                                                className={`px-1.5 py-0.5 rounded-sm text-[10px] font-bold ${
+                                                  isPass
+                                                    ? 'bg-emerald-100 text-emerald-800'
+                                                    : 'bg-rose-100 text-rose-800'
+                                                }`}
+                                              >
+                                                {isPass ? 'Tuntas' : 'Remedial'}
+                                              </span>
+                                            </td>
+                                            <td className="py-1.5 px-2 text-slate-500 text-[11px] truncate max-w-[120px]">
+                                              {g.notes || '-'}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )
+              )}
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowImportModal(false);
-                  setImportFile(null);
-                }}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!importFile || isImporting}
-                onClick={handleExecuteImport}
-                className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                {isImporting ? 'Memproses...' : 'Proses & Impor Nilai'}
-              </button>
+            {/* Modal Actions Footer */}
+            <div className="flex items-center justify-between gap-3 p-4 border-t border-slate-200 bg-slate-50/50 rounded-b-2xl shrink-0">
+              {importStep === 'select' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportFiles([]);
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    disabled={importFiles.length === 0 || isParsingFiles}
+                    onClick={handleParseAndProceedToConfirm}
+                    className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    {isParsingFiles ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Membaca Data Excel...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckSquare className="w-3.5 h-3.5" />
+                        <span>Lanjut &amp; Konfirmasi Kelas ({importFiles.length} File)</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setImportStep('select')}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>← Ganti / Tambah File</span>
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowImportModal(false);
+                        setImportFiles([]);
+                        setImportStep('select');
+                        setParseResult(null);
+                      }}
+                      className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    {parseResult && (
+                      <button
+                        type="button"
+                        disabled={
+                          isImporting ||
+                          parseResult.classes.filter((c) => selectedClassesToSave[c.className]).length === 0
+                        }
+                        onClick={handleExecuteSaveSelectedClasses}
+                        className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {isImporting ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Menyimpan ke Sistem...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>
+                              Simpan Nilai ({parseResult.classes.filter((c) => selectedClassesToSave[c.className]).length} Kelas Terpilih)
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
