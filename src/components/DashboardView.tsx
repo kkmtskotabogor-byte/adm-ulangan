@@ -16,7 +16,8 @@ import {
   Database,
   FileSignature,
   Award,
-  FileText
+  FileText,
+  BarChart3
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -111,6 +112,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <FileText className="w-4 h-4 text-amber-600" />
               <span>Raport STS</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('grades')}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-semibold rounded-lg border border-purple-200 shadow-xs transition-colors cursor-pointer"
+              title="Lihat rekapitulasi rata-rata nilai dan diagram daya serap kurikulum"
+            >
+              <BarChart3 className="w-4 h-4 text-purple-600" />
+              <span>Diagram Daya Serap</span>
             </button>
             <button
               onClick={() => setActiveTab('dispensation')}
@@ -453,6 +462,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </button>
                 </div>
                 <p className="text-slate-500 text-[11px]">Raport Penilaian Tengah Semester (PTS/STS) per siswa atau kolektif sekelas dengan format resmi Kemenag/Madrasah.</p>
+              </div>
+            </li>
+
+            <li className="flex gap-3 items-start">
+              <span className="flex-none w-5 h-5 rounded bg-purple-100 text-purple-800 font-bold flex items-center justify-center text-[11px] border border-purple-300">
+                10
+              </span>
+              <div>
+                <div className="font-semibold text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span>Rekap &amp; Diagram Daya Serap</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">Statistik</span>
+                  </span>
+                  <button 
+                    onClick={() => setActiveTab('grades')}
+                    className="text-[11px] text-purple-600 hover:text-purple-800 font-bold cursor-pointer"
+                  >
+                    Buka Analisis &rarr;
+                  </button>
+                </div>
+                <p className="text-slate-500 text-[11px]">Diagram batang rata-rata nilai, persentase daya serap kurikulum, dan ketuntasan per mata pelajaran.</p>
               </div>
             </li>
           </ol>

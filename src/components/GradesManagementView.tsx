@@ -47,7 +47,8 @@ import {
   RefreshCw,
   Files,
   CheckSquare,
-  Square
+  Square,
+  BarChart3
 } from 'lucide-react';
 import { 
   calculateExamScoreFromCounts,
@@ -67,6 +68,7 @@ import {
 import { SubjectPickerModal } from './SubjectPickerModal';
 import { AdminSubjectsManager } from './AdminSubjectsManager';
 import { RaportStsPrintView } from './RaportStsPrintView';
+import { SubjectAbsorptionAnalyticsView } from './SubjectAbsorptionAnalyticsView';
 
 interface GradesManagementViewProps {
   config: ExamConfig;
@@ -218,8 +220,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     }
   };
 
-  // View mode: 'input' (interactive table), 'raport' (cetak raport STS), 'print' (official document A4), 'leger' (matrix all subjects), 'subjects' (admin subject management)
-  const [activeSubTab, setActiveSubTab] = useState<'input' | 'raport' | 'print' | 'leger' | 'subjects'>('input');
+  // View mode: 'input' (interactive table), 'raport' (cetak raport STS), 'analytics' (diagram & rekap serapan), 'print' (official document A4), 'leger' (matrix all subjects), 'subjects' (admin subject management)
+  const [activeSubTab, setActiveSubTab] = useState<'input' | 'raport' | 'analytics' | 'print' | 'leger' | 'subjects'>('input');
   const [selectedRaportStudentId, setSelectedRaportStudentId] = useState<string | undefined>(undefined);
 
   // Print mode type: 'filled' (terisi nilai) vs 'blank' (blanko kosong untuk korektor guru)
@@ -1030,6 +1032,21 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
               </button>
               <button
                 type="button"
+                onClick={() => setActiveSubTab('analytics')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                  activeSubTab === 'analytics'
+                    ? 'bg-white text-indigo-700 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-purple-600" />
+                <span>Rekap &amp; Diagram Daya Serap</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-purple-100 text-purple-800 font-bold border border-purple-200">
+                  Diagram
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveSubTab('print')}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                   activeSubTab === 'print'
@@ -1148,8 +1165,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           </div>
         )}
 
-        {/* Mata Pelajaran Selector Horizontal Strip (Hidden when in Subjects Manager or Raport) */}
-        {activeSubTab !== 'subjects' && activeSubTab !== 'raport' && (
+        {/* Mata Pelajaran Selector Horizontal Strip (Hidden when in Subjects Manager, Raport, or Analytics) */}
+        {activeSubTab !== 'subjects' && activeSubTab !== 'raport' && activeSubTab !== 'analytics' && (
           <div className="mt-5 pt-4 border-t border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
             <div className="flex items-center gap-2">
@@ -1357,8 +1374,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         )}
       </div>
 
-      {/* 2. Top Analytics Metrics Strip (Clean Cards - Hidden when in Subjects Manager or Raport) */}
-      {activeSubTab !== 'subjects' && activeSubTab !== 'raport' && (
+      {/* 2. Top Analytics Metrics Strip (Clean Cards - Hidden when in Subjects Manager, Raport, or Analytics) */}
+      {activeSubTab !== 'subjects' && activeSubTab !== 'raport' && activeSubTab !== 'analytics' && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 no-print">
         {/* Rata-Rata Nilai */}
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
@@ -2834,6 +2851,23 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           initialClass={filterMode === 'class' && selectedClass !== 'all' ? selectedClass : undefined}
           initialStudentId={selectedRaportStudentId}
           onClose={() => setActiveSubTab('input')}
+        />
+      )}
+
+      {/* 5.1 SUB-TAB: REKAPITULASI RATA-RATA NILAI & DIAGRAM DAYA SERAP */}
+      {activeSubTab === 'analytics' && (
+        <SubjectAbsorptionAnalyticsView
+          config={config}
+          students={students}
+          grades={grades}
+          subjects={availableSubjects}
+          gradingConfigs={gradingConfigs}
+          availableClasses={availableClasses}
+          onSelectSubject={(sub) => {
+            setSelectedSubject(sub);
+            setActiveSubTab('input');
+            showToast(`Mata pelajaran "${sub}" dipilih. Silakan masukkan atau kelola nilainya.`);
+          }}
         />
       )}
 
