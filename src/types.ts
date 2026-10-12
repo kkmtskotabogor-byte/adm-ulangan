@@ -180,6 +180,9 @@ export interface BackupData {
     totalAttendanceRecords?: number;
     totalDispensations?: number;
     totalGrades?: number;
+    totalGradingConfigs?: number;
+    totalRaportExtras?: number;
+    totalCustomSubjects?: number;
   };
   data: {
     config: ExamConfig;
@@ -191,6 +194,8 @@ export interface BackupData {
     dispensations?: ExamDispensation[];
     grades?: ExamGradeItem[];
     gradingConfigs?: SubjectGradingConfig[];
+    raportExtras?: Record<string, StudentRaportExtraData>;
+    customSubjects?: string[];
   };
 }
 

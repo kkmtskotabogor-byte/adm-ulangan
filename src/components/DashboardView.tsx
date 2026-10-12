@@ -130,10 +130,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
             <button
               onClick={() => setActiveTab('backup')}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold rounded-lg border border-indigo-200 shadow-xs transition-colors cursor-pointer"
+              title="Buka Menu Backup Data Ujian (Cadangkan ke JSON/Excel & Titik Pemulihan)"
             >
               <Database className="w-4 h-4 text-indigo-600" />
-              <span>Backup &amp; Restore</span>
+              <span>Menu Backup Data</span>
             </button>
           </div>
         </div>
@@ -483,6 +484,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </button>
                 </div>
                 <p className="text-slate-500 text-[11px]">Diagram batang rata-rata nilai, persentase daya serap kurikulum, dan ketuntasan per mata pelajaran.</p>
+              </div>
+            </li>
+
+            <li className="flex gap-3 items-start">
+              <span className="flex-none w-5 h-5 rounded bg-indigo-100 text-indigo-800 font-bold flex items-center justify-center text-[11px] border border-indigo-300">
+                11
+              </span>
+              <div>
+                <div className="font-semibold text-slate-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <span>Cadangkan &amp; Backup Data</span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">Keamanan</span>
+                  </span>
+                  <button 
+                    onClick={() => setActiveTab('backup')}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
+                  >
+                    Menu Backup &rarr;
+                  </button>
+                </div>
+                <p className="text-slate-500 text-[11px]">Amankan seluruh data sekolah (peserta, ruang, jadwal, nilai, dan raport) dalam file JSON &amp; arsip Excel.</p>
               </div>
             </li>
           </ol>

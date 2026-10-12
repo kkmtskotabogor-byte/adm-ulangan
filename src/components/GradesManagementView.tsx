@@ -48,7 +48,8 @@ import {
   Files,
   CheckSquare,
   Square,
-  BarChart3
+  BarChart3,
+  Database
 } from 'lucide-react';
 import { 
   calculateExamScoreFromCounts,
@@ -1139,6 +1140,18 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
               <Printer className="w-3.5 h-3.5 text-slate-600" />
               <span>Cetak</span>
             </button>
+
+            {setActiveTab && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('backup')}
+                title="Cadangkan seluruh nilai dan data ujian ke menu backup"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+              >
+                <Database className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Backup Data</span>
+              </button>
+            )}
           </div>
         </div>
 

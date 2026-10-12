@@ -56,12 +56,13 @@ export const Header: React.FC<HeaderProps> = ({
     US: 'bg-rose-50 text-rose-700 border-rose-200',
   };
 
-  // Role-based NavItems: If role is teacher, show "Daftar Nilai" & "Raport STS"
+  // Role-based NavItems
   const navItems: { id: ActiveTab; label: string; icon: React.ReactNode }[] = 
     authUser?.role === 'teacher'
       ? [
           { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> },
-          { id: 'raport', label: 'Raport STS', icon: <FileText className="w-4 h-4" /> }
+          { id: 'raport', label: 'Raport STS', icon: <FileText className="w-4 h-4" /> },
+          { id: 'backup', label: 'Backup Data', icon: <Database className="w-4 h-4" /> }
         ]
       : [
           { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
@@ -76,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
           { id: 'grades', label: 'Daftar Nilai', icon: <Award className="w-4 h-4" /> },
           { id: 'raport', label: 'Raport STS', icon: <FileText className="w-4 h-4" /> },
           { id: 'dispensation', label: 'Dispensasi', icon: <FileSignature className="w-4 h-4" /> },
-          { id: 'backup', label: 'Backup & Restore', icon: <Database className="w-4 h-4" /> },
+          { id: 'backup', label: 'Backup Data', icon: <Database className="w-4 h-4" /> },
         ];
 
   return (
@@ -212,6 +213,20 @@ export const Header: React.FC<HeaderProps> = ({
                   <RotateCcw className="w-3.5 h-3.5" />
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('backup')}
+                title="Buka Menu Backup Data Ujian (Cadangkan & Pulihkan)"
+                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                  activeTab === 'backup'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                    : 'bg-indigo-50/80 hover:bg-indigo-100 text-indigo-700 border-indigo-200'
+                }`}
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span className="hidden xl:inline">Backup</span>
+              </button>
 
               <button
                 onClick={onQuickPrint}

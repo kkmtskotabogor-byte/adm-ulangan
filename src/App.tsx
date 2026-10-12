@@ -65,6 +65,7 @@ import {
   subscribeToDispensations,
   saveDispensationToCloud,
   deleteDispensationFromCloud,
+  saveRaportExtraDataToCloud,
 } from './lib/firebase';
 import {
   fetchServerGrades,
@@ -1254,6 +1255,7 @@ export default function App() {
       if (backupData.grades && Array.isArray(backupData.grades)) {
         setGrades(backupData.grades);
         localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(backupData.grades));
+        await syncAllGradesToCloud(backupData.grades);
       }
       if (backupData.gradingConfigs && Array.isArray(backupData.gradingConfigs)) {
         const confMap: Record<string, SubjectGradingConfig> = {};
@@ -1262,6 +1264,16 @@ export default function App() {
         });
         setGradingConfigs(confMap);
         localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
+        await saveGradingConfigsToCloud(confMap);
+      }
+      if (backupData.raportExtras && typeof backupData.raportExtras === 'object') {
+        localStorage.setItem('sim_ujian_raport_extra_v1', JSON.stringify(backupData.raportExtras));
+        await saveRaportExtraDataToCloud(backupData.raportExtras);
+      }
+      if (backupData.customSubjects && Array.isArray(backupData.customSubjects)) {
+        setSubjects(backupData.customSubjects);
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(backupData.customSubjects));
+        await saveCustomSubjectsToCloud(backupData.customSubjects);
       }
       showToast('Seluruh data berhasil dipulihkan dan disinkronkan ke Cloud!');
     } catch (err) {
@@ -1300,6 +1312,33 @@ export default function App() {
         setSchedules(data.schedules);
         localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(data.schedules));
         await syncSchedulesToCloud(data.schedules);
+      }
+      if (data.dispensations && Array.isArray(data.dispensations)) {
+        setDispensations(data.dispensations);
+        localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(data.dispensations));
+      }
+      if (data.grades && Array.isArray(data.grades)) {
+        setGrades(data.grades);
+        localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(data.grades));
+        await syncAllGradesToCloud(data.grades);
+      }
+      if (data.gradingConfigs && Array.isArray(data.gradingConfigs)) {
+        const confMap: Record<string, SubjectGradingConfig> = {};
+        data.gradingConfigs.forEach((c) => {
+          if (c.subject) confMap[c.subject] = c;
+        });
+        setGradingConfigs(confMap);
+        localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
+        await saveGradingConfigsToCloud(confMap);
+      }
+      if (data.raportExtras && typeof data.raportExtras === 'object') {
+        localStorage.setItem('sim_ujian_raport_extra_v1', JSON.stringify(data.raportExtras));
+        await saveRaportExtraDataToCloud(data.raportExtras);
+      }
+      if (data.customSubjects && Array.isArray(data.customSubjects)) {
+        setSubjects(data.customSubjects);
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(data.customSubjects));
+        await saveCustomSubjectsToCloud(data.customSubjects);
       }
       showToast(`Data terpilih (${selectedParts.join(', ')}) berhasil dipulihkan!`);
     } catch (err) {
@@ -1635,6 +1674,7 @@ export default function App() {
                 dispensations={dispensations}
                 grades={grades}
                 gradingConfigs={gradingConfigs}
+                customSubjects={subjects}
                 authUser={authUser}
                 isCloudConnected={isCloudConnected}
                 onRestoreFull={handleRestoreFull}
