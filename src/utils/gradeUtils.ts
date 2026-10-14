@@ -841,10 +841,55 @@ export function exportGradesTemplateToExcel(
   XLSX.writeFile(workbook, fileName);
 }
 
+export interface ParsedStudentRowItem {
+  id: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  examNumber: string;
+  nisn: string;
+  nis: string;
+  correctPg: number;
+  wrongPg: number;
+  correctEssay: number;
+  scorePg: number;
+  scoreEssay: number;
+  scoreFinal: number;
+  remedialScore: number | null;
+  passed: boolean;
+  notes: string;
+  sourceFile: string;
+  sourceRowNumber: number;
+  matchType: 'db_exact' | 'db_fuzzy' | 'excel_new';
+  grade: ExamGradeItem;
+}
+
+export interface SkippedRowDiagnostic {
+  rowNumber: number;
+  reason: string;
+  rawExcerpt: string;
+  sourceFile?: string;
+}
+
+export interface ColumnMappingDetected {
+  nameCol?: string;
+  examNoCol?: string;
+  nisnCol?: string;
+  nisCol?: string;
+  classCol?: string;
+  correctPgCol?: string;
+  wrongPgCol?: string;
+  essayCol?: string;
+  finalScoreCol?: string;
+  remedialCol?: string;
+  notesCol?: string;
+}
+
 export interface ClassParsedGroup {
   className: string;
   sourceFiles: string[];
   grades: ExamGradeItem[];
+  parsedRows: ParsedStudentRowItem[];
   studentCount: number;
   totalStudentsInDb: number;
   avgScore: number;
@@ -861,37 +906,105 @@ export interface MultiFileParseResult {
     importedCount: number;
     classes: string[];
     errors: string[];
+    columnMapping?: ColumnMappingDetected;
+    skippedRows?: SkippedRowDiagnostic[];
   }[];
   classes: ClassParsedGroup[];
   allGrades: ExamGradeItem[];
+  allParsedRows: ParsedStudentRowItem[];
   totalStudentsParsed: number;
   totalFiles: number;
   errors: string[];
+  skippedRows: SkippedRowDiagnostic[];
+  columnMapping?: ColumnMappingDetected;
+}
+
+/**
+ * Normalizes string for fuzzy/exact matching
+ */
+function normalizeText(val: any): string {
+  if (val === undefined || val === null) return '';
+  return String(val)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove diacritics
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cleanAlphanumeric(val: any): string {
+  if (val === undefined || val === null) return '';
+  return String(val).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
  * Parse rows of a single worksheet into student exam grades.
+ * Resilient against:
+ * - 1-row and 2-row merged headers
+ * - Indonesian column name variations
+ * - Students with slight name/code differences or students newly declared in Excel
+ * - Direct final score columns or question counts
  */
 export function parseSheetRows(
   jsonRows: any[],
   students: Student[],
   subject: string,
-  gradingConfig: SubjectGradingConfig
+  gradingConfig: SubjectGradingConfig,
+  fileName: string = 'File Excel'
 ): {
   importedCount: number;
   updatedGrades: ExamGradeItem[];
+  parsedRows: ParsedStudentRowItem[];
+  skippedRows: SkippedRowDiagnostic[];
+  columnMapping: ColumnMappingDetected;
   errors: string[];
 } {
   if (!jsonRows || jsonRows.length === 0) {
-    return { importedCount: 0, updatedGrades: [], errors: ['Lembar kerja kosong.'] };
+    return {
+      importedCount: 0,
+      updatedGrades: [],
+      parsedRows: [],
+      skippedRows: [{ rowNumber: 1, reason: 'Lembar kerja (sheet) kosong tanpa baris', rawExcerpt: '' }],
+      columnMapping: {},
+      errors: ['Lembar kerja Excel kosong.'],
+    };
   }
 
-  // Find header row (searches first 25 rows to handle title metadata)
+  // Pre-index existing database students for fast & flexible lookup
+  const studentByExamNo = new Map<string, Student>();
+  const studentByName = new Map<string, Student>();
+  const studentByNisn = new Map<string, Student>();
+  const studentByNis = new Map<string, Student>();
+  const studentsByClass = new Map<string, Student[]>();
+
+  students.forEach((s) => {
+    const exKey = cleanAlphanumeric(s.examNumber);
+    if (exKey.length >= 2) studentByExamNo.set(exKey, s);
+
+    const nisnKey = cleanAlphanumeric(s.nisn);
+    if (nisnKey.length >= 4) studentByNisn.set(nisnKey, s);
+
+    const nisKey = cleanAlphanumeric(s.nis);
+    if (nisKey.length >= 2) studentByNis.set(nisKey, s);
+
+    const nameKey = normalizeText(s.name);
+    if (nameKey.length >= 2) studentByName.set(nameKey, s);
+
+    const cls = s.className || 'Tanpa Kelas';
+    if (!studentsByClass.has(cls)) studentsByClass.set(cls, []);
+    studentsByClass.get(cls)!.push(s);
+  });
+
+  // Find header row(s) - check single row or merged 2 rows (i and i+1)
   let headerRowIndex = -1;
+  let headerRowsSpan = 1;
   let colIndexNisn = -1;
   let colIndexExamNo = -1;
   let colIndexNis = -1;
   let colIndexName = -1;
+  let colIndexClass = -1;
+  let colIndexRoom = -1;
   let colIndexCorrectPg = -1;
   let colIndexWrongPg = -1;
   let colIndexCorrectEssay = -1;
@@ -899,15 +1012,20 @@ export function parseSheetRows(
   let colIndexRemedial = -1;
   let colIndexNotes = -1;
 
-  for (let i = 0; i < Math.min(25, jsonRows.length); i++) {
+  const maxScanRows = Math.min(35, jsonRows.length);
+
+  for (let i = 0; i < maxScanRows; i++) {
     const row = jsonRows[i];
     if (!Array.isArray(row)) continue;
 
-    let foundNameOrId = false;
+    const nextRow = i + 1 < jsonRows.length && Array.isArray(jsonRows[i + 1]) ? jsonRows[i + 1] : null;
+
     let tempNisn = -1;
     let tempExamNo = -1;
     let tempNis = -1;
     let tempName = -1;
+    let tempClass = -1;
+    let tempRoom = -1;
     let tempCorrectPg = -1;
     let tempWrongPg = -1;
     let tempCorrectEssay = -1;
@@ -915,80 +1033,179 @@ export function parseSheetRows(
     let tempRemedial = -1;
     let tempNotes = -1;
 
-    for (let j = 0; j < row.length; j++) {
-      const rawCell = String(row[j] || '').trim();
-      const cellVal = rawCell.toLowerCase();
+    const maxCols = Math.max(row.length, nextRow ? nextRow.length : 0);
 
-      if (cellVal.includes('nisn')) {
+    for (let j = 0; j < maxCols; j++) {
+      const cell1 = String(row[j] || '').trim();
+      const cell2 = nextRow ? String(nextRow[j] || '').trim() : '';
+      const combined = `${cell1} ${cell2}`.toLowerCase().replace(/\s+/g, ' ').trim();
+      const lower1 = cell1.toLowerCase();
+      const lower2 = cell2.toLowerCase();
+
+      const testAny = (...candidates: string[]) => {
+        return candidates.some(
+          (c) => combined.includes(c) || lower1.includes(c) || lower2.includes(c)
+        );
+      };
+
+      // 1. NISN
+      if (tempNisn === -1 && testAny('nisn')) {
         tempNisn = j;
-        foundNameOrId = true;
-      } else if (cellVal.includes('peserta') || cellVal.includes('no ujian') || cellVal === 'no peserta') {
-        tempExamNo = j;
-        foundNameOrId = true;
-      } else if (cellVal === 'nis' || (cellVal.includes('nis') && !cellVal.includes('nisn'))) {
-        tempNis = j;
-      } else if (cellVal.includes('nama') || cellVal === 'siswa') {
-        tempName = j;
-        foundNameOrId = true;
       }
 
-      // Benar PG column
+      // 2. No Peserta / Ujian
       if (
-        (cellVal.includes('benar') && cellVal.includes('pg')) ||
-        cellVal.includes('benar pg') ||
-        cellVal.includes('jml benar pg')
+        tempExamNo === -1 &&
+        (testAny('peserta', 'no ujian', 'nomor ujian', 'no. ujian', 'kode peserta', 'no tes', 'id peserta') ||
+          (combined.includes('no') && combined.includes('peserta')))
+      ) {
+        tempExamNo = j;
+      }
+
+      // 3. NIS / No Induk
+      if (
+        tempNis === -1 &&
+        (combined === 'nis' ||
+          lower1 === 'nis' ||
+          lower2 === 'nis' ||
+          testAny('no induk', 'nomor induk', 'nipd') ||
+          (testAny('nis') && !testAny('nisn')))
+      ) {
+        tempNis = j;
+      }
+
+      // 4. Nama Siswa / Murid
+      if (
+        tempName === -1 &&
+        (testAny('nama siswa', 'nama lengkap', 'nama peserta', 'nama murid', 'nama') ||
+          combined === 'siswa' ||
+          lower1 === 'siswa')
+      ) {
+        tempName = j;
+      }
+
+      // 5. Kelas / Rombel
+      if (
+        tempClass === -1 &&
+        testAny('kelas', 'rombel', 'rombongan belajar', 'tingkat', 'kls')
+      ) {
+        tempClass = j;
+      }
+
+      // 6. Ruang
+      if (tempRoom === -1 && testAny('ruang', 'ruangan')) {
+        tempRoom = j;
+      }
+
+      // 7. Benar PG
+      if (
+        tempCorrectPg === -1 &&
+        (testAny(
+          'benar pg',
+          'jml benar pg',
+          'jumlah benar pg',
+          'benar (pg)',
+          'pg benar',
+          'jawaban benar pg',
+          'b pg',
+          'benar (dari'
+        ) ||
+          ((testAny('benar') || testAny('jml benar') || testAny('jumlah benar')) &&
+            (testAny('pg') || testAny('pilihan ganda'))) ||
+          (testAny('pg') && !testAny('bobot') && !testAny('esai') && !testAny('essay') && !testAny('salah')))
       ) {
         tempCorrectPg = j;
-      } else if (
-        (cellVal.includes('salah') && cellVal.includes('pg')) ||
-        cellVal.includes('salah pg')
+      }
+
+      // 8. Salah PG
+      if (
+        tempWrongPg === -1 &&
+        (testAny('salah pg', 'jml salah pg', 'jumlah salah pg', 'salah (pg)', 'pg salah', 's pg') ||
+          (testAny('salah') && testAny('pg')))
       ) {
         tempWrongPg = j;
       }
 
-      // Esai column
+      // 9. Benar / Skor Esai
       if (
-        cellVal.includes('benar/skor esai') ||
-        (cellVal.includes('benar') && (cellVal.includes('esai') || cellVal.includes('essay'))) ||
-        (cellVal.includes('skor esai') && !cellVal.includes('nilai esai')) ||
-        ((cellVal.includes('esai') || cellVal.includes('essay')) && !cellVal.includes('nilai') && !cellVal.includes('bobot'))
+        tempCorrectEssay === -1 &&
+        (testAny(
+          'benar/skor esai',
+          'benar / skor esai',
+          'skor esai',
+          'nilai esai',
+          'benar esai',
+          'esai',
+          'essay',
+          'uraian',
+          'soal esai',
+          'skor uraian'
+        ) ||
+          (testAny('skor') && testAny('esai')))
       ) {
         tempCorrectEssay = j;
       }
 
-      // Final Score column
+      // 10. Nilai Akhir / Skor Final / Nilai Ujian
       if (
-        cellVal.includes('nilai akhir') ||
-        cellVal.includes('skor akhir') ||
-        cellVal.includes('100 jika benar') ||
-        cellVal.includes('skala 100') ||
-        (cellVal.includes('akhir') && !cellVal.includes('remedial')) ||
-        (cellVal === 'nilai' && !cellVal.includes('pg') && !cellVal.includes('esai'))
+        tempFinal === -1 &&
+        (testAny(
+          'nilai akhir',
+          'skor akhir',
+          'total nilai',
+          'nilai ujian',
+          'nilai sts',
+          'nilai sas',
+          'nilai siswa',
+          'nilai murni',
+          'skala 100',
+          '100 jika benar',
+          'total skor',
+          'skor final',
+          'nilai perolehan'
+        ) ||
+          (combined === 'nilai' || lower1 === 'nilai' || lower2 === 'nilai') ||
+          (combined === 'skor' || lower1 === 'skor' || lower2 === 'skor') ||
+          (combined === 'total' || lower1 === 'total' || lower2 === 'total') ||
+          (testAny('nilai') && !testAny('pg') && !testAny('esai') && !testAny('remedi')))
       ) {
         tempFinal = j;
       }
 
-      // Remedial
-      if (cellVal.includes('remedial') || cellVal.includes('remedi')) {
+      // 11. Remedial
+      if (
+        tempRemedial === -1 &&
+        testAny('remedial', 'remedi', 'nilai remedial', 'perbaikan', 'nilai perbaikan')
+      ) {
         tempRemedial = j;
       }
 
-      // Notes
-      if (cellVal.includes('catatan') || cellVal.includes('evaluasi') || cellVal.includes('keterangan')) {
+      // 12. Catatan / Evaluasi
+      if (
+        tempNotes === -1 &&
+        testAny('catatan', 'evaluasi', 'keterangan', 'deskripsi', 'catatan guru')
+      ) {
         tempNotes = j;
       }
     }
 
-    // If row has student identifier AND at least one score/count column, we found the table header
-    if (
-      foundNameOrId &&
-      (tempCorrectPg !== -1 || tempCorrectEssay !== -1 || tempFinal !== -1 || tempWrongPg !== -1)
-    ) {
+    const hasIdentifier = tempName !== -1 || tempExamNo !== -1 || tempNisn !== -1 || tempNis !== -1;
+    const hasScoreCol =
+      tempCorrectPg !== -1 ||
+      tempCorrectEssay !== -1 ||
+      tempFinal !== -1 ||
+      tempWrongPg !== -1;
+
+    if (hasIdentifier && hasScoreCol) {
       headerRowIndex = i;
+      // If detection relied on cells in nextRow, the header spans 2 rows
+      headerRowsSpan = nextRow && (tempCorrectPg !== -1 || tempCorrectEssay !== -1) ? 2 : 1;
       colIndexNisn = tempNisn;
       colIndexExamNo = tempExamNo;
       colIndexNis = tempNis;
       colIndexName = tempName;
+      colIndexClass = tempClass;
+      colIndexRoom = tempRoom;
       colIndexCorrectPg = tempCorrectPg;
       colIndexWrongPg = tempWrongPg;
       colIndexCorrectEssay = tempCorrectEssay;
@@ -999,55 +1216,71 @@ export function parseSheetRows(
     }
   }
 
+  // Fallback: If no strict header found, search for row with Nama or No Peserta
+  if (headerRowIndex === -1) {
+    for (let i = 0; i < maxScanRows; i++) {
+      const row = jsonRows[i];
+      if (!Array.isArray(row)) continue;
+      for (let j = 0; j < row.length; j++) {
+        const str = String(row[j] || '').toLowerCase().trim();
+        if (str.includes('nama') || str.includes('siswa') || str.includes('peserta')) {
+          headerRowIndex = i;
+          colIndexName = j;
+          // Assign remaining probable columns
+          for (let k = 0; k < row.length; k++) {
+            const cStr = String(row[k] || '').toLowerCase().trim();
+            if (cStr.includes('nisn')) colIndexNisn = k;
+            else if (cStr.includes('kelas') || cStr.includes('rombel')) colIndexClass = k;
+            else if (cStr.includes('peserta') || cStr.includes('ujian')) colIndexExamNo = k;
+            else if (cStr.includes('benar') || cStr.includes('pg')) colIndexCorrectPg = k;
+            else if (cStr.includes('esai') || cStr.includes('essay')) colIndexCorrectEssay = k;
+            else if (cStr.includes('nilai') || cStr.includes('skor')) colIndexFinal = k;
+            else if (cStr.includes('remedi')) colIndexRemedial = k;
+            else if (cStr.includes('catatan')) colIndexNotes = k;
+          }
+          break;
+        }
+      }
+      if (headerRowIndex !== -1) break;
+    }
+  }
+
   if (headerRowIndex === -1) {
     return {
       importedCount: 0,
       updatedGrades: [],
+      parsedRows: [],
+      skippedRows: [
+        {
+          rowNumber: 1,
+          reason: 'Baris judul tabel nilai (kolom Nama / No Peserta / Nilai) tidak terdeteksi.',
+          rawExcerpt: JSON.stringify(jsonRows[0] || []).substring(0, 100),
+        },
+      ],
+      columnMapping: {},
       errors: [
-        'Kolom tabel nilai tidak terdeteksi. Pastikan file Excel menggunakan format dengan kolom Nama / NISN / No. Peserta serta Benar PG atau Nilai Akhir.',
+        'Kolom tabel nilai tidak terdeteksi. Pastikan file Excel memuat kolom Nama Siswa, Kelas, serta Benar PG atau Nilai Akhir.',
       ],
     };
   }
 
-  // Validation helper for unique identifiers
-  const isValidId = (val: string | undefined): boolean => {
-    if (!val) return false;
-    const s = val.trim().toLowerCase();
-    if (
-      s === '' ||
-      s === '-' ||
-      s === '--' ||
-      s === '0' ||
-      s === 'null' ||
-      s === 'undefined' ||
-      s === 'none'
-    ) {
-      return false;
-    }
-    const clean = s.replace(/[^a-z0-9]/g, '');
-    return clean.length >= 2;
+  const columnMapping: ColumnMappingDetected = {
+    nameCol: colIndexName !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexName)}` : undefined,
+    examNoCol: colIndexExamNo !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexExamNo)}` : undefined,
+    nisnCol: colIndexNisn !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexNisn)}` : undefined,
+    nisCol: colIndexNis !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexNis)}` : undefined,
+    classCol: colIndexClass !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexClass)}` : undefined,
+    correctPgCol: colIndexCorrectPg !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexCorrectPg)}` : undefined,
+    wrongPgCol: colIndexWrongPg !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexWrongPg)}` : undefined,
+    essayCol: colIndexCorrectEssay !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexCorrectEssay)}` : undefined,
+    finalScoreCol: colIndexFinal !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexFinal)}` : undefined,
+    remedialCol: colIndexRemedial !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexRemedial)}` : undefined,
+    notesCol: colIndexNotes !== -1 ? `Kolom ${String.fromCharCode(65 + colIndexNotes)}` : undefined,
   };
-
-  const cleanKey = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
-  const cleanName = (s?: string) => (s ? s.toLowerCase().replace(/[^a-z0-9]/g, '') : '');
-
-  const studentByExamNo = new Map<string, Student>();
-  const studentByName = new Map<string, Student>();
-  const studentByNisn = new Map<string, Student>();
-  const studentByNis = new Map<string, Student>();
-
-  students.forEach((s) => {
-    if (isValidId(s.examNumber)) studentByExamNo.set(cleanKey(s.examNumber), s);
-    if (isValidId(s.name)) studentByName.set(cleanName(s.name), s);
-    if (isValidId(s.nisn)) studentByNisn.set(cleanKey(s.nisn), s);
-    if (isValidId(s.nis)) studentByNis.set(cleanKey(s.nis), s);
-  });
 
   const totalPg = gradingConfig.totalPgQuestions ?? 40;
   const totalEssay = gradingConfig.totalEssayQuestions ?? 5;
-  const updatedGrades: ExamGradeItem[] = [];
-  const errors: string[] = [];
-  let matchedCount = 0;
+  const kkm = gradingConfig.kkm || DEFAULT_KKM;
 
   const parseNum = (val: any): number => {
     if (val === undefined || val === null || val === '') return NaN;
@@ -1057,21 +1290,50 @@ export function parseSheetRows(
     return isNaN(parsed) ? NaN : parsed;
   };
 
-  for (let i = headerRowIndex + 1; i < jsonRows.length; i++) {
-    const row = jsonRows[i];
-    if (!row || !Array.isArray(row) || row.length === 0) continue;
+  const updatedGrades: ExamGradeItem[] = [];
+  const parsedRows: ParsedStudentRowItem[] = [];
+  const skippedRows: SkippedRowDiagnostic[] = [];
+  const startRow = headerRowIndex + headerRowsSpan;
 
-    // Check if this row is a footer / summary row
+  for (let i = startRow; i < jsonRows.length; i++) {
+    const row = jsonRows[i];
+    const rowNum = i + 1; // 1-indexed for human readability
+
+    if (!row || !Array.isArray(row) || row.length === 0) {
+      skippedRows.push({
+        rowNumber: rowNum,
+        reason: 'Baris kosong tanpa data',
+        rawExcerpt: '',
+        sourceFile: fileName,
+      });
+      continue;
+    }
+
     const firstCell = String(row[0] || '').toLowerCase().trim();
     const secondCell = String(row[1] || '').toLowerCase().trim();
+    const allRowStr = row.map((c) => String(c || '').toLowerCase()).join(' ');
+
+    // Detect footer/summary rows
     if (
-      firstCell.includes('statistik') ||
+      allRowStr.includes('statistik') ||
+      allRowStr.includes('rata-rata') ||
+      allRowStr.includes('mengetahui') ||
+      allRowStr.includes('jumlah siswa') ||
+      allRowStr.includes('kepala madrasah') ||
+      allRowStr.includes('kepala sekolah') ||
+      allRowStr.includes('guru mata pelajaran') ||
+      allRowStr.includes('nip.') ||
       firstCell.includes('rata-rata') ||
-      firstCell.includes('mengetahui') ||
-      firstCell.includes('jumlah siswa') ||
-      secondCell.includes('statistik') ||
-      secondCell.includes('rata-rata')
+      secondCell.includes('rata-rata') ||
+      firstCell === 'jumlah' ||
+      firstCell === 'total'
     ) {
+      skippedRows.push({
+        rowNumber: rowNum,
+        reason: 'Baris footer / statistik / pengesahan tanda tangan (bukan siswa)',
+        rawExcerpt: String(row.filter(Boolean).slice(0, 4).join(' | ')).substring(0, 80),
+        sourceFile: fileName,
+      });
       continue;
     }
 
@@ -1079,41 +1341,21 @@ export function parseSheetRows(
     const rawName = colIndexName !== -1 ? String(row[colIndexName] || '').trim() : '';
     const rawNisn = colIndexNisn !== -1 ? String(row[colIndexNisn] || '').trim() : '';
     const rawNis = colIndexNis !== -1 ? String(row[colIndexNis] || '').trim() : '';
+    const rawClass = colIndexClass !== -1 ? String(row[colIndexClass] || '').trim() : '';
+    const rawRoom = colIndexRoom !== -1 ? String(row[colIndexRoom] || '').trim() : '';
 
-    let matchedStudent: Student | undefined;
-
-    // Priority 1: Match by Exam Number (No. Peserta Ujian)
-    if (isValidId(rawExamNo) && studentByExamNo.has(cleanKey(rawExamNo))) {
-      matchedStudent = studentByExamNo.get(cleanKey(rawExamNo));
-    }
-    // Priority 2: Match by Student Name (Nama Lengkap)
-    else if (isValidId(rawName) && studentByName.has(cleanName(rawName))) {
-      matchedStudent = studentByName.get(cleanName(rawName));
-    }
-    // Priority 3: Match by NISN
-    else if (isValidId(rawNisn) && studentByNisn.has(cleanKey(rawNisn))) {
-      matchedStudent = studentByNisn.get(cleanKey(rawNisn));
-    }
-    // Priority 4: Match by NIS
-    else if (isValidId(rawNis) && studentByNis.has(cleanKey(rawNis))) {
-      matchedStudent = studentByNis.get(cleanKey(rawNis));
-    }
-    // Priority 5: Fallback match by exact sequential row index in template
-    else {
-      const seqIdx = i - (headerRowIndex + 1);
-      if (seqIdx >= 0 && seqIdx < students.length) {
-        const candidate = students[seqIdx];
-        if (candidate) {
-          matchedStudent = candidate;
-        }
-      }
-    }
-
-    if (!matchedStudent) {
+    // If completely no text or name, skip
+    if (!rawName && !rawExamNo && !rawNisn && !rawNis) {
+      skippedRows.push({
+        rowNumber: rowNum,
+        reason: 'Baris kosong tanpa identitas siswa (Nama/No. Peserta/NISN kosong)',
+        rawExcerpt: String(row.filter(Boolean).slice(0, 3).join(' | ')).substring(0, 60),
+        sourceFile: fileName,
+      });
       continue;
     }
 
-    // Extract counts & scores
+    // Extract numerical score fields
     const valCorrectPg = colIndexCorrectPg !== -1 ? parseNum(row[colIndexCorrectPg]) : NaN;
     const valWrongPg = colIndexWrongPg !== -1 ? parseNum(row[colIndexWrongPg]) : NaN;
     const valCorrectEssay = colIndexCorrectEssay !== -1 ? parseNum(row[colIndexCorrectEssay]) : NaN;
@@ -1121,16 +1363,115 @@ export function parseSheetRows(
     const valRemedial = colIndexRemedial !== -1 ? parseNum(row[colIndexRemedial]) : NaN;
     const rawNotes = colIndexNotes !== -1 ? String(row[colIndexNotes] || '').trim() : '';
 
-    // If entire score area is empty, skip this student
+    // If all score fields are blank / NaN
     if (
       isNaN(valCorrectPg) &&
       isNaN(valWrongPg) &&
       isNaN(valCorrectEssay) &&
-      isNaN(valFinal)
+      isNaN(valFinal) &&
+      isNaN(valRemedial)
     ) {
+      skippedRows.push({
+        rowNumber: rowNum,
+        reason: `Nilai belum diisi untuk siswa "${rawName || rawExamNo || 'Baris ' + rowNum}"`,
+        rawExcerpt: String(row.filter(Boolean).slice(0, 4).join(' | ')).substring(0, 80),
+        sourceFile: fileName,
+      });
       continue;
     }
 
+    // Match student smartly from database
+    let matchedStudent: Student | undefined;
+    let matchType: 'db_exact' | 'db_fuzzy' | 'excel_new' = 'excel_new';
+
+    const exKey = cleanAlphanumeric(rawExamNo);
+    const nisnKey = cleanAlphanumeric(rawNisn);
+    const nisKey = cleanAlphanumeric(rawNis);
+    const nameNorm = normalizeText(rawName);
+
+    // 1. By Exam Number
+    if (exKey.length >= 2 && studentByExamNo.has(exKey)) {
+      matchedStudent = studentByExamNo.get(exKey);
+      matchType = 'db_exact';
+    }
+    // 2. By NISN
+    else if (nisnKey.length >= 4 && studentByNisn.has(nisnKey)) {
+      matchedStudent = studentByNisn.get(nisnKey);
+      matchType = 'db_exact';
+    }
+    // 3. By NIS
+    else if (nisKey.length >= 2 && studentByNis.has(nisKey)) {
+      matchedStudent = studentByNis.get(nisKey);
+      matchType = 'db_exact';
+    }
+    // 4. By Exact Normalized Name
+    else if (nameNorm.length >= 2 && studentByName.has(nameNorm)) {
+      matchedStudent = studentByName.get(nameNorm);
+      matchType = 'db_exact';
+    }
+    // 5. By Class & Fuzzy Name
+    else if (rawClass && studentsByClass.has(rawClass)) {
+      const candidates = studentsByClass.get(rawClass)!;
+      const foundFuzzy = candidates.find((c) => {
+        const cNorm = normalizeText(c.name);
+        return (
+          cNorm === nameNorm ||
+          cNorm.startsWith(nameNorm) ||
+          nameNorm.startsWith(cNorm) ||
+          (cNorm.length > 5 && nameNorm.length > 5 && (cNorm.includes(nameNorm) || nameNorm.includes(cNorm)))
+        );
+      });
+      if (foundFuzzy) {
+        matchedStudent = foundFuzzy;
+        matchType = 'db_fuzzy';
+      }
+    }
+    // 6. Global Fuzzy Name match
+    else if (nameNorm.length >= 4) {
+      const foundGlobal = students.find((c) => {
+        const cNorm = normalizeText(c.name);
+        return (
+          cNorm.startsWith(nameNorm) ||
+          nameNorm.startsWith(cNorm) ||
+          (cNorm.length > 6 && nameNorm.length > 6 && (cNorm.includes(nameNorm) || nameNorm.includes(cNorm)))
+        );
+      });
+      if (foundGlobal) {
+        matchedStudent = foundGlobal;
+        matchType = 'db_fuzzy';
+      }
+    }
+
+    // If NOT found in database, DO NOT DROP! Create a provisional student from the Excel row data!
+    let finalStudentId = '';
+    let finalStudentName = '';
+    let finalClassName = '';
+    let finalExamNumber = '';
+    let finalNisn = '';
+    let finalNis = '';
+    let finalRoomName = '';
+
+    if (matchedStudent) {
+      finalStudentId = matchedStudent.id;
+      finalStudentName = matchedStudent.name;
+      finalClassName = rawClass || matchedStudent.className || 'Tanpa Kelas';
+      finalExamNumber = matchedStudent.examNumber || rawExamNo;
+      finalNisn = matchedStudent.nisn || rawNisn;
+      finalNis = matchedStudent.nis || rawNis;
+      finalRoomName = matchedStudent.roomName || rawRoom;
+    } else {
+      matchType = 'excel_new';
+      finalStudentName = rawName || (rawExamNo ? `Peserta ${rawExamNo}` : `Siswa Baris ${rowNum}`);
+      finalClassName = rawClass || 'Kelas Siswa';
+      finalExamNumber = rawExamNo;
+      finalNisn = rawNisn;
+      finalNis = rawNis;
+      finalRoomName = rawRoom;
+      const uniqueSuffix = cleanAlphanumeric(finalStudentName) || cleanAlphanumeric(finalExamNumber) || String(rowNum);
+      finalStudentId = `s_excel_${cleanAlphanumeric(finalClassName)}_${uniqueSuffix}`;
+    }
+
+    // Compute grades
     let correctPg: number;
     if (!isNaN(valCorrectPg)) {
       correctPg = Math.min(totalPg, Math.max(0, Math.round(valCorrectPg)));
@@ -1156,22 +1497,22 @@ export function parseSheetRows(
       finalScore = calculated.scoreFinal;
     }
 
-    const remedialScore = !isNaN(valRemedial) ? Math.min(100, Math.max(0, Math.round(valRemedial * 10) / 10)) : null;
-    const kkm = gradingConfig.kkm || DEFAULT_KKM;
+    const remedialScore =
+      !isNaN(valRemedial) ? Math.min(100, Math.max(0, Math.round(valRemedial * 10) / 10)) : null;
     const effectiveScore = remedialScore !== null ? Math.max(finalScore, remedialScore) : finalScore;
     const isPassed = effectiveScore >= kkm;
 
-    updatedGrades.push({
-      id: `${matchedStudent.id}_${subject}`,
-      studentId: matchedStudent.id,
-      studentName: matchedStudent.name,
-      nisn: matchedStudent.nisn || '',
-      nis: matchedStudent.nis || '',
-      className: matchedStudent.className,
-      examNumber: matchedStudent.examNumber || '',
-      roomId: matchedStudent.roomId || '',
-      roomName: matchedStudent.roomName || '',
-      seatNumber: matchedStudent.seatNumber,
+    const gradeItem: ExamGradeItem = {
+      id: `${finalStudentId}_${subject}`,
+      studentId: finalStudentId,
+      studentName: finalStudentName,
+      nisn: finalNisn,
+      nis: finalNis,
+      className: finalClassName,
+      examNumber: finalExamNumber,
+      roomId: '',
+      roomName: finalRoomName,
+      seatNumber: undefined,
       subject,
       correctPg: calculated.correctPg,
       wrongPg: calculated.wrongPg,
@@ -1183,15 +1524,42 @@ export function parseSheetRows(
       passed: isPassed,
       notes: rawNotes || (isPassed ? 'Tuntas' : 'Remedial'),
       updatedAt: new Date().toISOString(),
-    });
+    };
 
-    matchedCount++;
+    const parsedRowItem: ParsedStudentRowItem = {
+      id: `${finalStudentId}_${subject}`,
+      studentId: finalStudentId,
+      studentName: finalStudentName,
+      className: finalClassName,
+      examNumber: finalExamNumber,
+      nisn: finalNisn,
+      nis: finalNis,
+      correctPg: calculated.correctPg,
+      wrongPg: calculated.wrongPg,
+      correctEssay: calculated.correctEssay,
+      scorePg: calculated.scorePg,
+      scoreEssay: calculated.scoreEssay,
+      scoreFinal: finalScore,
+      remedialScore,
+      passed: isPassed,
+      notes: rawNotes || (isPassed ? 'Tuntas' : 'Remedial'),
+      sourceFile: fileName,
+      sourceRowNumber: rowNum,
+      matchType,
+      grade: gradeItem,
+    };
+
+    updatedGrades.push(gradeItem);
+    parsedRows.push(parsedRowItem);
   }
 
   return {
-    importedCount: matchedCount,
+    importedCount: updatedGrades.length,
     updatedGrades,
-    errors,
+    parsedRows,
+    skippedRows,
+    columnMapping,
+    errors: [],
   };
 }
 
@@ -1207,6 +1575,9 @@ export async function parseGradesFile(
 ): Promise<{
   importedCount: number;
   updatedGrades: ExamGradeItem[];
+  parsedRows: ParsedStudentRowItem[];
+  skippedRows: SkippedRowDiagnostic[];
+  columnMapping: ColumnMappingDetected;
   errors: string[];
 }> {
   return new Promise((resolve, reject) => {
@@ -1218,16 +1589,23 @@ export async function parseGradesFile(
         const workbook = XLSX.read(data, { type: 'array' });
 
         if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-          return resolve({ importedCount: 0, updatedGrades: [], errors: ['File Excel kosong atau tidak terbaca.'] });
+          return resolve({
+            importedCount: 0,
+            updatedGrades: [],
+            parsedRows: [],
+            skippedRows: [{ rowNumber: 1, reason: 'Workbook Excel tidak memiliki sheet', rawExcerpt: '' }],
+            columnMapping: {},
+            errors: ['File Excel kosong atau tidak terbaca.'],
+          });
         }
 
-        // Collect candidate sheets to parse:
-        // If single sheet, parse it.
-        // If multiple sheets, parse all sheets that contain student grade tables.
         const gradesMap = new Map<string, ExamGradeItem>();
+        const parsedRowsList: ParsedStudentRowItem[] = [];
+        const allSkipped: SkippedRowDiagnostic[] = [];
         const allErrors: string[] = [];
+        let firstDetectedMapping: ColumnMappingDetected = {};
 
-        // Identify priority sheet or parse all sheets
+        // Parse each sheet in the workbook
         for (const sheetName of workbook.SheetNames) {
           const worksheet = workbook.Sheets[sheetName];
           if (!worksheet) continue;
@@ -1235,10 +1613,18 @@ export async function parseGradesFile(
           const jsonRows: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
           if (!jsonRows || jsonRows.length === 0) continue;
 
-          const res = parseSheetRows(jsonRows, students, subject, gradingConfig);
+          const res = parseSheetRows(jsonRows, students, subject, gradingConfig, `${file.name} [${sheetName}]`);
+
+          if (Object.keys(res.columnMapping).length > 0 && Object.keys(firstDetectedMapping).length === 0) {
+            firstDetectedMapping = res.columnMapping;
+          }
+
           res.updatedGrades.forEach((g) => {
             gradesMap.set(g.studentId, g);
           });
+          parsedRowsList.push(...res.parsedRows);
+          allSkipped.push(...res.skippedRows);
+
           if (res.errors.length > 0 && res.importedCount === 0 && workbook.SheetNames.length === 1) {
             allErrors.push(...res.errors);
           }
@@ -1247,12 +1633,17 @@ export async function parseGradesFile(
         const updatedGrades = Array.from(gradesMap.values());
 
         if (updatedGrades.length === 0 && allErrors.length === 0) {
-          allErrors.push('Tidak ditemukan tabel nilai siswa yang cocok pada file Excel ini.');
+          allErrors.push(
+            `Tidak ditemukan baris nilai siswa yang terisi pada file "${file.name}". Pastikan kolom Nama Siswa dan Nilai (Benar PG / Esai / Nilai Akhir) sudah terisi.`
+          );
         }
 
         resolve({
           importedCount: updatedGrades.length,
           updatedGrades,
+          parsedRows: parsedRowsList,
+          skippedRows: allSkipped,
+          columnMapping: firstDetectedMapping,
           errors: allErrors,
         });
       } catch (err: any) {
@@ -1267,7 +1658,7 @@ export async function parseGradesFile(
 
 /**
  * Parse multiple uploaded Excel or CSV files and group results by class.
- * Allows teachers and admins to inspect and confirm which classes to save.
+ * Allows teachers and admins to inspect and review student grades before saving.
  */
 export async function parseMultipleGradesFiles(
   files: File[],
@@ -1277,12 +1668,19 @@ export async function parseMultipleGradesFiles(
 ): Promise<MultiFileParseResult> {
   const fileResults: MultiFileParseResult['fileResults'] = [];
   const allGradesMap = new Map<string, { grade: ExamGradeItem; sourceFile: string }>();
+  const allParsedRows: ParsedStudentRowItem[] = [];
+  const allSkippedRows: SkippedRowDiagnostic[] = [];
   const generalErrors: string[] = [];
+  let primaryMapping: ColumnMappingDetected = {};
 
   for (const file of files) {
     try {
       const res = await parseGradesFile(file, students, subject, gradingConfig);
       const classesInThisFile = new Set<string>();
+
+      if (Object.keys(res.columnMapping).length > 0 && Object.keys(primaryMapping).length === 0) {
+        primaryMapping = res.columnMapping;
+      }
 
       res.updatedGrades.forEach((g) => {
         const cls = g.className || 'Tanpa Kelas';
@@ -1290,12 +1688,17 @@ export async function parseMultipleGradesFiles(
         allGradesMap.set(g.studentId, { grade: g, sourceFile: file.name });
       });
 
+      allParsedRows.push(...res.parsedRows);
+      allSkippedRows.push(...res.skippedRows);
+
       fileResults.push({
         fileName: file.name,
         fileSize: file.size,
         importedCount: res.importedCount,
         classes: Array.from(classesInThisFile).sort(),
         errors: res.errors,
+        columnMapping: res.columnMapping,
+        skippedRows: res.skippedRows,
       });
     } catch (err: any) {
       fileResults.push({
@@ -1310,24 +1713,29 @@ export async function parseMultipleGradesFiles(
   }
 
   // Group all grades by className
-  const classMap = new Map<string, { grades: ExamGradeItem[]; sourceFiles: Set<string> }>();
+  const classMap = new Map<
+    string,
+    { grades: ExamGradeItem[]; parsedRows: ParsedStudentRowItem[]; sourceFiles: Set<string> }
+  >();
 
-  allGradesMap.forEach(({ grade, sourceFile }) => {
-    const cls = grade.className || 'Tanpa Kelas';
+  allParsedRows.forEach((row) => {
+    const cls = row.className || 'Tanpa Kelas';
     if (!classMap.has(cls)) {
-      classMap.set(cls, { grades: [], sourceFiles: new Set() });
+      classMap.set(cls, { grades: [], parsedRows: [], sourceFiles: new Set() });
     }
     const entry = classMap.get(cls)!;
-    entry.grades.push(grade);
-    entry.sourceFiles.add(sourceFile);
+    entry.grades.push(row.grade);
+    entry.parsedRows.push(row);
+    entry.sourceFiles.add(row.sourceFile);
   });
 
   const kkm = gradingConfig.kkm || DEFAULT_KKM;
   const classes: ClassParsedGroup[] = [];
 
-  classMap.forEach(({ grades, sourceFiles }, className) => {
+  classMap.forEach(({ grades, parsedRows, sourceFiles }, className) => {
     // Sort student grades alphabetically by studentName
     grades.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    parsedRows.sort((a, b) => a.studentName.localeCompare(b.studentName));
 
     const scores = grades.map((g) => g.scoreFinal);
     const sum = scores.reduce((acc, v) => acc + v, 0);
@@ -1342,6 +1750,7 @@ export async function parseMultipleGradesFiles(
       className,
       sourceFiles: Array.from(sourceFiles),
       grades,
+      parsedRows,
       studentCount: grades.length,
       totalStudentsInDb: totalInDb,
       avgScore: avg,
@@ -1361,9 +1770,12 @@ export async function parseMultipleGradesFiles(
     fileResults,
     classes,
     allGrades,
+    allParsedRows,
     totalStudentsParsed: allGrades.length,
     totalFiles: files.length,
     errors: generalErrors,
+    skippedRows: allSkippedRows,
+    columnMapping: primaryMapping,
   };
 }
 

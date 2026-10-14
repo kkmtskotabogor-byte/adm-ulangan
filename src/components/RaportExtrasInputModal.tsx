@@ -20,7 +20,11 @@ import {
   CheckCircle2,
   Plus,
   Trash2,
-  FileText
+  FileText,
+  Search,
+  Table,
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Student, StudentRaportExtraData } from '../types';
@@ -114,6 +118,39 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
   useEffect(() => {
     setLocalMap({ ...extraDataMap });
   }, [extraDataMap, isOpen]);
+
+  // Excel Import Review State
+  const [excelPreviewRows, setExcelPreviewRows] = useState<Array<{
+    rowNum: number;
+    studentId: string;
+    studentName: string;
+    className: string;
+    nisn: string;
+    examNumber: string;
+    isMatched: boolean;
+    extraData: StudentRaportExtraData;
+  }> | null>(null);
+  const [excelUnmatchedRows, setExcelUnmatchedRows] = useState<Array<{ rowNum: number; raw: string; reason: string }>>([]);
+  const [selectedExcelStudentIds, setSelectedExcelStudentIds] = useState<Record<string, boolean>>({});
+  const [excelSearchQuery, setExcelSearchQuery] = useState<string>('');
+
+  const filteredExcelRows = useMemo(() => {
+    if (!excelPreviewRows) return [];
+    if (!excelSearchQuery.trim()) return excelPreviewRows;
+    const q = excelSearchQuery.toLowerCase().trim();
+    return excelPreviewRows.filter(
+      (r) =>
+        r.studentName.toLowerCase().includes(q) ||
+        r.examNumber.toLowerCase().includes(q) ||
+        r.nisn.toLowerCase().includes(q) ||
+        r.className.toLowerCase().includes(q)
+    );
+  }, [excelPreviewRows, excelSearchQuery]);
+
+  const selectedExcelCount = useMemo(() => {
+    if (!excelPreviewRows) return 0;
+    return excelPreviewRows.filter((r) => r.isMatched && selectedExcelStudentIds[r.studentId]).length;
+  }, [excelPreviewRows, selectedExcelStudentIds]);
 
   // Success Feedback Toast
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
@@ -320,7 +357,7 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
     showFeedback(`Template Excel berhasil diunduh: ${fileName}`);
   };
 
-  // Import from Excel file
+  // Import from Excel file with interactive review before saving
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -330,89 +367,250 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
       try {
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[firstSheetName];
-        const jsonRows: any[] = XLSX.utils.sheet_to_json(sheet);
-
-        if (!jsonRows || jsonRows.length === 0) {
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
           alert('File Excel kosong atau format tidak sesuai.');
           return;
         }
 
-        const nextMap = { ...localMap };
-        let updatedCount = 0;
+        const firstSheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[firstSheetName];
+        const rawJson: any[] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        jsonRows.forEach((row) => {
-          // Match student by ID Siswa, NISN, No Peserta, or Nama Siswa
-          const rawId = String(row['ID Siswa'] || '').trim();
-          const rawNisn = String(row['NISN'] || '').trim();
-          const rawExamNo = String(row['No Peserta'] || '').trim();
-          const rawName = String(row['Nama Siswa'] || '').trim().toLowerCase();
+        if (!rawJson || rawJson.length === 0) {
+          alert('File Excel kosong atau format tidak sesuai.');
+          return;
+        }
 
-          const target = classStudents.find((s) => {
+        // Detect column positions
+        let headerIdx = -1;
+        let colId = -1, colNo = -1, colNisn = -1, colName = -1, colClass = -1;
+        let colSakit = -1, colIzin = -1, colAlpa = -1;
+        let colKelakuan = -1, colKerajinan = -1, colKerapihan = -1, colKebersihan = -1;
+        let colEks1 = -1, colNilaiEks1 = -1, colEks2 = -1, colNilaiEks2 = -1;
+        const colCat: number[] = [];
+
+        for (let i = 0; i < Math.min(15, rawJson.length); i++) {
+          const row = rawJson[i];
+          if (!Array.isArray(row)) continue;
+          for (let j = 0; j < row.length; j++) {
+            const val = String(row[j] || '').toLowerCase().trim();
+            if (colName === -1 && (val.includes('nama siswa') || val.includes('nama lengkap') || val === 'nama' || val.includes('murid'))) colName = j;
+            if (colNo === -1 && (val.includes('peserta') || val.includes('no ujian') || val.includes('no. ujian') || val.includes('nomor peserta'))) colNo = j;
+            if (colNisn === -1 && val.includes('nisn')) colNisn = j;
+            if (colId === -1 && (val.includes('id siswa') || val === 'id')) colId = j;
+            if (colClass === -1 && (val.includes('kelas') || val.includes('rombel'))) colClass = j;
+            if (colSakit === -1 && val.includes('sakit')) colSakit = j;
+            if (colIzin === -1 && val.includes('izin')) colIzin = j;
+            if (colAlpa === -1 && (val.includes('alpa') || val.includes('tanpa ket') || val.includes('tanpa keterangan') || val === 'a' || val === 'tk')) colAlpa = j;
+            if (colKelakuan === -1 && (val.includes('kelakuan') || val.includes('sikap'))) colKelakuan = j;
+            if (colKerajinan === -1 && val.includes('kerajinan')) colKerajinan = j;
+            if (colKerapihan === -1 && val.includes('kerapihan')) colKerapihan = j;
+            if (colKebersihan === -1 && val.includes('kebersihan')) colKebersihan = j;
+            if (colEks1 === -1 && (val.includes('ekskul 1') || val === 'ekskul')) colEks1 = j;
+            if (colNilaiEks1 === -1 && (val.includes('nilai ekskul 1') || val.includes('nilai ekskul'))) colNilaiEks1 = j;
+            if (colEks2 === -1 && val.includes('ekskul 2')) colEks2 = j;
+            if (colNilaiEks2 === -1 && val.includes('nilai ekskul 2')) colNilaiEks2 = j;
+            if (val.includes('catatan') && !colCat.includes(j)) colCat.push(j);
+          }
+          if (colName !== -1 || colNo !== -1) {
+            headerIdx = i;
+            break;
+          }
+        }
+
+        if (headerIdx === -1) {
+          alert('Judul kolom tidak terdeteksi. Pastikan file Excel memuat kolom "Nama Siswa", "Kelas", dan data absensi/sikap.');
+          return;
+        }
+
+        const previewList: Array<{
+          rowNum: number;
+          studentId: string;
+          studentName: string;
+          className: string;
+          nisn: string;
+          examNumber: string;
+          isMatched: boolean;
+          extraData: StudentRaportExtraData;
+        }> = [];
+
+        const unmatchedList: Array<{ rowNum: number; raw: string; reason: string }> = [];
+        const initialSelected: Record<string, boolean> = {};
+
+        // Parse student data rows
+        for (let r = headerIdx + 1; r < rawJson.length; r++) {
+          const row = rawJson[r];
+          if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+          const rowNum = r + 1;
+          const rawId = colId !== -1 ? String(row[colId] || '').trim() : '';
+          const rawExamNo = colNo !== -1 ? String(row[colNo] || '').trim() : '';
+          const rawNisn = colNisn !== -1 ? String(row[colNisn] || '').trim() : '';
+          const rawName = colName !== -1 ? String(row[colName] || '').trim() : '';
+          const rawClassName = colClass !== -1 ? String(row[colClass] || '').trim() : selectedClass;
+
+          // Check if row is purely summary/footer/empty
+          const rowText = row.map((c) => String(c || '').toLowerCase()).join(' ');
+          if (
+            rowText.includes('mengetahui') ||
+            rowText.includes('kepala madrasah') ||
+            rowText.includes('wali kelas') ||
+            rowText.includes('nip.') ||
+            (!rawName && !rawExamNo && !rawNisn && !rawId)
+          ) {
+            continue;
+          }
+
+          // Match student: prioritize classStudents, then fallback to all students
+          const cleanName = rawName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanExam = rawExamNo.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanNisn = rawNisn.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+          let target = classStudents.find((s) => {
             if (rawId && s.id === rawId) return true;
-            if (rawNisn && s.nisn && s.nisn === rawNisn) return true;
-            if (rawExamNo && s.examNumber && s.examNumber === rawExamNo) return true;
-            if (rawName && s.name.trim().toLowerCase() === rawName) return true;
+            if (cleanNisn && cleanNisn.length >= 4 && s.nisn?.replace(/[^a-z0-9]/g, '') === cleanNisn) return true;
+            if (cleanExam && cleanExam.length >= 2 && s.examNumber?.replace(/[^a-z0-9]/g, '') === cleanExam) return true;
+            if (cleanName && s.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanName) return true;
             return false;
           });
 
-          if (target) {
-            const sakit = row['Sakit (Hari)'] ?? row['Sakit'] ?? '-';
-            const izin = row['Izin (Hari)'] ?? row['Izin'] ?? '-';
-            const alpa = row['Alpa (Hari)'] ?? row['Alpa'] ?? '-';
-
-            const kelakuan = String(row['Kelakuan'] || 'Baik').trim();
-            const kerajinan = String(row['Kerajinan'] || 'Baik').trim();
-            const kerapihan = String(row['Kerapihan'] || 'Baik').trim();
-            const kebersihan = String(row['Kebersihan'] || 'Baik').trim();
-
-            const ekskul1Name = String(row['Ekskul 1'] || 'Pramuka').trim();
-            const ekskul1Nilai = String(row['Nilai Ekskul 1'] || 'Baik').trim();
-            const ekskul2Name = String(row['Ekskul 2'] || '').trim();
-            const ekskul2Nilai = String(row['Nilai Ekskul 2'] || '-').trim();
-
-            const cat1 = String(row['Catatan Wali Kelas 1'] || row['Catatan 1'] || '').trim();
-            const cat2 = String(row['Catatan Wali Kelas 2'] || row['Catatan 2'] || '').trim();
-            const cat3 = String(row['Catatan Wali Kelas 3'] || row['Catatan 3'] || '').trim();
-            const cat4 = String(row['Catatan Wali Kelas 4'] || row['Catatan 4'] || '').trim();
-            const cat5 = String(row['Catatan Wali Kelas 5'] || row['Catatan 5'] || '').trim();
-
-            const catList = [cat1, cat2, cat3, cat4, cat5].filter((c) => c !== '');
-            const finalCatatan = catList.length > 0 ? catList : [
-              'Rajinlah Terus Belajar di Rumah',
-              'Tingkatkan dan pertahankan prestasi',
-              'Pergunakanlah waktu belajar sebaik mungkin',
-              'Disiplin dan sopan santun dalam belajar',
-              'Tingkatkan motivasi dan semangat belajar',
-            ];
-
-            nextMap[target.id] = {
-              absensi: { sakit, izin, alpa },
-              keperibadian: { kelakuan, kerajinan, kerapihan, kebersihan },
-              ekskul: [
-                { name: ekskul1Name, nilai: ekskul1Nilai },
-                { name: ekskul2Name, nilai: ekskul2Nilai },
-                { name: '', nilai: '-' },
-                { name: '', nilai: '-' },
-                { name: '', nilai: '-' },
-              ],
-              catatanWaliKelas: finalCatatan,
-            };
-            updatedCount++;
+          // Second pass fallback to all students across school
+          if (!target) {
+            target = students.find((s) => {
+              if (rawId && s.id === rawId) return true;
+              if (cleanNisn && cleanNisn.length >= 4 && s.nisn?.replace(/[^a-z0-9]/g, '') === cleanNisn) return true;
+              if (cleanExam && cleanExam.length >= 2 && s.examNumber?.replace(/[^a-z0-9]/g, '') === cleanExam) return true;
+              if (cleanName && s.name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanName) return true;
+              return false;
+            });
           }
-        });
 
-        setLocalMap(nextMap);
-        onSaveExtraData(nextMap);
-        showFeedback(`Berhasil mengimpor data raport untuk ${updatedCount} siswa!`);
+          const sakit = colSakit !== -1 ? String(row[colSakit] ?? '-') : '-';
+          const izin = colIzin !== -1 ? String(row[colIzin] ?? '-') : '-';
+          const alpa = colAlpa !== -1 ? String(row[colAlpa] ?? '-') : '-';
+
+          const kelakuan = colKelakuan !== -1 ? String(row[colKelakuan] || 'Baik').trim() : 'Baik';
+          const kerajinan = colKerajinan !== -1 ? String(row[colKerajinan] || 'Baik').trim() : 'Baik';
+          const kerapihan = colKerapihan !== -1 ? String(row[colKerapihan] || 'Baik').trim() : 'Baik';
+          const kebersihan = colKebersihan !== -1 ? String(row[colKebersihan] || 'Baik').trim() : 'Baik';
+
+          const eks1Name = colEks1 !== -1 ? String(row[colEks1] || 'Pramuka').trim() : 'Pramuka';
+          const eks1Val = colNilaiEks1 !== -1 ? String(row[colNilaiEks1] || 'Baik').trim() : 'Baik';
+          const eks2Name = colEks2 !== -1 ? String(row[colEks2] || '').trim() : '';
+          const eks2Val = colNilaiEks2 !== -1 ? String(row[colNilaiEks2] || '-').trim() : '-';
+
+          const catList: string[] = [];
+          if (colCat.length > 0) {
+            colCat.forEach((cIdx) => {
+              const val = String(row[cIdx] || '').trim();
+              if (val) catList.push(val);
+            });
+          }
+
+          const finalCatatan = catList.length > 0 ? catList : [
+            'Rajinlah Terus Belajar di Rumah',
+            'Tingkatkan dan pertahankan prestasi',
+            'Pergunakanlah waktu belajar sebaik mungkin',
+            'Disiplin dan sopan santun dalam belajar',
+            'Tingkatkan motivasi dan semangat belajar',
+          ];
+
+          const studentExtraData: StudentRaportExtraData = {
+            absensi: { sakit, izin, alpa },
+            keperibadian: { kelakuan, kerajinan, kerapihan, kebersihan },
+            ekskul: [
+              { name: eks1Name, nilai: eks1Val },
+              { name: eks2Name, nilai: eks2Val },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+            ],
+            catatanWaliKelas: finalCatatan,
+          };
+
+          if (target) {
+            previewList.push({
+              rowNum,
+              studentId: target.id,
+              studentName: target.name,
+              className: target.className || rawClassName,
+              nisn: target.nisn || rawNisn,
+              examNumber: target.examNumber || rawExamNo,
+              isMatched: true,
+              extraData: studentExtraData,
+            });
+            initialSelected[target.id] = true;
+          } else {
+            unmatchedList.push({
+              rowNum,
+              raw: rawName || rawExamNo || `Baris ${rowNum}`,
+              reason: 'Nama siswa atau No. Peserta tidak ditemukan di database sekolah.',
+            });
+          }
+        }
+
+        if (previewList.length === 0 && unmatchedList.length === 0) {
+          alert('Tidak ada baris siswa yang ditemukan pada file Excel.');
+          return;
+        }
+
+        setExcelPreviewRows(previewList);
+        setExcelUnmatchedRows(unmatchedList);
+        setSelectedExcelStudentIds(initialSelected);
+        setExcelSearchQuery('');
         e.target.value = '';
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error importing Excel:', err);
-        alert('Gagal memproses file Excel. Pastikan file valid.');
+        alert(`Gagal memproses file Excel: ${err.message || String(err)}`);
       }
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  const handleConfirmSaveExcel = () => {
+    if (!excelPreviewRows) return;
+    const nextMap = { ...localMap };
+    let savedCount = 0;
+
+    excelPreviewRows.forEach((r) => {
+      if (r.isMatched && selectedExcelStudentIds[r.studentId]) {
+        nextMap[r.studentId] = r.extraData;
+        savedCount++;
+      }
+    });
+
+    if (savedCount === 0) {
+      alert('Pilih minimal 1 siswa yang akan disimpan ke raport.');
+      return;
+    }
+
+    setLocalMap(nextMap);
+    onSaveExtraData(nextMap);
+    showFeedback(`Berhasil menyimpan data raport untuk ${savedCount} siswa!`);
+    setExcelPreviewRows(null);
+    setExcelUnmatchedRows([]);
+  };
+
+  const handleCancelExcelPreview = () => {
+    setExcelPreviewRows(null);
+    setExcelUnmatchedRows([]);
+    setExcelSearchQuery('');
+  };
+
+  const handleToggleSelectAllExcel = (select: boolean) => {
+    if (!excelPreviewRows) return;
+    const updated: Record<string, boolean> = {};
+    excelPreviewRows.forEach((r) => {
+      if (r.isMatched) updated[r.studentId] = select;
+    });
+    setSelectedExcelStudentIds(updated);
+  };
+
+  const handleToggleSelectStudent = (id: string) => {
+    setSelectedExcelStudentIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   return (
@@ -1155,71 +1353,254 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
           {/* =========================================================================
               TAB 3: EKSPOR & IMPOR EXCEL
               ========================================================================= */}
+          {/* =========================================================================
+              TAB 3: EKSPOR & IMPOR EXCEL
+              ========================================================================= */}
           {modalTab === 'excel' && (
-            <div className="space-y-6 max-w-2xl mx-auto py-2">
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-                    <Download className="w-5 h-5" />
+            excelPreviewRows ? (
+              <div className="space-y-4">
+                {/* Header bar with metrics */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Total Terbaca
+                    </span>
+                    <span className="text-base font-extrabold text-slate-900 mt-0.5 block">
+                      {excelPreviewRows.length} Siswa
+                    </span>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">
-                      1. Unduh Format Template Excel ({selectedClass})
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      File Excel telah memuat daftar siswa kelas {selectedClass} beserta kolom absensi, sikap, ekskul, dan catatan.
-                    </p>
+                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">
+                      Cocok di Database
+                    </span>
+                    <span className="text-base font-extrabold text-indigo-900 mt-0.5 block">
+                      {excelPreviewRows.filter((r) => r.isMatched).length} Siswa
+                    </span>
+                  </div>
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
+                      Siap Disimpan
+                    </span>
+                    <span className="text-base font-extrabold text-emerald-900 mt-0.5 block">
+                      {selectedExcelCount} Siswa
+                    </span>
+                  </div>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                    <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider block">
+                      Baris Dilewati
+                    </span>
+                    <span className="text-base font-extrabold text-amber-900 mt-0.5 block">
+                      {excelUnmatchedRows.length} Baris
+                    </span>
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleExportExcelTemplate}
-                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Unduh File Excel Kelas {selectedClass}</span>
-                </button>
+                {/* Toolbar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelectAllExcel(true)}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-indigo-700 font-semibold border border-slate-200 rounded-lg cursor-pointer"
+                    >
+                      Pilih Semua ({excelPreviewRows.filter((r) => r.isMatched).length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSelectAllExcel(false)}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-200 rounded-lg cursor-pointer"
+                    >
+                      Batal Pilih
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Cari siswa atau no peserta..."
+                      value={excelSearchQuery}
+                      onChange={(e) => setExcelSearchQuery(e.target.value)}
+                      className="text-xs pl-8 pr-3 py-1 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 w-full sm:w-60"
+                    />
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white max-h-[46vh] overflow-y-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 text-[11px] font-bold sticky top-0 z-10 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-2.5 w-10 text-center">Pilih</th>
+                        <th className="py-2 px-2 text-center w-8">No</th>
+                        <th className="py-2 px-2.5">No. Peserta / NISN</th>
+                        <th className="py-2 px-2.5">Nama Lengkap Siswa</th>
+                        <th className="py-2 px-2 text-center">Kelas</th>
+                        <th className="py-2 px-2.5 text-center">Absensi (S / I / A)</th>
+                        <th className="py-2 px-2.5 text-center">Sikap &amp; Karakter</th>
+                        <th className="py-2 px-2.5">Ekstrakurikuler</th>
+                        <th className="py-2 px-2.5">Catatan Wali Kelas</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredExcelRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
+                            Tidak ada data siswa yang cocok dengan pencarian.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredExcelRows.map((r, idx) => {
+                          const isChecked = !!selectedExcelStudentIds[r.studentId];
+                          return (
+                            <tr
+                              key={r.studentId || idx}
+                              className={`hover:bg-slate-50 transition-colors ${!isChecked ? 'opacity-40 bg-slate-50/50' : ''}`}
+                            >
+                              <td className="py-2 px-2.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={!r.isMatched}
+                                  onChange={() => handleToggleSelectStudent(r.studentId)}
+                                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-2 px-2 text-center text-slate-400 font-mono text-[11px]">
+                                {idx + 1}
+                              </td>
+                              <td className="py-2 px-2.5 font-mono text-[11px] text-slate-600">
+                                <div>{r.examNumber || '-'}</div>
+                                {r.nisn && <div className="text-[10px] text-slate-400">NISN: {r.nisn}</div>}
+                              </td>
+                              <td className="py-2 px-2.5 font-semibold text-slate-900">
+                                <div>{r.studentName}</div>
+                                {!r.isMatched && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 font-bold">
+                                    Tidak Cocok di DB
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  {r.className}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2.5 text-center font-mono">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px] font-bold">
+                                  S:{r.extraData.absensi?.sakit ?? '-'} | I:{r.extraData.absensi?.izin ?? '-'} | A:{r.extraData.absensi?.alpa ?? '-'}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2.5 text-center text-[10px]">
+                                <div className="flex flex-wrap items-center justify-center gap-1">
+                                  <span className="px-1 py-0.2 rounded bg-emerald-50 text-emerald-800 font-semibold" title="Kelakuan">
+                                    K:{r.extraData.keperibadian?.kelakuan}
+                                  </span>
+                                  <span className="px-1 py-0.2 rounded bg-blue-50 text-blue-800 font-semibold" title="Kerajinan">
+                                    R:{r.extraData.keperibadian?.kerajinan}
+                                  </span>
+                                  <span className="px-1 py-0.2 rounded bg-purple-50 text-purple-800 font-semibold" title="Kerapihan">
+                                    P:{r.extraData.keperibadian?.kerapihan}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-2.5 text-slate-600 text-[11px]">
+                                {r.extraData.ekskul?.filter((e) => e.name).map((e) => `${e.name} (${e.nilai})`).join(', ') || '-'}
+                              </td>
+                              <td className="py-2 px-2.5 text-slate-600 text-[11px] truncate max-w-xs" title={r.extraData.catatanWaliKelas?.join('; ')}>
+                                {r.extraData.catatanWaliKelas?.[0] || '-'}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Diagnostics if unmatched rows exist */}
+                {excelUnmatchedRows.length > 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1.5">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      <span>{excelUnmatchedRows.length} Baris Tidak Ditemukan Siswanya:</span>
+                    </div>
+                    <div className="max-h-24 overflow-y-auto space-y-1 font-mono text-[11px]">
+                      {excelUnmatchedRows.map((un, uIdx) => (
+                        <div key={uIdx} className="text-amber-800">
+                          Baris #{un.rowNum}: "{un.raw}" — {un.reason}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
-                    <Upload className="w-5 h-5" />
+            ) : (
+              <div className="space-y-6 max-w-2xl mx-auto py-2">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                      <Download className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">
+                        1. Unduh Format Template Excel ({selectedClass})
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        File Excel telah memuat daftar siswa kelas {selectedClass} beserta kolom absensi, sikap, ekskul, dan catatan.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-sm">
-                      2. Unggah / Impor File Excel yang Sudah Diisi
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      Sistem akan membaca otomatis nilai absensi, kepribadian, ekskul, dan catatan untuk tiap siswa.
-                    </p>
-                  </div>
-                </div>
 
-                <div className="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-6 text-center transition-colors bg-slate-50/50">
-                  <input
-                    type="file"
-                    accept=".xlsx, .xls"
-                    onChange={handleImportExcel}
-                    className="hidden"
-                    id="excel-raport-file-input"
-                  />
-                  <label
-                    htmlFor="excel-raport-file-input"
-                    className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+                  <button
+                    type="button"
+                    onClick={handleExportExcelTemplate}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
-                    <FileSpreadsheet className="w-10 h-10 text-emerald-600 mb-1" />
-                    <span className="text-xs font-bold text-indigo-700 hover:underline">
-                      Pilih file Excel (.xlsx / .xls) untuk diunggah
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Atau seret dan lepas file Anda ke kotak ini
-                    </span>
-                  </label>
+                    <Download className="w-4 h-4" />
+                    <span>Unduh File Excel Kelas {selectedClass}</span>
+                  </button>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-2xs space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">
+                        2. Unggah / Impor File Excel yang Sudah Diisi
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Sistem akan membaca otomatis nilai absensi, kepribadian, ekskul, dan catatan untuk tiap siswa, dan menampilkan preview lengkap sebelum disimpan.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-6 text-center transition-colors bg-slate-50/50">
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls"
+                      onChange={handleImportExcel}
+                      className="hidden"
+                      id="excel-raport-file-input"
+                    />
+                    <label
+                      htmlFor="excel-raport-file-input"
+                      className="cursor-pointer flex flex-col items-center justify-center space-y-2"
+                    >
+                      <FileSpreadsheet className="w-10 h-10 text-emerald-600 mb-1" />
+                      <span className="text-xs font-bold text-indigo-700 hover:underline">
+                        Pilih file Excel (.xlsx / .xls) untuk diunggah
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Atau seret dan lepas file Anda ke kotak ini
+                      </span>
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           )}
         </div>
 
@@ -1256,6 +1637,27 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
                   </button>
                 )}
               </>
+            ) : modalTab === 'excel' ? (
+              excelPreviewRows && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCancelExcelPreview}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-300 rounded-lg cursor-pointer"
+                  >
+                    ← Ganti File
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedExcelCount === 0}
+                    onClick={handleConfirmSaveExcel}
+                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Simpan ke Raport ({selectedExcelCount} Siswa)</span>
+                  </button>
+                </>
+              )
             ) : (
               <button
                 type="button"

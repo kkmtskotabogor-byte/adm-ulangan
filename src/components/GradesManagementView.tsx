@@ -275,7 +275,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     });
   };
 
-  // Import Modal state (multi-file & class confirmation)
+  // Import Modal state (multi-file & class confirmation & review)
   const [showImportModal, setShowImportModal] = useState<boolean>(false);
   const [importFiles, setImportFiles] = useState<File[]>([]);
   const [importStep, setImportStep] = useState<'select' | 'confirm'>('select');
@@ -285,6 +285,11 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   const [selectedClassesToSave, setSelectedClassesToSave] = useState<Record<string, boolean>>({});
   const [expandedClassPreview, setExpandedClassPreview] = useState<string | null>(null);
   const [searchClassQuery, setSearchClassQuery] = useState<string>('');
+  const [reviewViewMode, setReviewViewMode] = useState<'table' | 'classes' | 'diagnostics'>('table');
+  const [reviewClassFilter, setReviewClassFilter] = useState<string>('all');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<'all' | 'passed' | 'remedial' | 'new'>('all');
+  const [reviewSearchQuery, setReviewSearchQuery] = useState<string>('');
+  const [showSkippedRowsDrawer, setShowSkippedRowsDrawer] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenImportModal = () => {
@@ -296,6 +301,11 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     setSelectedClassesToSave({});
     setExpandedClassPreview(null);
     setSearchClassQuery('');
+    setReviewViewMode('table');
+    setReviewClassFilter('all');
+    setReviewStatusFilter('all');
+    setReviewSearchQuery('');
+    setShowSkippedRowsDrawer(false);
     setShowImportModal(true);
   };
 
@@ -307,6 +317,35 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     });
     return Array.from(set).sort();
   }, [students]);
+
+  // Filtered rows for Excel review modal
+  const reviewFilteredRows = useMemo(() => {
+    if (!parseResult) return [];
+    return parseResult.allParsedRows.filter((r) => {
+      if (reviewClassFilter !== 'all' && r.className !== reviewClassFilter) {
+        return false;
+      }
+      if (reviewStatusFilter === 'passed' && !r.passed) return false;
+      if (reviewStatusFilter === 'remedial' && r.passed) return false;
+      if (reviewStatusFilter === 'new' && r.matchType !== 'excel_new') return false;
+      if (reviewSearchQuery.trim()) {
+        const q = reviewSearchQuery.toLowerCase().trim();
+        const matchesName = r.studentName.toLowerCase().includes(q);
+        const matchesExam = r.examNumber.toLowerCase().includes(q);
+        const matchesNisn = r.nisn.toLowerCase().includes(q);
+        const matchesClass = r.className.toLowerCase().includes(q);
+        if (!matchesName && !matchesExam && !matchesNisn && !matchesClass) return false;
+      }
+      return true;
+    });
+  }, [parseResult, reviewClassFilter, reviewStatusFilter, reviewSearchQuery]);
+
+  const selectedStudentsToSaveCount = useMemo(() => {
+    if (!parseResult) return 0;
+    return parseResult.allGrades.filter(
+      (g) => selectedClassesToSave[g.className || 'Tanpa Kelas']
+    ).length;
+  }, [parseResult, selectedClassesToSave]);
 
   // Current Subject Grading Config (with default total questions and weights)
   const currentGradingConfig: SubjectGradingConfig = useMemo(() => {
@@ -810,7 +849,12 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     setImportFiles((prev) => {
       const existingKeys = new Set(prev.map((f) => `${f.name}_${f.size}`));
       const nonDupes = valid.filter((f) => !existingKeys.has(`${f.name}_${f.size}`));
-      return [...prev, ...nonDupes];
+      const nextList = [...prev, ...nonDupes];
+      // Auto-parse so user immediately sees the review table without extra clicks
+      setTimeout(() => {
+        handleParseAndProceedToConfirm(nextList);
+      }, 50);
+      return nextList;
     });
   };
 
@@ -818,25 +862,17 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     setImportFiles((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handleParseAndProceedToConfirm = async () => {
-    if (importFiles.length === 0) return;
+  const handleParseAndProceedToConfirm = async (filesToParse?: File[]) => {
+    const files = filesToParse || importFiles;
+    if (files.length === 0) return;
     setIsParsingFiles(true);
     try {
       const result = await parseMultipleGradesFiles(
-        importFiles,
+        files,
         students,
         selectedSubject,
         currentGradingConfig
       );
-
-      if (result.totalStudentsParsed === 0) {
-        alert(
-          `Tidak ada nilai siswa yang berhasil dibaca dari ${importFiles.length} file yang dipilih.\n\n` +
-          (result.errors.length > 0 ? result.errors.join('\n') : 'Pastikan file Excel menggunakan format dengan kolom Nama / NISN / No. Peserta serta Jumlah Benar PG / Esai / Nilai Akhir.')
-        );
-        setIsParsingFiles(false);
-        return;
-      }
 
       setParseResult(result);
       // Centang seluruh kelas secara default
@@ -846,6 +882,10 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       });
       setSelectedClassesToSave(initialChecked);
       setImportStep('confirm');
+      setReviewViewMode(result.totalStudentsParsed > 0 ? 'table' : 'diagnostics');
+      if (result.totalStudentsParsed === 0) {
+        setShowSkippedRowsDrawer(true);
+      }
     } catch (err: any) {
       alert(`Gagal memproses file: ${err.message || String(err)}`);
     } finally {
@@ -2910,13 +2950,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       {showImportModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4 no-print overflow-y-auto">
           <div className={`bg-white rounded-2xl w-full shadow-2xl border border-slate-200 transition-all duration-200 flex flex-col ${
-            importStep === 'confirm' ? 'max-w-4xl max-h-[92vh]' : 'max-w-xl max-h-[90vh]'
+            importStep === 'confirm' ? 'max-w-5xl max-h-[94vh]' : 'max-w-xl max-h-[90vh]'
           }`}>
             {/* Modal Header */}
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
-                  {importStep === 'select' ? <Files className="w-5 h-5" /> : <CheckSquare className="w-5 h-5" />}
+                  {importStep === 'select' ? <Files className="w-5 h-5" /> : <FileSpreadsheet className="w-5 h-5" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -2924,13 +2964,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                       Upload Nilai Excel — {selectedSubject}
                     </h3>
                     <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                      {importStep === 'select' ? 'Langkah 1/2' : 'Langkah 2/2'}
+                      {importStep === 'select' ? 'Langkah 1/2: Pilih File' : 'Langkah 2/2: Review & Konfirmasi'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {importStep === 'select'
-                      ? 'Pilih 1 atau beberapa file Excel sekaligus, lalu konfirmasi kelas yang akan disimpan'
-                      : 'Konfirmasi dan pilih kelas mana saja yang ingin disimpan ke dalam sistem'}
+                      ? 'Pilih 1 atau beberapa file Excel template, lalu review seluruh isinya sebelum disimpan'
+                      : 'Pratinjau, review data nilai per siswa, dan pilih kelas mana saja yang ingin disimpan'}
                   </p>
                 </div>
               </div>
@@ -3085,7 +3125,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   </div>
                 </>
               ) : (
-                /* Step 2: Confirmation & Class Selection */
+                /* Step 2: Comprehensive Review & Confirmation */
                 parseResult && (
                   <div className="space-y-4">
                     {/* Summary Metrics Bar */}
@@ -3108,7 +3148,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                       </div>
                       <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
                         <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">
-                          Total Siswa
+                          Total Siswa Terbaca
                         </span>
                         <span className="text-base font-extrabold text-emerald-900 mt-0.5 block">
                           {parseResult.totalStudentsParsed} Siswa
@@ -3116,213 +3156,538 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                       </div>
                       <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-center">
                         <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">
-                          Kelas Terpilih
+                          Siswa Siap Disimpan
                         </span>
                         <span className="text-base font-extrabold text-purple-900 mt-0.5 block">
-                          {parseResult.classes.filter((c) => selectedClassesToSave[c.className]).length} / {parseResult.classes.length}
+                          {selectedStudentsToSaveCount} Siswa ({parseResult.classes.filter((c) => selectedClassesToSave[c.className]).length} Kelas)
                         </span>
                       </div>
                     </div>
 
-                    {/* Notice & Instructions */}
-                    <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
-                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div className="leading-relaxed">
-                        <strong>Konfirmasi Pilihan Kelas:</strong> Beri centang (✓) pada kelas yang ingin Anda simpan nilainya. Data kelas yang <strong>tidak dicentang tidak akan diubah/ditimpa</strong>.
-                      </div>
-                    </div>
-
-                    {/* Warning if any errors occurred during file parsing */}
-                    {parseResult.errors.length > 0 && (
-                      <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
-                        <div className="font-bold flex items-center gap-1.5 text-rose-900">
-                          <AlertTriangle className="w-4 h-4 text-rose-600" />
-                          <span>Pemberitahuan Pembacaan File:</span>
-                        </div>
-                        <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-                          {parseResult.errors.map((err, i) => (
-                            <li key={i}>{err}</li>
-                          ))}
-                        </ul>
+                    {/* Detected Columns Banner */}
+                    {parseResult.columnMapping && Object.keys(parseResult.columnMapping).length > 0 && (
+                      <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center gap-2 text-xs text-slate-700">
+                        <span className="font-bold flex items-center gap-1 text-slate-900">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          Kolom Template Terdeteksi:
+                        </span>
+                        {parseResult.columnMapping.nameCol && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                            Nama: <strong>{parseResult.columnMapping.nameCol}</strong>
+                          </span>
+                        )}
+                        {parseResult.columnMapping.classCol && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                            Kelas: <strong>{parseResult.columnMapping.classCol}</strong>
+                          </span>
+                        )}
+                        {parseResult.columnMapping.examNoCol && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                            No. Peserta: <strong>{parseResult.columnMapping.examNoCol}</strong>
+                          </span>
+                        )}
+                        {parseResult.columnMapping.correctPgCol && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                            Benar PG: <strong>{parseResult.columnMapping.correctPgCol}</strong>
+                          </span>
+                        )}
+                        {parseResult.columnMapping.essayCol && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                            Esai: <strong>{parseResult.columnMapping.essayCol}</strong>
+                          </span>
+                        )}
+                        {parseResult.columnMapping.finalScoreCol && (
+                          <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 font-medium">
+                            Nilai Akhir: <strong>{parseResult.columnMapping.finalScoreCol}</strong>
+                          </span>
+                        )}
                       </div>
                     )}
 
-                    {/* Action Controls & Search Filter */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
-                      <div className="flex items-center gap-2">
+                    {/* Warning if 0 students parsed */}
+                    {parseResult.totalStudentsParsed === 0 && (
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-2.5">
+                        <div className="font-bold flex items-center gap-2 text-amber-950 text-sm">
+                          <AlertTriangle className="w-5 h-5 text-amber-600" />
+                          <span>Data Nilai Siswa Belum Terbaca dari File Ini</span>
+                        </div>
+                        <p className="leading-relaxed">
+                          Sistem berhasil membuka file Excel, namun tidak menemukan baris siswa yang memiliki nilai (kolom Benar PG, Skor Esai, atau Nilai Akhir). Hal ini dapat terjadi jika kolom nilai masih kosong, atau judul kolom berbeda dari format template.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handleExportTemplate}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Unduh Format Template Resmi ({selectedSubject})</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewViewMode('diagnostics')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 text-slate-800 rounded-lg font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
+                          >
+                            <Info className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Lihat Log Diagnostik Baris File</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sub-Tabs View Switcher */}
+                    <div className="flex items-center justify-between border-b border-slate-200 gap-2 pb-1">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => handleSelectAllClassesToSave(true)}
-                          className="px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => setReviewViewMode('table')}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                            reviewViewMode === 'table'
+                              ? 'bg-indigo-600 text-white shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
                         >
-                          Pilih Semua Kelas
+                          <Table className="w-3.5 h-3.5" />
+                          <span>Pratinjau Nilai Siswa ({parseResult.totalStudentsParsed})</span>
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSelectAllClassesToSave(false)}
-                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                          onClick={() => setReviewViewMode('classes')}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                            reviewViewMode === 'classes'
+                              ? 'bg-indigo-600 text-white shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
                         >
-                          Batal Pilih Semua
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          <span>Pilihan Rombel ({parseResult.classes.length} Kelas)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReviewViewMode('diagnostics')}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                            reviewViewMode === 'diagnostics'
+                              ? 'bg-indigo-600 text-white shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                          <span>Log Diagnostik File ({parseResult.skippedRows?.length || 0})</span>
                         </button>
                       </div>
 
-                      {parseResult.classes.length > 4 && (
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="text"
-                            placeholder="Cari nama kelas..."
-                            value={searchClassQuery}
-                            onChange={(e) => setSearchClassQuery(e.target.value)}
-                            className="text-xs pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 w-full sm:w-44"
-                          />
-                        </div>
+                      {reviewViewMode === 'table' && (
+                        <span className="text-[11px] text-slate-500 hidden sm:inline">
+                          Menampilkan {reviewFilteredRows.length} dari {parseResult.totalStudentsParsed} siswa
+                        </span>
                       )}
                     </div>
 
-                    {/* List of Classes */}
-                    <div className="space-y-3">
-                      {parseResult.classes
-                        .filter((c) =>
-                          searchClassQuery
-                            ? c.className.toLowerCase().includes(searchClassQuery.toLowerCase())
-                            : true
-                        )
-                        .map((c) => {
-                          const isChecked = !!selectedClassesToSave[c.className];
-                          const isExpanded = expandedClassPreview === c.className;
-
-                          return (
-                            <div
-                              key={c.className}
-                              className={`border rounded-xl transition-all ${
-                                isChecked
-                                  ? 'border-indigo-300 bg-indigo-50/20 shadow-2xs'
-                                  : 'border-slate-200 bg-white opacity-70 hover:opacity-100'
+                    {/* View 1: Detailed Table Preview */}
+                    {reviewViewMode === 'table' && (
+                      <div className="space-y-3">
+                        {/* Filters Bar: Class & Status & Search */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                          {/* Class Filters */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="text-[11px] font-bold text-slate-600 mr-1">Kelas:</span>
+                            <button
+                              type="button"
+                              onClick={() => setReviewClassFilter('all')}
+                              className={`px-2 py-0.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                                reviewClassFilter === 'all'
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
                               }`}
                             >
-                              {/* Class Row Header */}
-                              <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <label className="flex items-center gap-3 cursor-pointer select-none min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={() => handleToggleClassToSave(c.className)}
-                                    className="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
-                                  />
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-extrabold text-sm text-slate-900 bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md">
-                                        Kelas {c.className}
-                                      </span>
-                                      <span className="text-xs text-slate-500 truncate" title={c.sourceFiles.join(', ')}>
-                                        📁 {c.sourceFiles.join(', ')}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-600">
-                                      <span className="font-semibold text-slate-800">
-                                        👥 {c.studentCount} Siswa terisi
-                                        {c.totalStudentsInDb > 0 && ` (dari ${c.totalStudentsInDb} di database)`}
-                                      </span>
-                                      <span>•</span>
-                                      <span>
-                                        Rata-rata: <strong className="text-slate-800">{c.avgScore}</strong>
-                                      </span>
-                                      <span>•</span>
-                                      <span>
-                                        Rentang: <strong className="text-slate-800">{c.minScore} - {c.maxScore}</strong>
-                                      </span>
-                                    </div>
-                                  </div>
-                                </label>
+                              Semua Kelas ({parseResult.totalStudentsParsed})
+                            </button>
+                            {parseResult.classes.map((c) => (
+                              <button
+                                key={c.className}
+                                type="button"
+                                onClick={() => setReviewClassFilter(c.className)}
+                                className={`px-2 py-0.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                                  reviewClassFilter === c.className
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                }`}
+                              >
+                                {c.className} ({c.studentCount})
+                              </button>
+                            ))}
+                          </div>
 
-                                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                                    {c.passedCount} Tuntas
-                                  </span>
-                                  {c.remedialCount > 0 && (
-                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
-                                      {c.remedialCount} Remedial
-                                    </span>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setExpandedClassPreview(isExpanded ? null : c.className)
-                                    }
-                                    className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1"
-                                    title="Tampilkan daftar nilai siswa"
-                                  >
-                                    <span>{isExpanded ? 'Tutup' : 'Rincian'}</span>
-                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                                  </button>
-                                </div>
-                              </div>
+                          {/* Search Input */}
+                          <div className="relative shrink-0">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              placeholder="Cari nama atau no peserta..."
+                              value={reviewSearchQuery}
+                              onChange={(e) => setReviewSearchQuery(e.target.value)}
+                              className="text-xs pl-8 pr-3 py-1 bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-indigo-500 w-full sm:w-52"
+                            />
+                          </div>
+                        </div>
 
-                              {/* Expanded Student Preview Table */}
-                              {isExpanded && (
-                                <div className="border-t border-slate-200 p-3 bg-white rounded-b-xl overflow-x-auto max-h-60 overflow-y-auto">
-                                  <table className="w-full text-left text-xs border-collapse">
-                                    <thead>
-                                      <tr className="border-b border-slate-200 text-slate-500 text-[11px] bg-slate-50">
-                                        <th className="py-1.5 px-2 font-bold text-center w-8">No</th>
-                                        <th className="py-1.5 px-2 font-bold">No. Peserta</th>
-                                        <th className="py-1.5 px-2 font-bold">Nama Lengkap</th>
-                                        <th className="py-1.5 px-2 font-bold text-center">Benar PG</th>
-                                        <th className="py-1.5 px-2 font-bold text-center">Esai</th>
-                                        <th className="py-1.5 px-2 font-bold text-center">Nilai Akhir</th>
-                                        <th className="py-1.5 px-2 font-bold text-center">Status</th>
-                                        <th className="py-1.5 px-2 font-bold">Catatan</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                      {c.grades.map((g, sIdx) => {
-                                        const isPass = (g.remedialScore ?? g.scoreFinal) >= (currentGradingConfig.kkm || DEFAULT_KKM);
-                                        return (
-                                          <tr key={g.studentId} className="hover:bg-slate-50/80">
-                                            <td className="py-1.5 px-2 text-center text-slate-400 font-mono text-[11px]">
-                                              {sIdx + 1}
-                                            </td>
-                                            <td className="py-1.5 px-2 font-mono text-slate-600 text-[11px]">
-                                              {g.examNumber || '-'}
-                                            </td>
-                                            <td className="py-1.5 px-2 font-semibold text-slate-900">
-                                              {g.studentName}
-                                            </td>
-                                            <td className="py-1.5 px-2 text-center font-mono">
-                                              {g.correctPg ?? '-'}
-                                            </td>
-                                            <td className="py-1.5 px-2 text-center font-mono">
-                                              {g.correctEssay ?? '-'}
-                                            </td>
-                                            <td className="py-1.5 px-2 text-center font-extrabold text-indigo-700">
-                                              {g.scoreFinal}
-                                            </td>
-                                            <td className="py-1.5 px-2 text-center">
-                                              <span
-                                                className={`px-1.5 py-0.5 rounded-sm text-[10px] font-bold ${
-                                                  isPass
-                                                    ? 'bg-emerald-100 text-emerald-800'
-                                                    : 'bg-rose-100 text-rose-800'
-                                                }`}
-                                              >
-                                                {isPass ? 'Tuntas' : 'Remedial'}
-                                              </span>
-                                            </td>
-                                            <td className="py-1.5 px-2 text-slate-500 text-[11px] truncate max-w-[120px]">
-                                              {g.notes || '-'}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
+                        {/* Status Quick Pills */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className="text-[11px] font-semibold text-slate-500">Status:</span>
+                          <button
+                            type="button"
+                            onClick={() => setReviewStatusFilter('all')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                              reviewStatusFilter === 'all'
+                                ? 'bg-slate-800 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            Semua
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewStatusFilter('passed')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                              reviewStatusFilter === 'passed'
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                            }`}
+                          >
+                            Tuntas (≥ KKM)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewStatusFilter('remedial')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                              reviewStatusFilter === 'remedial'
+                                ? 'bg-rose-600 text-white'
+                                : 'bg-rose-50 text-rose-800 hover:bg-rose-100'
+                            }`}
+                          >
+                            Remedial (&lt; KKM)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setReviewStatusFilter('new')}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                              reviewStatusFilter === 'new'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                            }`}
+                          >
+                            Siswa Baru Excel
+                          </button>
+                        </div>
+
+                        {/* Interactive Review Table */}
+                        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white max-h-[50vh] overflow-y-auto">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="bg-slate-100/90 text-slate-700 text-[11px] font-bold sticky top-0 z-10 border-b border-slate-200 backdrop-blur-xs">
+                              <tr>
+                                <th className="py-2 px-2.5 text-center w-10">No</th>
+                                <th className="py-2 px-2.5">No. Peserta</th>
+                                <th className="py-2 px-2.5">Nama Lengkap Siswa</th>
+                                <th className="py-2 px-2.5 text-center">Kelas</th>
+                                <th className="py-2 px-2.5 text-center">Benar PG</th>
+                                <th className="py-2 px-2.5 text-center">Esai</th>
+                                <th className="py-2 px-2.5 text-center">Nilai Akhir</th>
+                                <th className="py-2 px-2.5 text-center">Remedial</th>
+                                <th className="py-2 px-2.5 text-center">Status</th>
+                                <th className="py-2 px-2.5">Catatan</th>
+                                <th className="py-2 px-2.5 text-slate-400">Asal File</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {reviewFilteredRows.length === 0 ? (
+                                <tr>
+                                  <td colSpan={11} className="py-8 text-center text-slate-400 text-xs">
+                                    Tidak ada data siswa yang cocok dengan filter.
+                                  </td>
+                                </tr>
+                              ) : (
+                                reviewFilteredRows.map((r, idx) => {
+                                  const isCheckedClass = !!selectedClassesToSave[r.className];
+                                  return (
+                                    <tr
+                                      key={r.id}
+                                      className={`hover:bg-slate-50 transition-colors ${
+                                        !isCheckedClass ? 'opacity-40 bg-slate-50/50' : ''
+                                      }`}
+                                    >
+                                      <td className="py-2 px-2.5 text-center text-slate-400 font-mono text-[11px]">
+                                        {idx + 1}
+                                      </td>
+                                      <td className="py-2 px-2.5 font-mono text-slate-600 text-[11px]">
+                                        {r.examNumber || '-'}
+                                      </td>
+                                      <td className="py-2 px-2.5 font-semibold text-slate-900">
+                                        <div className="flex items-center gap-1.5">
+                                          <span>{r.studentName}</span>
+                                          {r.matchType === 'excel_new' && (
+                                            <span className="text-[10px] px-1.5 py-0.2 rounded-sm bg-purple-100 text-purple-700 font-bold" title="Siswa baru terdeteksi dari Excel">
+                                              Excel Baru
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="py-2 px-2.5 text-center">
+                                        <span className="px-1.5 py-0.5 rounded-md font-bold text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                          {r.className}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-2.5 text-center font-mono">
+                                        {r.correctPg ?? '-'}
+                                      </td>
+                                      <td className="py-2 px-2.5 text-center font-mono">
+                                        {r.correctEssay ?? '-'}
+                                      </td>
+                                      <td className="py-2 px-2.5 text-center">
+                                        <span
+                                          className={`inline-block px-2 py-0.5 rounded-md font-extrabold text-xs ${
+                                            r.passed
+                                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                              : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                          }`}
+                                        >
+                                          {r.scoreFinal}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-2.5 text-center font-mono text-slate-600">
+                                        {r.remedialScore ?? '-'}
+                                      </td>
+                                      <td className="py-2 px-2.5 text-center">
+                                        <span
+                                          className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${
+                                            r.passed
+                                              ? 'bg-emerald-100 text-emerald-800'
+                                              : 'bg-rose-100 text-rose-800'
+                                          }`}
+                                        >
+                                          {r.passed ? 'Tuntas' : 'Remedial'}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-2.5 text-slate-600 text-[11px] truncate max-w-[120px]" title={r.notes}>
+                                        {r.notes || '-'}
+                                      </td>
+                                      <td className="py-2 px-2.5 text-[10px] text-slate-400 font-mono truncate max-w-[100px]" title={r.sourceFile}>
+                                        {r.sourceFile.split('/').pop()}
+                                      </td>
+                                    </tr>
+                                  );
+                                })
                               )}
-                            </div>
-                          );
-                        })}
-                    </div>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* View 2: Class Selection Cards */}
+                    {reviewViewMode === 'classes' && (
+                      <div className="space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAllClassesToSave(true)}
+                              className="px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Pilih Semua Kelas
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectAllClassesToSave(false)}
+                              className="px-2.5 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                            >
+                              Batal Pilih Semua
+                            </button>
+                          </div>
+
+                          <div className="text-xs text-slate-500">
+                            Centang kelas yang nilainya ingin disimpan ke database.
+                          </div>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {parseResult.classes.map((c) => {
+                            const isChecked = !!selectedClassesToSave[c.className];
+                            const isExpanded = expandedClassPreview === c.className;
+
+                            return (
+                              <div
+                                key={c.className}
+                                className={`border rounded-xl transition-all ${
+                                  isChecked
+                                    ? 'border-indigo-300 bg-indigo-50/20 shadow-2xs'
+                                    : 'border-slate-200 bg-white opacity-70 hover:opacity-100'
+                                }`}
+                              >
+                                <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                  <label className="flex items-center gap-3 cursor-pointer select-none min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => handleToggleClassToSave(c.className)}
+                                      className="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-extrabold text-sm text-slate-900 bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded-md">
+                                          Kelas {c.className}
+                                        </span>
+                                        <span className="text-xs text-slate-500 truncate" title={c.sourceFiles.join(', ')}>
+                                          📁 {c.sourceFiles.join(', ')}
+                                        </span>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-600">
+                                        <span className="font-semibold text-slate-800">
+                                          👥 {c.studentCount} Siswa terisi
+                                          {c.totalStudentsInDb > 0 && ` (dari ${c.totalStudentsInDb} di database)`}
+                                        </span>
+                                        <span>•</span>
+                                        <span>
+                                          Rata-rata: <strong className="text-slate-800">{c.avgScore}</strong>
+                                        </span>
+                                        <span>•</span>
+                                        <span>
+                                          Rentang: <strong className="text-slate-800">{c.minScore} - {c.maxScore}</strong>
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </label>
+
+                                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                                      {c.passedCount} Tuntas
+                                    </span>
+                                    {c.remedialCount > 0 && (
+                                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800">
+                                        {c.remedialCount} Remedial
+                                      </span>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setExpandedClassPreview(isExpanded ? null : c.className)
+                                      }
+                                      className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer text-xs font-semibold flex items-center gap-1"
+                                      title="Tampilkan daftar nilai siswa"
+                                    >
+                                      <span>{isExpanded ? 'Tutup' : 'Rincian'}</span>
+                                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Expanded Student Preview Table */}
+                                {isExpanded && (
+                                  <div className="border-t border-slate-200 p-3 bg-white rounded-b-xl overflow-x-auto max-h-60 overflow-y-auto">
+                                    <table className="w-full text-left text-xs border-collapse">
+                                      <thead>
+                                        <tr className="border-b border-slate-200 text-slate-500 text-[11px] bg-slate-50">
+                                          <th className="py-1.5 px-2 font-bold text-center w-8">No</th>
+                                          <th className="py-1.5 px-2 font-bold">No. Peserta</th>
+                                          <th className="py-1.5 px-2 font-bold">Nama Lengkap</th>
+                                          <th className="py-1.5 px-2 font-bold text-center">Benar PG</th>
+                                          <th className="py-1.5 px-2 font-bold text-center">Esai</th>
+                                          <th className="py-1.5 px-2 font-bold text-center">Nilai Akhir</th>
+                                          <th className="py-1.5 px-2 font-bold text-center">Status</th>
+                                          <th className="py-1.5 px-2 font-bold">Catatan</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {c.grades.map((g, sIdx) => {
+                                          const isPass = (g.remedialScore ?? g.scoreFinal) >= (currentGradingConfig.kkm || DEFAULT_KKM);
+                                          return (
+                                            <tr key={g.studentId} className="hover:bg-slate-50/80">
+                                              <td className="py-1.5 px-2 text-center text-slate-400 font-mono text-[11px]">
+                                                {sIdx + 1}
+                                              </td>
+                                              <td className="py-1.5 px-2 font-mono text-slate-600 text-[11px]">
+                                                {g.examNumber || '-'}
+                                              </td>
+                                              <td className="py-1.5 px-2 font-semibold text-slate-900">
+                                                {g.studentName}
+                                              </td>
+                                              <td className="py-1.5 px-2 text-center font-mono">
+                                                {g.correctPg ?? '-'}
+                                              </td>
+                                              <td className="py-1.5 px-2 text-center font-mono">
+                                                {g.correctEssay ?? '-'}
+                                              </td>
+                                              <td className="py-1.5 px-2 text-center font-extrabold text-indigo-700">
+                                                {g.scoreFinal}
+                                              </td>
+                                              <td className="py-1.5 px-2 text-center">
+                                                <span
+                                                  className={`px-1.5 py-0.5 rounded-sm text-[10px] font-bold ${
+                                                    isPass
+                                                      ? 'bg-emerald-100 text-emerald-800'
+                                                      : 'bg-rose-100 text-rose-800'
+                                                  }`}
+                                                >
+                                                  {isPass ? 'Tuntas' : 'Remedial'}
+                                                </span>
+                                              </td>
+                                              <td className="py-1.5 px-2 text-slate-500 text-[11px] truncate max-w-[120px]">
+                                                {g.notes || '-'}
+                                              </td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* View 3: Diagnostics & Skipped Rows Log */}
+                    {reviewViewMode === 'diagnostics' && (
+                      <div className="space-y-3">
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 leading-relaxed">
+                          <strong>Log Pembacaan Baris Excel:</strong> Bagian ini memberikan transparansi penuh tentang seluruh baris pada file Excel yang Anda unggah, termasuk baris judul, baris kosong, dan baris siswa.
+                        </div>
+
+                        {parseResult.skippedRows && parseResult.skippedRows.length > 0 ? (
+                          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white max-h-[50vh] overflow-y-auto">
+                            <table className="w-full text-left text-xs border-collapse">
+                              <thead className="bg-slate-100 text-slate-700 text-[11px] font-bold sticky top-0 border-b border-slate-200">
+                                <tr>
+                                  <th className="py-2 px-3 w-16 text-center">Baris</th>
+                                  <th className="py-2 px-3">Keterangan / Alasan</th>
+                                  <th className="py-2 px-3">Cuplikan Isi Baris Excel</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                                {parseResult.skippedRows.map((sk, skIdx) => (
+                                  <tr key={skIdx} className="hover:bg-slate-50">
+                                    <td className="py-1.5 px-3 text-center text-slate-500 font-bold">
+                                      #{sk.rowNumber}
+                                    </td>
+                                    <td className="py-1.5 px-3 text-slate-700 font-sans">
+                                      {sk.reason}
+                                    </td>
+                                    <td className="py-1.5 px-3 text-slate-500 truncate max-w-xs">
+                                      {sk.rawExcerpt || '-'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <div className="p-6 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                            Semua baris siswa berhasil dibaca dengan sempurna tanpa ada baris yang dilewati.
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               )}
@@ -3345,7 +3710,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                   <button
                     type="button"
                     disabled={importFiles.length === 0 || isParsingFiles}
-                    onClick={handleParseAndProceedToConfirm}
+                    onClick={() => handleParseAndProceedToConfirm()}
                     className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     {isParsingFiles ? (
@@ -3356,7 +3721,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                     ) : (
                       <>
                         <CheckSquare className="w-3.5 h-3.5" />
-                        <span>Lanjut &amp; Konfirmasi Kelas ({importFiles.length} File)</span>
+                        <span>Periksa &amp; Review Isi File ({importFiles.length} File) →</span>
                       </>
                     )}
                   </button>
