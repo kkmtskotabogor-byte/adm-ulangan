@@ -17,9 +17,10 @@ export const STANDARD_SCHOOL_SUBJECTS = [
   'Bahasa Inggris',
   'Seni Budaya',
   'Pendidikan Jasmani (PJOK)',
-  'Prakarya / Informatika',
-  'Bahasa Sunda',
+  'Prakarya',
+  'TIK / Informatika',
   'BTQ (Baca Tulis Al-Qur\'an)',
+  'Bahasa Sunda',
 ];
 
 export function getSubjectCategory(subject: string): string {
@@ -98,9 +99,10 @@ export function getSubjectCode(subject: string): string {
   if (s.includes('pancasila') || s.includes('pkn')) return 'PKN';
   if (s.includes('pjok') || s.includes('jasmani')) return 'PJK';
   if (s.includes('seni')) return 'SBD';
-  if (s.includes('prakarya') || s.includes('informatika') || s.includes('tik')) return 'INF';
+  if (s.includes('prakarya')) return 'PRA';
+  if (s.includes('informatika') || s.includes('tik')) return 'TIK';
   if (s.includes('sunda')) return 'SND';
-  if (s.includes('btq')) return 'BTQ';
+  if (s.includes('btq') || s.includes('baca tulis') || s.includes('bacatulis')) return 'BTQ';
   if (s.includes('tahfidz')) return 'THF';
 
   // Fallback abbreviation

@@ -118,27 +118,35 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 }) => {
   // 1. Subjects catalog state: loaded from customSubjects prop, localStorage, or standard defaults
   const [subjectsList, setSubjectsList] = useState<string[]>(() => {
-    if (customSubjects && customSubjects.length > 0) return customSubjects;
-    try {
-      const saved = localStorage.getItem('sim_ujian_subjects_catalog_v1');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    let list: string[] = [];
+    if (customSubjects && customSubjects.length > 0) {
+      list = [...customSubjects];
+    } else {
+      try {
+        const saved = localStorage.getItem('sim_ujian_subjects_catalog_v1');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) list = [...parsed];
+        }
+      } catch (e) {
+        console.error('Error loading subject catalog:', e);
       }
-    } catch (e) {
-      console.error('Error loading subject catalog:', e);
     }
-    const list: string[] = [];
-    schedules.forEach((s) => {
-      if (s.subject && !s.isBreak && !list.includes(s.subject)) {
-        list.push(s.subject);
-      }
-    });
-    // Add standard subjects not in list
+    if (list.length === 0) {
+      schedules.forEach((s) => {
+        if (s.subject && !s.isBreak && !list.includes(s.subject)) {
+          list.push(s.subject);
+        }
+      });
+    }
+    // Always guarantee all 17 standard subjects (including TIK and BTQ)
     STANDARD_SCHOOL_SUBJECTS.forEach((sub) => {
-      if (!list.includes(sub)) {
-        list.push(sub);
-      }
+      const cleanSub = sub.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const exists = list.some((m) => {
+        const cleanM = m.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cleanM === cleanSub || cleanM.includes(cleanSub) || cleanSub.includes(cleanM);
+      });
+      if (!exists) list.push(sub);
     });
     return list;
   });
@@ -146,7 +154,16 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   // Keep state synced if customSubjects prop updates
   React.useEffect(() => {
     if (customSubjects && customSubjects.length > 0) {
-      setSubjectsList(customSubjects);
+      const merged = [...customSubjects];
+      STANDARD_SCHOOL_SUBJECTS.forEach((sub) => {
+        const cleanSub = sub.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const exists = merged.some((m) => {
+          const cleanM = m.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return cleanM === cleanSub || cleanM.includes(cleanSub) || cleanSub.includes(cleanM);
+        });
+        if (!exists) merged.push(sub);
+      });
+      setSubjectsList(merged);
     }
   }, [customSubjects]);
 
@@ -2813,8 +2830,8 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                     <th className="py-2.5 px-2.5 border-r border-slate-200 min-w-[160px]">Nama Lengkap</th>
                     <th className="py-2.5 px-2 text-center border-r border-slate-200 w-12">Kelas</th>
                     
-                    {/* Columns for primary subjects */}
-                    {availableSubjects.slice(0, 8).map((sub) => (
+                    {/* Columns for all subjects */}
+                    {availableSubjects.map((sub) => (
                       <th key={sub} className="py-2 px-2 text-center border-r border-slate-200 min-w-[70px]">
                         <span className="truncate block" title={sub}>
                           {sub.length > 10 ? sub.slice(0, 10) + '..' : sub}
@@ -2835,8 +2852,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                     let total = 0;
                     let count = 0;
 
-                    const studentSubjectScores = availableSubjects.slice(0, 8).map((sub) => {
-                      const g = grades.find((gr) => gr.studentId === student.id && gr.subject === sub);
+                    const studentSubjectScores = availableSubjects.map((sub) => {
+                      const cleanSub = sub.toLowerCase().replace(/[^a-z0-9]/g, '');
+                      const g = grades.find((gr) => {
+                        if (gr.studentId !== student.id) return false;
+                        const grClean = (gr.subject || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return grClean === cleanSub || grClean.includes(cleanSub) || cleanSub.includes(grClean);
+                      });
                       if (g && typeof g.scoreFinal === 'number') {
                         total += g.scoreFinal;
                         count++;

@@ -211,7 +211,19 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEYS.CUSTOM_SUBJECTS);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const merged = [...parsed];
+          // Ensure all standard subjects (including TIK and BTQ) are always present
+          STANDARD_SCHOOL_SUBJECTS.forEach((sub) => {
+            const cleanSub = sub.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const exists = merged.some((m) => {
+              const cleanM = m.toLowerCase().replace(/[^a-z0-9]/g, '');
+              return cleanM === cleanSub || cleanM.includes(cleanSub) || cleanSub.includes(cleanM);
+            });
+            if (!exists) merged.push(sub);
+          });
+          return merged;
+        }
       }
     } catch (e) {
       console.error('Error loading custom subjects in App:', e);
@@ -483,9 +495,18 @@ export default function App() {
         subscribeToCustomSubjects(
           (cloudSubjects) => {
             if (cloudSubjects && cloudSubjects.length > 0) {
-              setSubjects(cloudSubjects);
+              const merged = [...cloudSubjects];
+              STANDARD_SCHOOL_SUBJECTS.forEach((sub) => {
+                const cleanSub = sub.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const exists = merged.some((m) => {
+                  const cleanM = m.toLowerCase().replace(/[^a-z0-9]/g, '');
+                  return cleanM === cleanSub || cleanM.includes(cleanSub) || cleanSub.includes(cleanM);
+                });
+                if (!exists) merged.push(sub);
+              });
+              setSubjects(merged);
               try {
-                localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(cloudSubjects));
+                localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(merged));
               } catch (e) {}
             }
           },

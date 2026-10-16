@@ -100,6 +100,9 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   // Title variant: 'PTS' vs 'STS' vs 'AUTO'
   const [titleFormat, setTitleFormat] = useState<'PTS' | 'STS' | 'AUTO'>('PTS');
 
+  // Numbering style: 'kemenag' (PAI 1a-1d, Mapel 2-12, Mulok 1-2) vs 'sequential' (Nomor 1-17 berurutan)
+  const [numberingStyle, setNumberingStyle] = useState<'kemenag' | 'sequential'>('kemenag');
+
   // Modal Settings Editor (Wali Kelas, Catatan, Titimangsa)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -245,10 +248,17 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
       if (gSubClean === cleanTarget) return true;
       if (cleanTarget.includes(gSubClean) || gSubClean.includes(cleanTarget)) return true;
 
-      // Smart curriculum aliases
-      if (cleanTarget.includes('hadis') || cleanTarget.includes('hadits') || cleanTarget.includes('quran')) {
-        return gSubClean.includes('hadis') || gSubClean.includes('hadits') || gSubClean.includes('quran');
+      // Smart curriculum aliases with strict disambiguation
+      // BTQ (Baca Tulis Al-Qur'an)
+      if (cleanTarget.includes('btq') || cleanTarget.includes('bacatulis') || cleanTarget.includes('tulisquran') || cleanTarget.includes('bacaquran')) {
+        return gSubClean.includes('btq') || gSubClean.includes('bacatulis') || gSubClean.includes('tulisquran') || gSubClean.includes('bacaquran');
       }
+
+      // Al-Qur'an Hadits (must NOT match BTQ)
+      if (cleanTarget.includes('hadis') || cleanTarget.includes('hadits') || (cleanTarget.includes('quran') && !cleanTarget.includes('btq') && !cleanTarget.includes('bacatulis'))) {
+        return (gSubClean.includes('hadis') || gSubClean.includes('hadits') || gSubClean.includes('quran')) && !gSubClean.includes('btq') && !gSubClean.includes('bacatulis');
+      }
+
       if (cleanTarget.includes('akidah') || cleanTarget.includes('akhlak')) {
         return gSubClean.includes('akidah') || gSubClean.includes('akhlak');
       }
@@ -270,9 +280,17 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
       if (cleanTarget.includes('penjas') || cleanTarget.includes('pjok') || cleanTarget.includes('olahraga')) {
         return gSubClean.includes('penjas') || gSubClean.includes('pjok') || gSubClean.includes('olahraga');
       }
-      if (cleanTarget.includes('prakarya') || cleanTarget.includes('informatika') || cleanTarget.includes('tik')) {
-        return gSubClean.includes('prakarya') || gSubClean.includes('informatika') || gSubClean.includes('tik');
+
+      // TIK / Informatika
+      if (cleanTarget.includes('tik') || cleanTarget.includes('informatika') || cleanTarget.includes('komputer') || cleanTarget.includes('teknologiinformasi')) {
+        return gSubClean.includes('tik') || gSubClean.includes('informatika') || gSubClean.includes('komputer') || gSubClean.includes('teknologiinformasi');
       }
+
+      // Prakarya (distinct from TIK)
+      if (cleanTarget.includes('prakarya')) {
+        return gSubClean.includes('prakarya') && !gSubClean.includes('informatika') && !gSubClean.includes('tik');
+      }
+
       if (cleanTarget.includes('sunda')) {
         return gSubClean.includes('sunda');
       }
@@ -307,43 +325,129 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     return null;
   };
 
-  // Subject rows specification matching official Raport format exactly
-  const subjectStructure = [
-    {
-      group: 'A',
-      groupTitle: 'MATA PELAJARAN',
-      items: [
+  // Subject rows specification matching official Raport format exactly (17 Mapel Lengkap)
+  const subjectStructure = useMemo(() => {
+    if (numberingStyle === 'sequential') {
+      const baseGroups = [
         {
-          num: '1.',
-          isParent: true,
-          title: 'Pendidikan Agama Islam',
-          subItems: [
-            { subNum: 'a.', title: 'Al-Quran Hadits', matchKey: "Al-Qur'an Hadis" },
-            { subNum: 'b.', title: 'Akidah Akhlak', matchKey: 'Akidah Akhlak' },
-            { subNum: 'c.', title: 'Fikih', matchKey: 'Fikih' },
-            { subNum: 'd.', title: 'SKI', matchKey: 'Sejarah Kebudayaan Islam (SKI)' },
+          group: 'A',
+          groupTitle: 'MATA PELAJARAN',
+          items: [
+            { num: '1.', title: 'Al-Qur\'an Hadits', matchKey: "Al-Qur'an Hadis" },
+            { num: '2.', title: 'Akidah Akhlak', matchKey: 'Akidah Akhlak' },
+            { num: '3.', title: 'Fikih', matchKey: 'Fikih' },
+            { num: '4.', title: 'Sejarah Kebudayaan Islam (SKI)', matchKey: 'Sejarah Kebudayaan Islam (SKI)' },
+            { num: '5.', title: 'Pendidikan Pancasila / PKn', matchKey: 'Pendidikan Pancasila / PKn' },
+            { num: '6.', title: 'Bahasa Indonesia', matchKey: 'Bahasa Indonesia' },
+            { num: '7.', title: 'Bahasa Arab', matchKey: 'Bahasa Arab' },
+            { num: '8.', title: 'Bahasa Inggris', matchKey: 'Bahasa Inggris' },
+            { num: '9.', title: 'Matematika', matchKey: 'Matematika' },
+            { num: '10.', title: 'Ilmu Pengetahuan Alam (IPA)', matchKey: 'Ilmu Pengetahuan Alam (IPA)' },
+            { num: '11.', title: 'Ilmu Pengetahuan Sosial (IPS)', matchKey: 'Ilmu Pengetahuan Sosial (IPS)' },
+            { num: '12.', title: 'Seni Budaya', matchKey: 'Seni Budaya' },
+            { num: '13.', title: 'Penjasorkes / PJOK', matchKey: 'Pendidikan Jasmani (PJOK)' },
+            { num: '14.', title: 'Prakarya', matchKey: 'Prakarya' },
+            { num: '15.', title: 'Informatika / TIK', matchKey: 'TIK / Informatika' },
           ],
         },
-        { num: '2.', title: 'Pendidikan Kewarganegaraan', matchKey: 'Pendidikan Pancasila / PKn' },
-        { num: '3.', title: 'Bahasa Indonesia', matchKey: 'Bahasa Indonesia' },
-        { num: '4.', title: 'Bahasa Arab', matchKey: 'Bahasa Arab' },
-        { num: '5.', title: 'Bahasa Inggris', matchKey: 'Bahasa Inggris' },
-        { num: '6.', title: 'Matematika', matchKey: 'Matematika' },
-        { num: '7.', title: 'Ilmu Pengetahuan Alam', matchKey: 'Ilmu Pengetahuan Alam (IPA)' },
-        { num: '8.', title: 'Ilmu Pengetahuan Sosial', matchKey: 'Ilmu Pengetahuan Sosial (IPS)' },
-        { num: '9.', title: 'Seni Budaya', matchKey: 'Seni Budaya' },
-        { num: '10.', title: 'Penjaskes', matchKey: 'Pendidikan Jasmani (PJOK)' },
-        { num: '11.', title: 'Prakarya', matchKey: 'Prakarya / Informatika' },
-      ],
-    },
-    {
-      group: 'B',
-      groupTitle: 'Muatan Lokal',
-      items: [
-        { num: '2.', title: 'Bahasa Sunda', matchKey: 'Bahasa Sunda' },
-      ],
-    },
-  ];
+        {
+          group: 'B',
+          groupTitle: 'Muatan Lokal',
+          items: [
+            { num: '16.', title: 'Baca Tulis Al-Qur\'an (BTQ)', matchKey: 'BTQ (Baca Tulis Al-Qur\'an)' },
+            { num: '17.', title: 'Bahasa Sunda', matchKey: 'Bahasa Sunda' },
+          ],
+        },
+      ];
+
+      return baseGroups;
+    }
+
+    // Default 'kemenag' standard format (1 PAI with a-d + 11 Mapel + 2 Mulok = 17 Mapel)
+    const baseGroups = [
+      {
+        group: 'A',
+        groupTitle: 'MATA PELAJARAN',
+        items: [
+          {
+            num: '1.',
+            isParent: true,
+            title: 'Pendidikan Agama Islam',
+            subItems: [
+              { subNum: 'a.', title: 'Al-Quran Hadits', matchKey: "Al-Qur'an Hadis" },
+              { subNum: 'b.', title: 'Akidah Akhlak', matchKey: 'Akidah Akhlak' },
+              { subNum: 'c.', title: 'Fikih', matchKey: 'Fikih' },
+              { subNum: 'd.', title: 'Sejarah Kebudayaan Islam (SKI)', matchKey: 'Sejarah Kebudayaan Islam (SKI)' },
+            ],
+          },
+          { num: '2.', title: 'Pendidikan Kewarganegaraan (PKn)', matchKey: 'Pendidikan Pancasila / PKn' },
+          { num: '3.', title: 'Bahasa Indonesia', matchKey: 'Bahasa Indonesia' },
+          { num: '4.', title: 'Bahasa Arab', matchKey: 'Bahasa Arab' },
+          { num: '5.', title: 'Bahasa Inggris', matchKey: 'Bahasa Inggris' },
+          { num: '6.', title: 'Matematika', matchKey: 'Matematika' },
+          { num: '7.', title: 'Ilmu Pengetahuan Alam (IPA)', matchKey: 'Ilmu Pengetahuan Alam (IPA)' },
+          { num: '8.', title: 'Ilmu Pengetahuan Sosial (IPS)', matchKey: 'Ilmu Pengetahuan Sosial (IPS)' },
+          { num: '9.', title: 'Seni Budaya', matchKey: 'Seni Budaya' },
+          { num: '10.', title: 'Penjasorkes / PJOK', matchKey: 'Pendidikan Jasmani (PJOK)' },
+          { num: '11.', title: 'Prakarya', matchKey: 'Prakarya' },
+          { num: '12.', title: 'Informatika / TIK', matchKey: 'TIK / Informatika' },
+        ],
+      },
+      {
+        group: 'B',
+        groupTitle: 'Muatan Lokal',
+        items: [
+          { num: '1.', title: 'Baca Tulis Al-Qur\'an (BTQ)', matchKey: 'BTQ (Baca Tulis Al-Qur\'an)' },
+          { num: '2.', title: 'Bahasa Sunda', matchKey: 'Bahasa Sunda' },
+        ],
+      },
+    ];
+
+    // Check if there are other custom subjects configured in the app
+    const standardMatches = [
+      'al-quran hadis', 'alquran hadist', 'hadis', 'hadits', 'quran',
+      'akidah akhlak', 'akidah', 'akhlak',
+      'fikih', 'fiqih',
+      'sejarah kebudayaan islam', 'ski',
+      'pendidikan pancasila', 'pkn', 'kewarganegaraan', 'ppkn',
+      'bahasa indonesia', 'indonesia',
+      'bahasa arab', 'arab',
+      'bahasa inggris', 'inggris',
+      'matematika', 'mtk',
+      'ilmu pengetahuan alam', 'ipa',
+      'ilmu pengetahuan sosial', 'ips',
+      'seni budaya',
+      'pendidikan jasmani', 'penjas', 'pjok', 'penjasorkes',
+      'prakarya',
+      'tik', 'informatika', 'komputer',
+      'btq', 'baca tulis al-quran', 'baca tulis al-qur\'an', 'bacatulis',
+      'bahasa sunda', 'sunda',
+    ];
+
+    const extraMulok: Array<{ num: string; title: string; matchKey: string }> = [];
+    if (Array.isArray(subjects) && subjects.length > 0) {
+      subjects.forEach((subName) => {
+        const clean = subName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const isStandard = standardMatches.some((std) => {
+          const stdClean = std.replace(/[^a-z0-9]/g, '');
+          return clean === stdClean || clean.includes(stdClean) || stdClean.includes(clean);
+        });
+        if (!isStandard && !extraMulok.some((e) => e.title.toLowerCase() === subName.toLowerCase())) {
+          extraMulok.push({
+            num: `${3 + extraMulok.length}.`,
+            title: subName,
+            matchKey: subName,
+          });
+        }
+      });
+    }
+
+    if (extraMulok.length > 0) {
+      baseGroups[1].items = [...baseGroups[1].items, ...extraMulok];
+    }
+
+    return baseGroups;
+  }, [subjects, numberingStyle]);
 
   // Title display
   const titleDisplay = useMemo(() => {
@@ -523,6 +627,37 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                   STS
                 </button>
               </div>
+
+              {/* Urutan Mapel Toggle */}
+              <div className="inline-flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-slate-600">
+                <span className="text-[11px] font-medium">Urutan Mapel:</span>
+                <button
+                  type="button"
+                  onClick={() => setNumberingStyle('kemenag')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    numberingStyle === 'kemenag' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-200'
+                  }`}
+                  title="Format standar Kemenag (1. PAI a-d, 2-12 Mapel Umum, Mulok 1-2)"
+                >
+                  Standar PAI (1a-d)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNumberingStyle('sequential')}
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    numberingStyle === 'sequential' ? 'bg-indigo-600 text-white' : 'hover:bg-slate-200'
+                  }`}
+                  title="Nomor 1 sampai 17 berurutan (Mapel 15: TIK, Mapel 16: BTQ)"
+                >
+                  Berurutan 1 - 17
+                </button>
+              </div>
+
+              {/* 17 Mapel Badge */}
+              <div className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span>17 Mapel Lengkap (TIK &amp; BTQ Aktif)</span>
+              </div>
             </div>
 
             {/* Single Student Selector & Stepper */}
@@ -637,7 +772,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
             return (
               <div
                 key={student.id}
-                className="raport-page bg-white shadow-lg print:shadow-none border border-slate-300 print:border-none rounded-sm mx-auto p-8 sm:p-10 text-black font-serif text-[11px] leading-normal"
+                className="raport-page bg-white shadow-lg print:shadow-none border border-slate-300 print:border-none rounded-sm mx-auto px-7 py-5 sm:px-8 sm:py-6 print:px-6 print:py-3.5 text-black font-serif text-[10px] leading-tight"
                 style={{
                   width: '100%',
                   maxWidth: '210mm',
@@ -647,33 +782,33 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 }}
               >
                 {/* 1. Header (Logo, Titles, Double Separator) */}
-                <div className="text-center space-y-1 mb-2">
+                <div className="text-center space-y-0.5 mb-1.5">
                   {/* School / Kemenag Logo */}
-                  <div className="flex justify-center mb-1">
+                  <div className="flex justify-center mb-0.5">
                     <img
                       src={config.logoUrl || PRESET_LOGO_KEMENAG}
                       alt="Logo Lembaga"
-                      className="h-16 w-auto object-contain"
+                      className="h-14 w-auto object-contain"
                       crossOrigin="anonymous"
                     />
                   </div>
 
-                  <h1 className="text-sm sm:text-base font-extrabold uppercase tracking-wide leading-tight">
+                  <h1 className="text-xs sm:text-sm font-extrabold uppercase tracking-wide leading-tight">
                     LAPORAN PENILAIAN HASIL BELAJAR SISWA
                   </h1>
-                  <h2 className="text-xs sm:text-sm font-extrabold uppercase tracking-wide leading-tight">
+                  <h2 className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wide leading-tight">
                     {titleDisplay}
                   </h2>
-                  <h3 className="text-xs sm:text-xs font-bold uppercase tracking-wider leading-tight">
+                  <h3 className="text-[10px] font-bold uppercase tracking-wider leading-tight">
                     {schoolLevelDisplay}
                   </h3>
 
                   {/* Thick Line Separator matching PDF */}
-                  <div className="w-full border-b-[3px] border-black pt-1.5"></div>
+                  <div className="w-full border-b-[2.5px] border-black pt-1"></div>
                 </div>
 
                 {/* 2. Metadata Box (Nama Madrasah, Siswa, Kelas, Semester) */}
-                <div className="border border-black p-2 mb-2 text-[10.5px]">
+                <div className="border border-black p-1.5 mb-1.5 text-[10px]">
                   <div className="grid grid-cols-2 gap-3">
                     {/* Left Column */}
                     <div className="space-y-0.5">
@@ -718,27 +853,27 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 </div>
 
                 {/* 3. Main Grades Table (NILAI HASIL BELAJAR) */}
-                <table className="w-full border-collapse border border-black text-[10px] mb-2 leading-tight">
+                <table className="w-full border-collapse border border-black text-[9.5px] mb-1.5 leading-tight">
                   <thead>
                     <tr className="bg-slate-50 text-center font-bold">
-                      <th rowSpan={2} className="border border-black px-1.5 py-1 w-7">
+                      <th rowSpan={2} className="border border-black px-1.5 py-0.5 w-7">
                         No.
                       </th>
-                      <th rowSpan={2} className="border border-black px-2 py-1 text-center">
+                      <th rowSpan={2} className="border border-black px-2 py-0.5 text-center">
                         KOMPONEN
                       </th>
-                      <th colSpan={2} className="border border-black px-2 py-1 text-center">
+                      <th colSpan={2} className="border border-black px-2 py-0.5 text-center">
                         NILAI HASIL BELAJAR
                       </th>
-                      <th rowSpan={2} className="border border-black px-2 py-1 w-28 text-center">
+                      <th rowSpan={2} className="border border-black px-2 py-0.5 w-28 text-center">
                         Ketercapaian
                         <br />
                         Kompetensi
                       </th>
                     </tr>
                     <tr className="bg-slate-50 text-center font-bold">
-                      <th className="border border-black px-1.5 py-1 w-14">Angka</th>
-                      <th className="border border-black px-2 py-1 w-44">Huruf</th>
+                      <th className="border border-black px-1.5 py-0.5 w-14">Angka</th>
+                      <th className="border border-black px-2 py-0.5 w-44">Huruf</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -778,18 +913,18 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
 
                                   return (
                                     <tr key={sub.title} className="hover:bg-slate-50/50">
-                                      <td className="border border-black text-center py-0.5"></td>
-                                      <td className="border border-black px-2 py-0.5 pl-6">
+                                      <td className="border border-black text-center py-[1px]"></td>
+                                      <td className="border border-black px-2 py-[1px] pl-6">
                                         <span className="mr-1">{sub.subNum}</span>
                                         <span>{sub.title}</span>
                                       </td>
-                                      <td className="border border-black text-center py-0.5 font-bold">
+                                      <td className="border border-black text-center py-[1px] font-bold">
                                         {score !== null ? Math.round(score) : '-'}
                                       </td>
-                                      <td className="border border-black px-2 py-0.5 text-center capitalize">
+                                      <td className="border border-black px-2 py-[1px] text-center capitalize">
                                         {textScore}
                                       </td>
-                                      <td className="border border-black text-center py-0.5 font-medium">
+                                      <td className="border border-black text-center py-[1px] font-medium">
                                         {ketercapaian}
                                       </td>
                                     </tr>
@@ -812,15 +947,15 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
 
                           return (
                             <tr key={item.title} className="hover:bg-slate-50/50">
-                              <td className="border border-black text-center py-0.5 font-medium">{item.num}</td>
-                              <td className="border border-black px-2 py-0.5">{item.title}</td>
-                              <td className="border border-black text-center py-0.5 font-bold">
+                              <td className="border border-black text-center py-[1px] font-medium">{item.num}</td>
+                              <td className="border border-black px-2 py-[1px]">{item.title}</td>
+                              <td className="border border-black text-center py-[1px] font-bold">
                                 {score !== null ? Math.round(score) : '-'}
                               </td>
-                              <td className="border border-black px-2 py-0.5 text-center capitalize">
+                              <td className="border border-black px-2 py-[1px] text-center capitalize">
                                 {textScore}
                               </td>
-                              <td className="border border-black text-center py-0.5 font-medium">
+                              <td className="border border-black text-center py-[1px] font-medium">
                                 {ketercapaian}
                               </td>
                             </tr>
@@ -831,26 +966,26 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
 
                     {/* Summary Row 1: Jumlah Nilai */}
                     <tr className="font-bold border-t-2 border-black">
-                      <td colSpan={2} className="border border-black text-right px-4 py-1">
+                      <td colSpan={2} className="border border-black text-right px-4 py-0.5">
                         Jumlah Nilai :
                       </td>
-                      <td className="border border-black text-center py-1 font-bold text-xs">
+                      <td className="border border-black text-center py-0.5 font-bold text-[11px]">
                         {totalScore > 0 ? Math.round(totalScore) : '-'}
                       </td>
-                      <td colSpan={2} className="border border-black px-2 py-1 text-center capitalize font-semibold">
+                      <td colSpan={2} className="border border-black px-2 py-0.5 text-center capitalize font-semibold">
                         {totalScore > 0 ? terbilang(Math.round(totalScore)) : '-'}
                       </td>
                     </tr>
 
                     {/* Summary Row 2: Rata-rata */}
                     <tr className="font-bold border-b-2 border-black">
-                      <td colSpan={2} className="border border-black text-right px-4 py-1">
+                      <td colSpan={2} className="border border-black text-right px-4 py-0.5">
                         Rata – rata :
                       </td>
-                      <td className="border border-black text-center py-1 font-bold text-xs">
+                      <td className="border border-black text-center py-0.5 font-bold text-[11px]">
                         {avgScore > 0 ? avgScore.toFixed(2).replace('.', ',') : '-'}
                       </td>
-                      <td colSpan={2} className="border border-black px-2 py-1 text-center capitalize font-semibold">
+                      <td colSpan={2} className="border border-black px-2 py-0.5 text-center capitalize font-semibold">
                         {avgScore > 0 ? terbilang(Number(avgScore.toFixed(2))) : '-'}
                       </td>
                     </tr>
@@ -858,7 +993,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 </table>
 
                 {/* On-Screen Quick Edit Button (Hidden when printed) */}
-                <div className="no-print mb-2.5 p-2 bg-indigo-50/90 border border-indigo-200 rounded-lg flex items-center justify-between text-[11px] text-indigo-900 font-sans shadow-2xs">
+                <div className="no-print mb-2 p-1.5 bg-indigo-50/90 border border-indigo-200 rounded-lg flex items-center justify-between text-[11px] text-indigo-900 font-sans shadow-2xs">
                   <div className="flex items-center gap-2">
                     <Edit3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                     <span>Data Raport: <strong>Absensi, Kepribadian, Ekskul &amp; Catatan Wali Kelas</strong></span>
@@ -877,9 +1012,9 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 </div>
 
                 {/* 4. Lower Section: 4 Compact Boxes (2x2 Grid) */}
-                <div className="grid grid-cols-2 gap-3 mb-4 text-[9.5px] leading-tight">
+                <div className="grid grid-cols-2 gap-2.5 mb-2 text-[9px] leading-tight">
                   {/* Left Column: Keperibadian & Ekstrakurikuler */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {/* Keperibadian */}
                     <table className="w-full border-collapse border border-black">
                       <thead>
@@ -935,7 +1070,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                   </div>
 
                   {/* Right Column: Ketidakhadiran & Catatan Wali Kelas */}
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {/* Ketidakhadiran */}
                     <table className="w-full border-collapse border border-black">
                       <thead>
@@ -1005,16 +1140,16 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 </div>
 
                 {/* 5. Signature Section (Orang Tua & Wali Kelas) */}
-                <div className="pt-2 text-[10.5px]">
+                <div className="pt-1 text-[10px]">
                   <div className="flex justify-between items-start">
                     {/* Left: Orang Tua */}
-                    <div className="text-center w-52 space-y-12">
+                    <div className="text-center w-52 space-y-7">
                       <p className="font-semibold">Orang Tua / Wali Siswa</p>
                       <p className="border-b border-black w-44 mx-auto pb-0.5">....................................................</p>
                     </div>
 
                     {/* Right: Wali Kelas */}
-                    <div className="text-center w-64 space-y-12">
+                    <div className="text-center w-64 space-y-7">
                       <div>
                         <p className="font-normal">
                           {config.issuePlace || 'Bogor'}, {config.issueDate || '1 Oktober 2026'}
@@ -1023,10 +1158,10 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                       </div>
 
                       <div>
-                        <p className="font-bold underline text-[11px] leading-tight">
+                        <p className="font-bold underline text-[10.5px] leading-tight">
                           {currentClassMeta.waliKelasName}
                         </p>
-                        <p className="font-normal text-[10px]">
+                        <p className="font-normal text-[9.5px]">
                           NIP.: {currentClassMeta.waliKelasNip || '-'}
                         </p>
                       </div>
