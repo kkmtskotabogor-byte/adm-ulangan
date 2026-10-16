@@ -14,7 +14,9 @@ import {
   ExternalLink,
   Edit3,
   X,
-  FileText
+  FileText,
+  Calendar,
+  CheckCircle2
 } from 'lucide-react';
 import { ExamConfig, ExamGradeItem, Student, SubjectGradingConfig, StudentRaportExtraData } from '../types';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
@@ -31,16 +33,20 @@ export interface RaportStsPrintViewProps {
   initialStudentId?: string;
   initialClass?: string;
   onClose?: () => void;
+  onUpdateConfig?: (newConfig: ExamConfig) => void;
 }
 
 interface ClassRaportMeta {
   waliKelasName: string;
   waliKelasNip: string;
+  issuePlace?: string;
+  issueDate?: string;
   catatanTemplate?: string[];
 }
 
 const STORAGE_RAPORT_EXTRA = 'sim_ujian_raport_extra_v1';
 const STORAGE_RAPORT_CLASSES = 'sim_ujian_raport_classes_v1';
+const STORAGE_RAPORT_TITIMANGSA = 'sim_ujian_raport_titimangsa_v1';
 
 export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   config,
@@ -51,6 +57,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   initialStudentId,
   initialClass,
   onClose,
+  onUpdateConfig,
 }) => {
   // 1. Class filter state
   const classList = useMemo(() => {
@@ -121,6 +128,29 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     return {};
   });
 
+  // Global Titimangsa (Tempat & Tanggal Penerbitan Raport)
+  const [raportIssuePlace, setRaportIssuePlace] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_RAPORT_TITIMANGSA);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.issuePlace) return parsed.issuePlace;
+      }
+    } catch (e) {}
+    return config.issuePlace || 'Bogor';
+  });
+
+  const [raportIssueDate, setRaportIssueDate] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_RAPORT_TITIMANGSA);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.issueDate) return parsed.issueDate;
+      }
+    } catch (e) {}
+    return config.issueDate || '1 Oktober 2026';
+  });
+
   // Subscribe to real-time Cloud updates for Raport Extra Data
   useEffect(() => {
     const unsub = subscribeToRaportExtraData((cloudData) => {
@@ -148,7 +178,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     });
   };
 
-  // Per-class Homeroom Teacher (Wali Kelas & NIP)
+  // Per-class Homeroom Teacher (Wali Kelas, NIP, & Titimangsa)
   const [classMetaMap, setClassMetaMap] = useState<Record<string, ClassRaportMeta>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_RAPORT_CLASSES);
@@ -157,48 +187,99 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
       console.warn('Error loading raport class meta:', e);
     }
     return {
-      'VII A': { waliKelasName: 'Lia Marlianty, S.Pd.I', waliKelasNip: '-' },
-      'VII B': { waliKelasName: 'Ahmad Fauzi, S.Pd.', waliKelasNip: '-' },
-      'VIII A': { waliKelasName: 'Nurul Hidayah, S.Ag.', waliKelasNip: '-' },
-      'IX A': { waliKelasName: 'Drs. Syahrul Ramadhan', waliKelasNip: '-' },
+      'VII A': { waliKelasName: 'Lia Marlianty, S.Pd.I', waliKelasNip: '-', issuePlace: 'Bogor', issueDate: '1 Oktober 2026' },
+      'VII B': { waliKelasName: 'Ahmad Fauzi, S.Pd.', waliKelasNip: '-', issuePlace: 'Bogor', issueDate: '1 Oktober 2026' },
+      'VIII A': { waliKelasName: 'Nurul Hidayah, S.Ag.', waliKelasNip: '-', issuePlace: 'Bogor', issueDate: '1 Oktober 2026' },
+      'IX A': { waliKelasName: 'Drs. Syahrul Ramadhan', waliKelasNip: '-', issuePlace: 'Bogor', issueDate: '1 Oktober 2026' },
     };
   });
 
-  // Current class Homeroom Teacher info
+  // Current class Homeroom Teacher info & Titimangsa
   const currentClassMeta = useMemo<ClassRaportMeta>(() => {
     if (selectedClass && classMetaMap[selectedClass]) {
-      return classMetaMap[selectedClass];
+      return {
+        ...classMetaMap[selectedClass],
+        issuePlace: classMetaMap[selectedClass].issuePlace || raportIssuePlace,
+        issueDate: classMetaMap[selectedClass].issueDate || raportIssueDate,
+      };
     }
     return {
       waliKelasName: config.principalName ? `Wali Kelas ${selectedClass || ''}` : 'Lia Marlianty, S.Pd.I',
       waliKelasNip: '-',
+      issuePlace: raportIssuePlace,
+      issueDate: raportIssueDate,
     };
-  }, [selectedClass, classMetaMap, config.principalName]);
+  }, [selectedClass, classMetaMap, config.principalName, raportIssuePlace, raportIssueDate]);
 
   // Form states for Settings Modal
-  const [tempWaliName, setTempWaliName] = useState(currentClassMeta.waliKelasName);
-  const [tempWaliNip, setTempWaliNip] = useState(currentClassMeta.waliKelasNip);
-  const [tempIssuePlace, setTempIssuePlace] = useState(config.issuePlace || 'Bogor');
-  const [tempIssueDate, setTempIssueDate] = useState(config.issueDate || '1 Oktober 2026');
+  const [tempWaliName, setTempWaliName] = useState(currentClassMeta.waliKelasName || '');
+  const [tempWaliNip, setTempWaliNip] = useState(currentClassMeta.waliKelasNip || '-');
+  const [tempIssuePlace, setTempIssuePlace] = useState(currentClassMeta.issuePlace || raportIssuePlace);
+  const [tempIssueDate, setTempIssueDate] = useState(currentClassMeta.issueDate || raportIssueDate);
+  const [applyDateToAllClasses, setApplyDateToAllClasses] = useState(true);
 
   useEffect(() => {
-    setTempWaliName(currentClassMeta.waliKelasName);
-    setTempWaliNip(currentClassMeta.waliKelasNip);
-  }, [currentClassMeta]);
+    setTempWaliName(currentClassMeta.waliKelasName || '');
+    setTempWaliNip(currentClassMeta.waliKelasNip || '-');
+    setTempIssuePlace(currentClassMeta.issuePlace || raportIssuePlace);
+    setTempIssueDate(currentClassMeta.issueDate || raportIssueDate);
+  }, [currentClassMeta, selectedClass, raportIssuePlace, raportIssueDate]);
 
-  // Save Settings Modal
+  // Save Settings Modal (Wali Kelas, NIP, Tempat & Tanggal Raport)
   const handleSaveClassMeta = () => {
-    const nextMap = {
-      ...classMetaMap,
-      [selectedClass]: {
-        waliKelasName: tempWaliName.trim() || 'Wali Kelas',
-        waliKelasNip: tempWaliNip.trim() || '-',
-      },
+    const cleanPlace = tempIssuePlace.trim() || 'Bogor';
+    const cleanDate = tempIssueDate.trim() || '1 Oktober 2026';
+
+    const nextMap = { ...classMetaMap };
+
+    if (applyDateToAllClasses) {
+      // Update date and place across all existing and known classes
+      Object.keys(nextMap).forEach((cls) => {
+        nextMap[cls] = {
+          ...nextMap[cls],
+          issuePlace: cleanPlace,
+          issueDate: cleanDate,
+        };
+      });
+      classList.forEach((cls) => {
+        nextMap[cls] = {
+          ...(nextMap[cls] || { waliKelasName: `Wali Kelas ${cls}`, waliKelasNip: '-' }),
+          issuePlace: cleanPlace,
+          issueDate: cleanDate,
+        };
+      });
+    }
+
+    // Update current selected class explicitly
+    nextMap[selectedClass] = {
+      ...(nextMap[selectedClass] || {}),
+      waliKelasName: tempWaliName.trim() || 'Wali Kelas',
+      waliKelasNip: tempWaliNip.trim() || '-',
+      issuePlace: cleanPlace,
+      issueDate: cleanDate,
     };
+
     setClassMetaMap(nextMap);
+    setRaportIssuePlace(cleanPlace);
+    setRaportIssueDate(cleanDate);
+
     try {
       localStorage.setItem(STORAGE_RAPORT_CLASSES, JSON.stringify(nextMap));
+      localStorage.setItem(
+        STORAGE_RAPORT_TITIMANGSA,
+        JSON.stringify({ issuePlace: cleanPlace, issueDate: cleanDate })
+      );
     } catch (e) {}
+
+    // Update parent config so all other tabs, documents, and Firestore cloud stay synced
+    if (onUpdateConfig) {
+      onUpdateConfig({
+        ...config,
+        issuePlace: cleanPlace,
+        issueDate: cleanDate,
+      });
+    }
+
     setShowSettingsModal(false);
   };
 
@@ -658,6 +739,21 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
                 <span>17 Mapel Lengkap (TIK &amp; BTQ Aktif)</span>
               </div>
+
+              {/* Tombol Ubah Titimangsa / Tanggal Raport */}
+              <button
+                type="button"
+                onClick={() => setShowSettingsModal(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 text-[11px] font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Ubah Tanggal &amp; Tempat Terbit Raport (Titimangsa) atau Wali Kelas"
+              >
+                <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                <span className="text-slate-500 font-medium">Tanggal:</span>
+                <span className="font-bold text-indigo-700 underline decoration-indigo-300">
+                  {currentClassMeta.issuePlace || raportIssuePlace}, {currentClassMeta.issueDate || raportIssueDate}
+                </span>
+                <Edit3 className="w-3 h-3 text-indigo-400 shrink-0" />
+              </button>
             </div>
 
             {/* Single Student Selector & Stepper */}
@@ -1140,34 +1236,45 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 </div>
 
                 {/* 5. Signature Section (Orang Tua & Wali Kelas) */}
-                <div className="pt-1 text-[10px]">
-                  <div className="flex justify-between items-start">
-                    {/* Left: Orang Tua */}
-                    <div className="text-center w-52 space-y-7">
-                      <p className="font-semibold">Orang Tua / Wali Siswa</p>
-                      <p className="border-b border-black w-44 mx-auto pb-0.5">....................................................</p>
-                    </div>
+                {(() => {
+                  const studentClass = student.className || selectedClass;
+                  const studentClassMeta = classMetaMap[studentClass] || currentClassMeta;
+                  const displayWaliName = studentClassMeta.waliKelasName || currentClassMeta.waliKelasName;
+                  const displayWaliNip = studentClassMeta.waliKelasNip || currentClassMeta.waliKelasNip;
+                  const displayIssuePlace = studentClassMeta.issuePlace || raportIssuePlace || config.issuePlace || 'Bogor';
+                  const displayIssueDate = studentClassMeta.issueDate || raportIssueDate || config.issueDate || '1 Oktober 2026';
 
-                    {/* Right: Wali Kelas */}
-                    <div className="text-center w-64 space-y-7">
-                      <div>
-                        <p className="font-normal">
-                          {config.issuePlace || 'Bogor'}, {config.issueDate || '1 Oktober 2026'}
-                        </p>
-                        <p className="font-semibold">Wali Kelas</p>
-                      </div>
+                  return (
+                    <div className="pt-1 text-[10px]">
+                      <div className="flex justify-between items-start">
+                        {/* Left: Orang Tua */}
+                        <div className="text-center w-52 space-y-7">
+                          <p className="font-semibold">Orang Tua / Wali Siswa</p>
+                          <p className="border-b border-black w-44 mx-auto pb-0.5">....................................................</p>
+                        </div>
 
-                      <div>
-                        <p className="font-bold underline text-[10.5px] leading-tight">
-                          {currentClassMeta.waliKelasName}
-                        </p>
-                        <p className="font-normal text-[9.5px]">
-                          NIP.: {currentClassMeta.waliKelasNip || '-'}
-                        </p>
+                        {/* Right: Wali Kelas */}
+                        <div className="text-center w-64 space-y-7">
+                          <div>
+                            <p className="font-normal">
+                              {displayIssuePlace}, {displayIssueDate}
+                            </p>
+                            <p className="font-semibold">Wali Kelas</p>
+                          </div>
+
+                          <div>
+                            <p className="font-bold underline text-[10.5px] leading-tight">
+                              {displayWaliName}
+                            </p>
+                            <p className="font-normal text-[9.5px]">
+                              NIP.: {displayWaliNip || '-'}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             );
           })
@@ -1179,74 +1286,154 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
           ========================================================================= */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs no-print">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Settings className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-sm">Pengaturan Raport ({selectedClass})</h3>
+                <div>
+                  <h3 className="font-bold text-sm">Pengaturan Raport &amp; Titimangsa</h3>
+                  <p className="text-[11px] text-slate-400">Kelas: <span className="font-bold text-white">{selectedClass}</span></p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg"
+                className="text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Nama Wali Kelas ({selectedClass})
-                </label>
-                <input
-                  type="text"
-                  value={tempWaliName}
-                  onChange={(e) => setTempWaliName(e.target.value)}
-                  placeholder="Contoh: Lia Marlianty, S.Pd.I"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
-                />
+              <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3 text-indigo-900">
+                <span className="font-bold text-[11px] uppercase tracking-wider block mb-1">
+                  📅 Tanggal &amp; Tempat Terbit Raport (Titimangsa)
+                </span>
+                <p className="text-[11px] text-indigo-700">
+                  Akan tercetak tepat di atas tanda tangan Wali Kelas: <strong>{tempIssuePlace || 'Bogor'}, {tempIssueDate || '1 Oktober 2026'}</strong>
+                </p>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  NIP Wali Kelas
-                </label>
-                <input
-                  type="text"
-                  value={tempWaliNip}
-                  onChange={(e) => setTempWaliNip(e.target.value)}
-                  placeholder="Contoh: 19820514 200801 2 004 atau -"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Tempat Penerbitan</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Tempat Penerbitan
+                  </label>
                   <input
                     type="text"
                     value={tempIssuePlace}
                     onChange={(e) => setTempIssuePlace(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
+                    placeholder="Contoh: Bogor atau Jakarta"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Tanggal Raport</label>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Tanggal Raport
+                  </label>
                   <input
                     type="text"
                     value={tempIssueDate}
                     onChange={(e) => setTempIssueDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
+                    placeholder="Contoh: 1 Oktober 2026"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
                   />
                 </div>
               </div>
 
-              <p className="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                💡 Nama Wali Kelas & NIP tersimpan otomatis per rombel/kelas di memori browser. Anda dapat mengatur nama wali kelas yang berbeda untuk masing-masing kelas.
-              </p>
+              {/* Quick Preset Buttons for Date */}
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  Pilihan Cepat Tanggal:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const todayStr = new Date().toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      });
+                      setTempIssueDate(todayStr);
+                    }}
+                    className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] cursor-pointer"
+                  >
+                    Hari Ini ({new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempIssueDate('1 Oktober 2026')}
+                    className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] cursor-pointer"
+                  >
+                    1 Oktober 2026
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempIssueDate('28 September 2026')}
+                    className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] cursor-pointer"
+                  >
+                    28 September 2026
+                  </button>
+                  {config.issueDate && config.issueDate !== '1 Oktober 2026' && config.issueDate !== '28 September 2026' && (
+                    <button
+                      type="button"
+                      onClick={() => setTempIssueDate(config.issueDate)}
+                      className="px-2 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium text-[11px] cursor-pointer"
+                    >
+                      Konfigurasi: {config.issueDate}
+                    </button>
+                  )}
+                </div>
+              </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              {/* Checkbox Apply to All Classes */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="applyDateAll"
+                  checked={applyDateToAllClasses}
+                  onChange={(e) => setApplyDateToAllClasses(e.target.checked)}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                />
+                <label htmlFor="applyDateAll" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                  Terapkan tempat &amp; tanggal ini ke seluruh kelas ({classList.length} Kelas)
+                </label>
+              </div>
+
+              <div className="pt-2 border-t border-slate-200 space-y-3">
+                <span className="font-bold text-slate-800 block text-xs">
+                  Wali Kelas &amp; NIP (Khusus Kelas {selectedClass})
+                </span>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Nama Wali Kelas ({selectedClass})
+                  </label>
+                  <input
+                    type="text"
+                    value={tempWaliName}
+                    onChange={(e) => setTempWaliName(e.target.value)}
+                    placeholder="Contoh: Lia Marlianty, S.Pd.I"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    NIP Wali Kelas ({selectedClass})
+                  </label>
+                  <input
+                    type="text"
+                    value={tempWaliNip}
+                    onChange={(e) => setTempWaliNip(e.target.value)}
+                    placeholder="Contoh: 19820514 200801 2 004 atau -"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowSettingsModal(false)}
@@ -1257,10 +1444,10 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 <button
                   type="button"
                   onClick={handleSaveClassMeta}
-                  className="px-4 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Simpan Pengaturan</span>
+                  <span>Simpan Perubahan</span>
                 </button>
               </div>
             </div>

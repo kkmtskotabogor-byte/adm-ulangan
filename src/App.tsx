@@ -1490,6 +1490,7 @@ export default function App() {
             gradingConfigs={gradingConfigs}
             onUpdateGrades={handleUpdateGrades}
             onUpdateGradingConfig={handleUpdateGradingConfig}
+            onUpdateConfig={handleSaveConfig}
             showToast={showToast}
             setActiveTab={setActiveTab}
             authUser={authUser}
@@ -1645,6 +1646,7 @@ export default function App() {
                 gradingConfigs={gradingConfigs}
                 onUpdateGrades={handleUpdateGrades}
                 onUpdateGradingConfig={handleUpdateGradingConfig}
+                onUpdateConfig={handleSaveConfig}
                 showToast={showToast}
                 setActiveTab={setActiveTab}
                 authUser={authUser}
@@ -1668,6 +1670,7 @@ export default function App() {
                 gradingConfigs={gradingConfigs}
                 subjects={subjects}
                 onClose={() => setActiveTab('grades')}
+                onUpdateConfig={handleSaveConfig}
               />
             )}
 

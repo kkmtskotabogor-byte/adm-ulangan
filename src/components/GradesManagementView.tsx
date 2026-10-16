@@ -92,10 +92,12 @@ interface GradesManagementViewProps {
   onForceSyncCloud?: () => void;
   onSyncSubjectGradesNow?: (subject?: string) => void;
   lastGradeCloudSyncedAt?: Date | null;
+  onUpdateConfig?: (newConfig: ExamConfig) => void;
 }
 
 export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   config,
+  onUpdateConfig,
   students,
   rooms,
   schedules,
@@ -2926,6 +2928,7 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
           initialClass={filterMode === 'class' && selectedClass !== 'all' ? selectedClass : undefined}
           initialStudentId={selectedRaportStudentId}
           onClose={() => setActiveSubTab('input')}
+          onUpdateConfig={onUpdateConfig}
         />
       )}
 
