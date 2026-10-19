@@ -37,6 +37,7 @@ export interface RaportExtrasInputModalProps {
   initialStudentId?: string;
   extraDataMap: Record<string, StudentRaportExtraData>;
   onSaveExtraData: (updatedMap: Record<string, StudentRaportExtraData>) => void;
+  initialSection?: 'all' | 'ekskul' | 'catatan' | 'absensi' | 'kepribadian';
 }
 
 const PRESET_EKSKUL_NAMES = [
@@ -84,9 +85,19 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
   initialStudentId,
   extraDataMap,
   onSaveExtraData,
+  initialSection = 'all',
 }) => {
   // Active Modal Mode Tab: 'single' | 'table' | 'excel'
   const [modalTab, setModalTab] = useState<'single' | 'table' | 'excel'>('single');
+
+  // Sub-section filter: 'all' | 'ekskul' | 'catatan' | 'absensi' | 'kepribadian'
+  const [activeSection, setActiveSection] = useState<'all' | 'ekskul' | 'catatan' | 'absensi' | 'kepribadian'>(initialSection);
+
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+  }, [initialSection, isOpen]);
 
   // Filter students for the current class
   const classStudents = useMemo(() => {
@@ -285,6 +296,34 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
     });
     setLocalMap(next);
     showFeedback(`Catatan wali kelas standar diterapkan untuk semua siswa`);
+  };
+
+  const handleApplyCurrentEkskulToClass = () => {
+    if (!currentStudent || !currentExtra.ekskul) return;
+    const next = { ...localMap };
+    classStudents.forEach((st) => {
+      const ex = next[st.id] || {};
+      next[st.id] = {
+        ...ex,
+        ekskul: JSON.parse(JSON.stringify(currentExtra.ekskul)),
+      };
+    });
+    setLocalMap(next);
+    showFeedback(`Ekstrakurikuler berhasil disalin ke seluruh siswa kelas ${selectedClass}`);
+  };
+
+  const handleApplyCurrentCatatanToClass = () => {
+    if (!currentStudent || !currentExtra.catatanWaliKelas) return;
+    const next = { ...localMap };
+    classStudents.forEach((st) => {
+      const ex = next[st.id] || {};
+      next[st.id] = {
+        ...ex,
+        catatanWaliKelas: [...(currentExtra.catatanWaliKelas || [])],
+      };
+    });
+    setLocalMap(next);
+    showFeedback(`Catatan wali kelas berhasil disalin ke seluruh siswa kelas ${selectedClass}`);
   };
 
   // Export to Excel template
@@ -693,6 +732,72 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
           )}
         </div>
 
+        {/* Section Sub-Filter Bar */}
+        <div className="bg-slate-50 border-b border-slate-200 px-5 py-2 flex items-center justify-between gap-2 overflow-x-auto shrink-0">
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-slate-500 font-bold mr-1 text-[11px]">Fokus Bagian:</span>
+            <button
+              type="button"
+              onClick={() => setActiveSection('all')}
+              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                activeSection === 'all'
+                  ? 'bg-slate-800 text-white shadow-2xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              Semua Bagian Raport
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('ekskul')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                activeSection === 'ekskul'
+                  ? 'bg-amber-400 text-amber-950 shadow-xs ring-2 ring-amber-300 font-extrabold'
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 text-amber-600" />
+              <span>Ekstrakurikuler</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('catatan')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                activeSection === 'catatan'
+                  ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-300 font-extrabold'
+                  : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Catatan Wali Kelas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('absensi')}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                activeSection === 'absensi'
+                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-slate-500" />
+              <span>Ketidakhadiran (Absensi)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('kepribadian')}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                activeSection === 'kepribadian'
+                  ? 'bg-rose-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-200 border border-slate-200'
+              }`}
+            >
+              <Heart className="w-3.5 h-3.5 text-rose-500" />
+              <span>Kepribadian (Sikap)</span>
+            </button>
+          </div>
+        </div>
+
         {/* Modal Body Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/50">
           {/* =========================================================================
@@ -747,351 +852,399 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
               </div>
 
               {currentStudent ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* 1. KETIDAKHADIRAN (ABSENSI) */}
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <div className={`grid gap-4 ${activeSection === 'all' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                  {/* Banner when in focused section */}
+                  {activeSection !== 'all' && (
+                    <div className="col-span-full p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between text-xs text-indigo-950">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-indigo-600" />
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                          1. Ketidakhadiran (Hari)
-                        </h4>
+                        <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span>
+                          Fokus Mode: <strong>{activeSection === 'ekskul' ? 'Ekstrakurikuler' : activeSection === 'catatan' ? 'Catatan Wali Kelas' : activeSection === 'absensi' ? 'Ketidakhadiran' : 'Kepribadian'}</strong> untuk <strong>{currentStudent.name}</strong> (Kelas {selectedClass}).
+                        </span>
                       </div>
                       <button
                         type="button"
-                        onClick={() => {
-                          updateCurrentStudentExtra((prev) => ({
-                            ...prev,
-                            absensi: { sakit: 0, izin: 0, alpa: 0 },
-                          }));
-                        }}
-                        className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                        onClick={() => setActiveSection('all')}
+                        className="text-[11px] font-bold text-indigo-700 hover:underline cursor-pointer"
                       >
-                        Nolkan (0)
+                        Tampilkan Semua Bagian
                       </button>
                     </div>
+                  )}
 
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Sakit (S)
-                        </label>
-                        <input
-                          type="text"
-                          value={currentExtra.absensi?.sakit ?? '-'}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateCurrentStudentExtra((prev) => ({
-                              ...prev,
-                              absensi: { ...prev.absensi, sakit: val },
-                            }));
-                          }}
-                          placeholder="0 / -"
-                          className="w-full text-center py-1.5 px-2 font-bold border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Izin (I)
-                        </label>
-                        <input
-                          type="text"
-                          value={currentExtra.absensi?.izin ?? '-'}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateCurrentStudentExtra((prev) => ({
-                              ...prev,
-                              absensi: { ...prev.absensi, izin: val },
-                            }));
-                          }}
-                          placeholder="0 / -"
-                          className="w-full text-center py-1.5 px-2 font-bold border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                          Alpa (A)
-                        </label>
-                        <input
-                          type="text"
-                          value={currentExtra.absensi?.alpa ?? '-'}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            updateCurrentStudentExtra((prev) => ({
-                              ...prev,
-                              absensi: { ...prev.absensi, alpa: val },
-                            }));
-                          }}
-                          placeholder="0 / -"
-                          className="w-full text-center py-1.5 px-2 font-bold border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500 font-medium">Total Ketidakhadiran:</span>
-                      <span className="font-bold text-slate-800">
-                        {(() => {
-                          const s = Number(currentExtra.absensi?.sakit) || 0;
-                          const i = Number(currentExtra.absensi?.izin) || 0;
-                          const a = Number(currentExtra.absensi?.alpa) || 0;
-                          return `${s + i + a} Hari`;
-                        })()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 2. KEPRIBADIAN (SIKAP) */}
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <Heart className="w-4 h-4 text-rose-500" />
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                          2. Kepribadian / Sikap
-                        </h4>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                  {/* 1. KETIDAKHADIRAN (ABSENSI) */}
+                  {(activeSection === 'all' || activeSection === 'absensi') && (
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-indigo-600" />
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                            1. Ketidakhadiran (Hari)
+                          </h4>
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
                             updateCurrentStudentExtra((prev) => ({
                               ...prev,
-                              keperibadian: { ...DEFAULT_KEPRIBADIAN },
+                              absensi: { sakit: 0, izin: 0, alpa: 0 },
                             }));
                           }}
                           className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
                         >
-                          Semua Baik
+                          Nolkan (0)
                         </button>
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2.5 text-xs">
-                      {(['kelakuan', 'kerajinan', 'kerapihan', 'kebersihan'] as const).map((trait) => {
-                        const currentVal = currentExtra.keperibadian?.[trait] || 'Baik';
-                        const labels: Record<string, string> = {
-                          kelakuan: 'Kelakuan',
-                          kerajinan: 'Kerajinan',
-                          kerapihan: 'Kerapihan',
-                          kebersihan: 'Kebersihan',
-                        };
-
-                        return (
-                          <div key={trait}>
-                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                              {labels[trait]}
-                            </label>
-                            <select
-                              value={currentVal}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                updateCurrentStudentExtra((prev) => ({
-                              ...prev,
-                              keperibadian: {
-                                ...(prev.keperibadian || DEFAULT_KEPRIBADIAN),
-                                [trait]: val,
-                              },
-                                }));
-                              }}
-                              className="w-full py-1.5 px-2 border border-slate-300 rounded-lg text-slate-800 font-bold bg-white focus:outline-indigo-500 cursor-pointer"
-                            >
-                              <option value="Sangat Baik">Sangat Baik (A)</option>
-                              <option value="Baik">Baik (B)</option>
-                              <option value="Cukup">Cukup (C)</option>
-                              <option value="Kurang">Kurang (D)</option>
-                            </select>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 3. EKSTRAKURIKULER */}
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 md:col-span-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <Award className="w-4 h-4 text-amber-500" />
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                          3. Kegiatan Ekstrakurikuler (Maksimal 5 Kegiatan)
-                        </h4>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Sakit (S)
+                          </label>
+                          <input
+                            type="text"
+                            value={currentExtra.absensi?.sakit ?? '-'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateCurrentStudentExtra((prev) => ({
+                                ...prev,
+                                absensi: { ...prev.absensi, sakit: val },
+                              }));
+                            }}
+                            placeholder="0 / -"
+                            className="w-full text-center py-1.5 px-2 font-bold border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Izin (I)
+                          </label>
+                          <input
+                            type="text"
+                            value={currentExtra.absensi?.izin ?? '-'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateCurrentStudentExtra((prev) => ({
+                                ...prev,
+                                absensi: { ...prev.absensi, izin: val },
+                              }));
+                            }}
+                            placeholder="0 / -"
+                            className="w-full text-center py-1.5 px-2 font-bold border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                            Alpa (A)
+                          </label>
+                          <input
+                            type="text"
+                            value={currentExtra.absensi?.alpa ?? '-'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              updateCurrentStudentExtra((prev) => ({
+                                ...prev,
+                                absensi: { ...prev.absensi, alpa: val },
+                              }));
+                            }}
+                            placeholder="0 / -"
+                            className="w-full text-center py-1.5 px-2 font-bold border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500"
+                          />
+                        </div>
                       </div>
-                      <span className="text-[10px] text-slate-400">Pilih nama ekskul dan nilai</span>
+
+                      <div className="p-2 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500 font-medium">Total Ketidakhadiran:</span>
+                        <span className="font-bold text-slate-800">
+                          {(() => {
+                            const s = Number(currentExtra.absensi?.sakit) || 0;
+                            const i = Number(currentExtra.absensi?.izin) || 0;
+                            const a = Number(currentExtra.absensi?.alpa) || 0;
+                            return `${s + i + a} Hari`;
+                          })()}
+                        </span>
+                      </div>
                     </div>
+                  )}
 
-                    <div className="space-y-2">
-                      {[0, 1, 2, 3, 4].map((idx) => {
-                        const ekskulItem = currentExtra.ekskul?.[idx] || { name: '', nilai: '-' };
+                  {/* 2. KEPRIBADIAN (SIKAP) */}
+                  {(activeSection === 'all' || activeSection === 'kepribadian') && (
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <Heart className="w-4 h-4 text-rose-500" />
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                            2. Kepribadian / Sikap
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateCurrentStudentExtra((prev) => ({
+                                ...prev,
+                                keperibadian: { ...DEFAULT_KEPRIBADIAN },
+                              }));
+                            }}
+                            className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                          >
+                            Semua Baik
+                          </button>
+                        </div>
+                      </div>
 
-                        return (
-                          <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                            <span className="w-5 text-center font-bold text-slate-400 text-xs">
-                              {idx + 1}.
-                            </span>
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                value={ekskulItem.name}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  updateCurrentStudentExtra((prev) => {
-                                    const nextEkskul = [...(prev.ekskul || [])];
-                                    while (nextEkskul.length <= idx) nextEkskul.push({ name: '', nilai: '-' });
-                                    nextEkskul[idx] = { ...nextEkskul[idx], name: val };
-                                    return { ...prev, ekskul: nextEkskul };
-                                  });
-                                }}
-                                placeholder={`Nama Ekstrakurikuler ke-${idx + 1} (cth: Pramuka, Marawis, Hadrah)`}
-                                className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 font-medium focus:outline-indigo-500"
-                              />
-                            </div>
+                      <div className="grid grid-cols-2 gap-2.5 text-xs">
+                        {(['kelakuan', 'kerajinan', 'kerapihan', 'kebersihan'] as const).map((trait) => {
+                          const currentVal = currentExtra.keperibadian?.[trait] || 'Baik';
+                          const labels: Record<string, string> = {
+                            kelakuan: 'Kelakuan',
+                            kerajinan: 'Kerajinan',
+                            kerapihan: 'Kerapihan',
+                            kebersihan: 'Kebersihan',
+                          };
 
-                            <div className="w-32">
+                          return (
+                            <div key={trait}>
+                              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                {labels[trait]}
+                              </label>
                               <select
-                                value={ekskulItem.nilai}
+                                value={currentVal}
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  updateCurrentStudentExtra((prev) => {
-                                    const nextEkskul = [...(prev.ekskul || [])];
-                                    while (nextEkskul.length <= idx) nextEkskul.push({ name: '', nilai: '-' });
-                                    nextEkskul[idx] = { ...nextEkskul[idx], nilai: val };
-                                    return { ...prev, ekskul: nextEkskul };
-                                  });
+                                  updateCurrentStudentExtra((prev) => ({
+                                    ...prev,
+                                    keperibadian: {
+                                      ...(prev.keperibadian || DEFAULT_KEPRIBADIAN),
+                                      [trait]: val,
+                                    },
+                                  }));
                                 }}
-                                className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-indigo-500 cursor-pointer"
+                                className="w-full py-1.5 px-2 border border-slate-300 rounded-lg text-slate-800 font-bold bg-white focus:outline-indigo-500 cursor-pointer"
                               >
-                                <option value="-">- (Kosong)</option>
-                                <option value="Sangat Baik">Sangat Baik</option>
-                                <option value="Baik">Baik</option>
-                                <option value="Cukup">Cukup</option>
+                                <option value="Sangat Baik">Sangat Baik (A)</option>
+                                <option value="Baik">Baik (B)</option>
+                                <option value="Cukup">Cukup (C)</option>
+                                <option value="Kurang">Kurang (D)</option>
                               </select>
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateCurrentStudentExtra((prev) => {
-                                  const nextEkskul = [...(prev.ekskul || [])];
-                                  if (nextEkskul[idx]) nextEkskul[idx] = { name: '', nilai: '-' };
-                                  return { ...prev, ekskul: nextEkskul };
-                                });
-                              }}
-                              className="p-1.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Hapus baris ini"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
+                  )}
 
-                    {/* Quick Preset Buttons for Ekskul */}
-                    <div className="pt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
-                      <span className="font-semibold text-slate-500">Pilihan Cepat:</span>
-                      {PRESET_EKSKUL_NAMES.slice(0, 8).map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => {
-                            updateCurrentStudentExtra((prev) => {
-                              const nextEkskul = [...(prev.ekskul || [])];
-                              // Find first empty row or row 0
-                              const emptyIdx = nextEkskul.findIndex((ek) => !ek.name);
-                              const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
-                              while (nextEkskul.length <= targetIdx) nextEkskul.push({ name: '', nilai: '-' });
-                              nextEkskul[targetIdx] = { name: preset, nilai: 'Baik' };
-                              return { ...prev, ekskul: nextEkskul };
-                            });
-                          }}
-                          className="px-2 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          + {preset}
-                        </button>
-                      ))}
+                  {/* 3. EKSTRAKURIKULER */}
+                  {(activeSection === 'all' || activeSection === 'ekskul') && (
+                    <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 ${activeSection === 'all' ? 'md:col-span-2' : 'col-span-full ring-2 ring-amber-300/60'}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <Award className="w-4 h-4 text-amber-500" />
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                            3. Kegiatan Ekstrakurikuler (Maksimal 5 Kegiatan)
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleApplyCurrentEkskulToClass}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10.5px] cursor-pointer shadow-2xs transition-colors"
+                            title={`Salin daftar ekskul ini ke seluruh siswa kelas ${selectedClass}`}
+                          >
+                            <Users className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Terapkan ke Seluruh Siswa ({classStudents.length} Siswa)</span>
+                          </button>
+                          <span className="text-[10px] text-slate-400 hidden sm:inline">Pilih nama &amp; nilai</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        {[0, 1, 2, 3, 4].map((idx) => {
+                          const ekskulItem = currentExtra.ekskul?.[idx] || { name: '', nilai: '-' };
+
+                          return (
+                            <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                              <span className="w-5 text-center font-bold text-slate-400 text-xs">
+                                {idx + 1}.
+                              </span>
+                              <div className="flex-1">
+                                <input
+                                  type="text"
+                                  value={ekskulItem.name}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateCurrentStudentExtra((prev) => {
+                                      const nextEkskul = [...(prev.ekskul || [])];
+                                      while (nextEkskul.length <= idx) nextEkskul.push({ name: '', nilai: '-' });
+                                      nextEkskul[idx] = { ...nextEkskul[idx], name: val };
+                                      return { ...prev, ekskul: nextEkskul };
+                                    });
+                                  }}
+                                  placeholder={`Nama Ekstrakurikuler ke-${idx + 1} (cth: Pramuka, Marawis, Hadrah)`}
+                                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 font-medium focus:outline-indigo-500"
+                                />
+                              </div>
+
+                              <div className="w-32">
+                                <select
+                                  value={ekskulItem.nilai}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateCurrentStudentExtra((prev) => {
+                                      const nextEkskul = [...(prev.ekskul || [])];
+                                      while (nextEkskul.length <= idx) nextEkskul.push({ name: '', nilai: '-' });
+                                      nextEkskul[idx] = { ...nextEkskul[idx], nilai: val };
+                                      return { ...prev, ekskul: nextEkskul };
+                                    });
+                                  }}
+                                  className="w-full px-2 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 bg-white focus:outline-indigo-500 cursor-pointer"
+                                >
+                                  <option value="-">- (Kosong)</option>
+                                  <option value="Sangat Baik">Sangat Baik (A)</option>
+                                  <option value="Baik">Baik (B)</option>
+                                  <option value="Cukup">Cukup (C)</option>
+                                </select>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  updateCurrentStudentExtra((prev) => {
+                                    const nextEkskul = [...(prev.ekskul || [])];
+                                    if (nextEkskul[idx]) nextEkskul[idx] = { name: '', nilai: '-' };
+                                    return { ...prev, ekskul: nextEkskul };
+                                  });
+                                }}
+                                className="p-1.5 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Hapus baris ini"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Quick Preset Buttons for Ekskul */}
+                      <div className="pt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <span className="font-semibold text-slate-500">Pilihan Cepat Ekskul:</span>
+                        {PRESET_EKSKUL_NAMES.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              updateCurrentStudentExtra((prev) => {
+                                const nextEkskul = [...(prev.ekskul || [])];
+                                const emptyIdx = nextEkskul.findIndex((ek) => !ek.name);
+                                const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
+                                while (nextEkskul.length <= targetIdx) nextEkskul.push({ name: '', nilai: '-' });
+                                nextEkskul[targetIdx] = { name: preset, nilai: 'Baik' };
+                                return { ...prev, ekskul: nextEkskul };
+                              });
+                            }}
+                            className="px-2 py-0.5 rounded bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-600 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            + {preset}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* 4. CATATAN WALI KELAS */}
-                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 md:col-span-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-indigo-600" />
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                          4. Catatan Wali Kelas (Untuk Perhatian Orang Tua / Wali Siswa)
-                        </h4>
+                  {(activeSection === 'all' || activeSection === 'catatan') && (
+                    <div className={`bg-white p-4 rounded-xl border border-slate-200 shadow-2xs space-y-3 ${activeSection === 'all' ? 'md:col-span-2' : 'col-span-full ring-2 ring-indigo-300/60'}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-indigo-600" />
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                            4. Catatan Wali Kelas (Untuk Perhatian Orang Tua / Wali Siswa)
+                          </h4>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleApplyCurrentCatatanToClass}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border border-indigo-300 font-bold text-[10.5px] cursor-pointer shadow-2xs transition-colors"
+                            title={`Salin catatan ini ke seluruh siswa kelas ${selectedClass}`}
+                          >
+                            <Users className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Terapkan ke Seluruh Siswa ({classStudents.length} Siswa)</span>
+                          </button>
+                          <span className="text-[10px] text-slate-400 hidden sm:inline">Maksimal 5 butir catatan</span>
+                        </div>
                       </div>
-                      <span className="text-[10px] text-slate-400">Maksimal 5 butir catatan</span>
-                    </div>
 
-                    <div className="space-y-2">
-                      {[0, 1, 2, 3, 4].map((idx) => {
-                        const noteText = currentExtra.catatanWaliKelas?.[idx] || '';
+                      <div className="space-y-2">
+                        {[0, 1, 2, 3, 4].map((idx) => {
+                          const noteText = currentExtra.catatanWaliKelas?.[idx] || '';
 
-                        return (
-                          <div key={idx} className="flex items-start gap-2">
-                            <span className="w-5 pt-2 text-center font-bold text-slate-400 text-xs">
-                              {idx + 1}.
-                            </span>
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                value={noteText}
-                                onChange={(e) => {
-                                  const val = e.target.value;
+                          return (
+                            <div key={idx} className="flex items-start gap-2">
+                              <span className="w-5 pt-2 text-center font-bold text-slate-400 text-xs">
+                                {idx + 1}.
+                              </span>
+                              <div className="flex-1">
+                                <input
+                                  type="text"
+                                  value={noteText}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateCurrentStudentExtra((prev) => {
+                                      const nextCat = [...(prev.catatanWaliKelas || [])];
+                                      while (nextCat.length <= idx) nextCat.push('');
+                                      nextCat[idx] = val;
+                                      return { ...prev, catatanWaliKelas: nextCat };
+                                    });
+                                  }}
+                                  placeholder={`Catatan butir ke-${idx + 1}...`}
+                                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-indigo-500 font-medium"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
                                   updateCurrentStudentExtra((prev) => {
                                     const nextCat = [...(prev.catatanWaliKelas || [])];
-                                    while (nextCat.length <= idx) nextCat.push('');
-                                    nextCat[idx] = val;
+                                    if (nextCat[idx]) nextCat[idx] = '';
                                     return { ...prev, catatanWaliKelas: nextCat };
                                   });
                                 }}
-                                placeholder={`Catatan butir ke-${idx + 1}...`}
-                                className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs text-slate-800 focus:outline-indigo-500 font-medium"
-                              />
+                                className="p-1.5 pt-2 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Hapus baris ini"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateCurrentStudentExtra((prev) => {
-                                  const nextCat = [...(prev.catatanWaliKelas || [])];
-                                  if (nextCat[idx]) nextCat[idx] = '';
-                                  return { ...prev, catatanWaliKelas: nextCat };
-                                });
-                              }}
-                              className="p-1.5 pt-2 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Hapus baris ini"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
 
-                    {/* Quick Preset Buttons for Catatan */}
-                    <div className="pt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
-                      <span className="font-semibold text-slate-500">Rekomendasi Catatan:</span>
-                      {PRESET_CATATAN.slice(0, 6).map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => {
-                            updateCurrentStudentExtra((prev) => {
-                              const nextCat = [...(prev.catatanWaliKelas || [])];
-                              const emptyIdx = nextCat.findIndex((c) => !c.trim());
-                              const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
-                              while (nextCat.length <= targetIdx) nextCat.push('');
-                              nextCat[targetIdx] = preset;
-                              return { ...prev, catatanWaliKelas: nextCat };
-                            });
-                          }}
-                          className="px-2 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 transition-colors cursor-pointer"
-                        >
-                          + {preset}
-                        </button>
-                      ))}
+                      {/* Quick Preset Buttons for Catatan */}
+                      <div className="pt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                        <span className="font-semibold text-slate-500">Rekomendasi Catatan Standar:</span>
+                        {PRESET_CATATAN.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => {
+                              updateCurrentStudentExtra((prev) => {
+                                const nextCat = [...(prev.catatanWaliKelas || [])];
+                                const emptyIdx = nextCat.findIndex((c) => !c.trim());
+                                const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
+                                while (nextCat.length <= targetIdx) nextCat.push('');
+                                nextCat[targetIdx] = preset;
+                                return { ...prev, catatanWaliKelas: nextCat };
+                              });
+                            }}
+                            className="px-2 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            + {preset}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-8 text-center text-slate-400">Tidak ada siswa yang dipilih.</div>

@@ -48,6 +48,44 @@ const STORAGE_RAPORT_EXTRA = 'sim_ujian_raport_extra_v1';
 const STORAGE_RAPORT_CLASSES = 'sim_ujian_raport_classes_v1';
 const STORAGE_RAPORT_TITIMANGSA = 'sim_ujian_raport_titimangsa_v1';
 
+// Helper to format ISO YYYY-MM-DD into Indonesian text "17 Oktober 2026"
+const formatIndonesianDate = (isoString: string): string => {
+  if (!isoString) return '';
+  const parts = isoString.split('-');
+  if (parts.length < 3) return isoString;
+  const year = parts[0];
+  const monthNum = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  if (monthNum >= 1 && monthNum <= 12 && !isNaN(day)) {
+    return `${day} ${monthNames[monthNum - 1]} ${year}`;
+  }
+  return isoString;
+};
+
+// Helper to parse Indonesian text "17 Oktober 2026" into ISO YYYY-MM-DD for date input
+const parseIndonesianDateToIso = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const monthNames = [
+    'januari', 'februari', 'maret', 'april', 'mei', 'juni',
+    'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
+  ];
+  const parts = dateStr.trim().split(/\s+/);
+  if (parts.length >= 3) {
+    const day = parts[0].padStart(2, '0');
+    const monthIdx = monthNames.findIndex((m) => parts[1].toLowerCase().startsWith(m.slice(0, 3)));
+    const year = parts[2];
+    if (monthIdx !== -1 && !isNaN(Number(day)) && !isNaN(Number(year))) {
+      const month = String(monthIdx + 1).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  }
+  return '';
+};
+
 export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   config,
   students,
@@ -113,9 +151,20 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   // Modal Settings Editor (Wali Kelas, Catatan, Titimangsa)
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Dedicated Date Editor Modal
+  const [showDateModal, setShowDateModal] = useState(false);
+
   // Modal Input Data Pelengkap Raport (Absensi, Kepribadian, Ekskul, Catatan)
   const [showInputModal, setShowInputModal] = useState(false);
+  const [modalSection, setModalSection] = useState<'all' | 'ekskul' | 'catatan' | 'absensi' | 'kepribadian'>('all');
   const [editingStudentId, setEditingStudentId] = useState<string>('');
+
+  // Toast notification feedback
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const showRaportToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
 
   // Extra per-student data (Keperibadian, Absensi, Ekskul, Catatan)
   const [extraDataMap, setExtraDataMap] = useState<Record<string, StudentRaportExtraData>>(() => {
@@ -199,31 +248,111 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     if (selectedClass && classMetaMap[selectedClass]) {
       return {
         ...classMetaMap[selectedClass],
-        issuePlace: classMetaMap[selectedClass].issuePlace || raportIssuePlace,
-        issueDate: classMetaMap[selectedClass].issueDate || raportIssueDate,
+        issuePlace: raportIssuePlace || classMetaMap[selectedClass].issuePlace || config.issuePlace || 'Bogor',
+        issueDate: raportIssueDate || classMetaMap[selectedClass].issueDate || config.issueDate || '1 Oktober 2026',
       };
     }
     return {
       waliKelasName: config.principalName ? `Wali Kelas ${selectedClass || ''}` : 'Lia Marlianty, S.Pd.I',
       waliKelasNip: '-',
-      issuePlace: raportIssuePlace,
-      issueDate: raportIssueDate,
+      issuePlace: raportIssuePlace || config.issuePlace || 'Bogor',
+      issueDate: raportIssueDate || config.issueDate || '1 Oktober 2026',
     };
-  }, [selectedClass, classMetaMap, config.principalName, raportIssuePlace, raportIssueDate]);
+  }, [selectedClass, classMetaMap, config.principalName, config.issuePlace, config.issueDate, raportIssuePlace, raportIssueDate]);
 
   // Form states for Settings Modal
-  const [tempWaliName, setTempWaliName] = useState(currentClassMeta.waliKelasName || '');
-  const [tempWaliNip, setTempWaliNip] = useState(currentClassMeta.waliKelasNip || '-');
-  const [tempIssuePlace, setTempIssuePlace] = useState(currentClassMeta.issuePlace || raportIssuePlace);
-  const [tempIssueDate, setTempIssueDate] = useState(currentClassMeta.issueDate || raportIssueDate);
+  const [tempWaliName, setTempWaliName] = useState('');
+  const [tempWaliNip, setTempWaliNip] = useState('-');
+  const [tempIssuePlace, setTempIssuePlace] = useState('');
+  const [tempIssueDate, setTempIssueDate] = useState('');
   const [applyDateToAllClasses, setApplyDateToAllClasses] = useState(true);
 
-  useEffect(() => {
+  // Form states for Dedicated Date Modal
+  const [dateModalPlace, setDateModalPlace] = useState('');
+  const [dateModalDateText, setDateModalDateText] = useState('');
+  const [dateModalIso, setDateModalIso] = useState('');
+  const [dateModalApplyAll, setDateModalApplyAll] = useState(true);
+
+  // Open Date Modal with fresh values
+  const openDateModal = () => {
+    const curPlace = raportIssuePlace || currentClassMeta.issuePlace || config.issuePlace || 'Bogor';
+    const curDate = raportIssueDate || currentClassMeta.issueDate || config.issueDate || '1 Oktober 2026';
+    setDateModalPlace(curPlace);
+    setDateModalDateText(curDate);
+    setDateModalIso(parseIndonesianDateToIso(curDate));
+    setDateModalApplyAll(true);
+    setShowDateModal(true);
+  };
+
+  // Open Settings Modal with fresh values
+  const openSettingsModal = () => {
     setTempWaliName(currentClassMeta.waliKelasName || '');
     setTempWaliNip(currentClassMeta.waliKelasNip || '-');
-    setTempIssuePlace(currentClassMeta.issuePlace || raportIssuePlace);
-    setTempIssueDate(currentClassMeta.issueDate || raportIssueDate);
-  }, [currentClassMeta, selectedClass, raportIssuePlace, raportIssueDate]);
+    setTempIssuePlace(raportIssuePlace || currentClassMeta.issuePlace || config.issuePlace || 'Bogor');
+    setTempIssueDate(raportIssueDate || currentClassMeta.issueDate || config.issueDate || '1 Oktober 2026');
+    setApplyDateToAllClasses(true);
+    setShowSettingsModal(true);
+  };
+
+  // Save Dedicated Date Modal (instant, bulletproof, updates all classes & config)
+  const handleSaveDateModal = () => {
+    const cleanPlace = dateModalPlace.trim() || 'Bogor';
+    const cleanDate = dateModalDateText.trim() || '1 Oktober 2026';
+
+    const nextMap = { ...classMetaMap };
+
+    if (dateModalApplyAll) {
+      Object.keys(nextMap).forEach((cls) => {
+        nextMap[cls] = {
+          ...nextMap[cls],
+          issuePlace: cleanPlace,
+          issueDate: cleanDate,
+        };
+      });
+      classList.forEach((cls) => {
+        nextMap[cls] = {
+          ...(nextMap[cls] || { waliKelasName: `Wali Kelas ${cls}`, waliKelasNip: '-' }),
+          issuePlace: cleanPlace,
+          issueDate: cleanDate,
+        };
+      });
+    }
+
+    if (selectedClass && selectedClass !== 'all') {
+      const prev = nextMap[selectedClass] || {
+        waliKelasName: `Wali Kelas ${selectedClass}`,
+        waliKelasNip: '-',
+      };
+      nextMap[selectedClass] = {
+        ...prev,
+        issuePlace: cleanPlace,
+        issueDate: cleanDate,
+      };
+    }
+
+    setClassMetaMap(nextMap);
+    setRaportIssuePlace(cleanPlace);
+    setRaportIssueDate(cleanDate);
+
+    try {
+      localStorage.setItem(STORAGE_RAPORT_CLASSES, JSON.stringify(nextMap));
+      localStorage.setItem(
+        STORAGE_RAPORT_TITIMANGSA,
+        JSON.stringify({ issuePlace: cleanPlace, issueDate: cleanDate })
+      );
+    } catch (e) {}
+
+    if (onUpdateConfig) {
+      onUpdateConfig({
+        ...config,
+        issuePlace: cleanPlace,
+        issueDate: cleanDate,
+      });
+    }
+
+    showRaportToast(`Tanggal raport berhasil diubah: ${cleanPlace}, ${cleanDate}`);
+    setShowDateModal(false);
+  };
 
   // Save Settings Modal (Wali Kelas, NIP, Tempat & Tanggal Raport)
   const handleSaveClassMeta = () => {
@@ -280,6 +409,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
       });
     }
 
+    showRaportToast(`Data wali kelas dan titimangsa berhasil disimpan!`);
     setShowSettingsModal(false);
   };
 
@@ -406,6 +536,25 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     return null;
   };
 
+  // Helper to resolve KKM with fallback across alias subject names (e.g. Pendidikan Pancasila / PKn)
+  const getSubjectKkm = (matchKey: string): number => {
+    if (gradingConfigs[matchKey]?.kkm) return gradingConfigs[matchKey].kkm;
+    const clean = matchKey.toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (const [k, v] of Object.entries(gradingConfigs)) {
+      const kClean = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (kClean === clean || kClean.includes(clean) || clean.includes(kClean)) {
+        if (v?.kkm) return v.kkm;
+      }
+      if (
+        (clean.includes('pancasila') || clean.includes('pkn') || clean.includes('kewarganegaraan')) &&
+        (kClean.includes('pancasila') || kClean.includes('pkn') || kClean.includes('kewarganegaraan'))
+      ) {
+        if (v?.kkm) return v.kkm;
+      }
+    }
+    return DEFAULT_KKM;
+  };
+
   // Subject rows specification matching official Raport format exactly (17 Mapel Lengkap)
   const subjectStructure = useMemo(() => {
     if (numberingStyle === 'sequential') {
@@ -418,7 +567,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
             { num: '2.', title: 'Akidah Akhlak', matchKey: 'Akidah Akhlak' },
             { num: '3.', title: 'Fikih', matchKey: 'Fikih' },
             { num: '4.', title: 'Sejarah Kebudayaan Islam (SKI)', matchKey: 'Sejarah Kebudayaan Islam (SKI)' },
-            { num: '5.', title: 'Pendidikan Pancasila / PKn', matchKey: 'Pendidikan Pancasila / PKn' },
+            { num: '5.', title: 'Pendidikan Pancasila', matchKey: 'Pendidikan Pancasila' },
             { num: '6.', title: 'Bahasa Indonesia', matchKey: 'Bahasa Indonesia' },
             { num: '7.', title: 'Bahasa Arab', matchKey: 'Bahasa Arab' },
             { num: '8.', title: 'Bahasa Inggris', matchKey: 'Bahasa Inggris' },
@@ -461,7 +610,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
               { subNum: 'd.', title: 'Sejarah Kebudayaan Islam (SKI)', matchKey: 'Sejarah Kebudayaan Islam (SKI)' },
             ],
           },
-          { num: '2.', title: 'Pendidikan Kewarganegaraan (PKn)', matchKey: 'Pendidikan Pancasila / PKn' },
+          { num: '2.', title: 'Pendidikan Pancasila', matchKey: 'Pendidikan Pancasila' },
           { num: '3.', title: 'Bahasa Indonesia', matchKey: 'Bahasa Indonesia' },
           { num: '4.', title: 'Bahasa Arab', matchKey: 'Bahasa Arab' },
           { num: '5.', title: 'Bahasa Inggris', matchKey: 'Bahasa Inggris' },
@@ -594,27 +743,71 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
 
             {/* Right: Actions */}
             <div className="flex flex-wrap items-center gap-2">
+              {/* Menu 1: Edit Ekstrakurikuler */}
               <button
                 type="button"
                 onClick={() => {
                   setEditingStudentId(selectedStudentId || filteredStudents[0]?.id || '');
+                  setModalSection('ekskul');
                   setShowInputModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-2xs transition-colors cursor-pointer"
-                title="Input Ketidakhadiran, Kepribadian, Ekstrakurikuler, dan Catatan Wali Kelas"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-900 bg-amber-400 hover:bg-amber-300 active:bg-amber-500 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                title="Edit Nilai & Kegiatan Ekstrakurikuler Siswa (Pramuka, PMR, Marawis, dll)"
               >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Input Data Raport</span>
+                <Award className="w-4 h-4 text-amber-950" />
+                <span>Edit Ekstrakurikuler</span>
               </button>
 
+              {/* Menu 2: Edit Catatan Wali Kelas */}
               <button
                 type="button"
-                onClick={() => setShowSettingsModal(true)}
+                onClick={() => {
+                  setEditingStudentId(selectedStudentId || filteredStudents[0]?.id || '');
+                  setModalSection('catatan');
+                  setShowInputModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                title="Edit Catatan Wali Kelas untuk Perhatian Orang Tua Siswa"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span>Edit Catatan Wali Kelas</span>
+              </button>
+
+              {/* Menu 3: Input Data Raport Lengkap */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingStudentId(selectedStudentId || filteredStudents[0]?.id || '');
+                  setModalSection('all');
+                  setShowInputModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                title="Input Lengkap (Absensi, Sikap, Ekskul, dan Catatan)"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                <span className="hidden sm:inline">Data Raport Lengkap</span>
+              </button>
+
+              {/* Menu 4: Ubah Tanggal Raport */}
+              <button
+                type="button"
+                onClick={openDateModal}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                title="Ubah Tanggal Terbit & Tempat Raport"
+              >
+                <Calendar className="w-4 h-4 text-indigo-600" />
+                <span>Ubah Tanggal</span>
+              </button>
+
+              {/* Menu 5: Pengaturan Wali Kelas & NIP */}
+              <button
+                type="button"
+                onClick={openSettingsModal}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
-                title="Atur Nama Wali Kelas, NIP, dan Titimangsa Cetak"
+                title="Atur Nama Wali Kelas & NIP per Kelas"
               >
                 <Settings className="w-3.5 h-3.5 text-slate-500" />
-                <span>Pengaturan Raport</span>
+                <span className="hidden md:inline">Wali Kelas</span>
               </button>
 
               <button
@@ -624,7 +817,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 title="Buka pratinjau di tab baru untuk pencetakan PDF bersih tanpa dialog"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Buka Tab Baru</span>
+                <span className="hidden lg:inline">Tab Baru</span>
               </button>
 
               <button
@@ -633,7 +826,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
-                <span>Cetak Raport Sekarang</span>
+                <span>Cetak Raport</span>
               </button>
             </div>
           </div>
@@ -743,14 +936,14 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
               {/* Tombol Ubah Titimangsa / Tanggal Raport */}
               <button
                 type="button"
-                onClick={() => setShowSettingsModal(true)}
+                onClick={openDateModal}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 text-[11px] font-semibold cursor-pointer shadow-2xs transition-colors"
-                title="Ubah Tanggal &amp; Tempat Terbit Raport (Titimangsa) atau Wali Kelas"
+                title="Klik untuk mengubah Tempat & Tanggal Raport"
               >
                 <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <span className="text-slate-500 font-medium">Tanggal:</span>
                 <span className="font-bold text-indigo-700 underline decoration-indigo-300">
-                  {currentClassMeta.issuePlace || raportIssuePlace}, {currentClassMeta.issueDate || raportIssueDate}
+                  {raportIssuePlace || currentClassMeta.issuePlace || config.issuePlace || 'Bogor'}, {raportIssueDate || currentClassMeta.issueDate || config.issueDate || '1 Oktober 2026'}
                 </span>
                 <Edit3 className="w-3 h-3 text-indigo-400 shrink-0" />
               </button>
@@ -999,7 +1192,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                                 {item.subItems.map((sub) => {
                                   const score = getSubjectScore(student, sub.matchKey);
                                   const textScore = score !== null ? terbilang(score) : '-';
-                                  const kkm = gradingConfigs[sub.matchKey]?.kkm || DEFAULT_KKM;
+                                  const kkm = getSubjectKkm(sub.matchKey);
                                   const ketercapaian =
                                     score !== null
                                       ? score >= kkm
@@ -1030,10 +1223,10 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                             );
                           }
 
-                          // Regular subject row (2. PKn, 3. Bahasa Indonesia, dll.)
+                          // Regular subject row (2. Pendidikan Pancasila, 3. Bahasa Indonesia, dll.)
                           const score = getSubjectScore(student, item.matchKey);
                           const textScore = score !== null ? terbilang(score) : '-';
-                          const kkm = gradingConfigs[item.matchKey]?.kkm || DEFAULT_KKM;
+                          const kkm = getSubjectKkm(item.matchKey);
                           const ketercapaian =
                             score !== null
                               ? score >= kkm
@@ -1089,22 +1282,48 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                 </table>
 
                 {/* On-Screen Quick Edit Button (Hidden when printed) */}
-                <div className="no-print mb-2 p-1.5 bg-indigo-50/90 border border-indigo-200 rounded-lg flex items-center justify-between text-[11px] text-indigo-900 font-sans shadow-2xs">
-                  <div className="flex items-center gap-2">
-                    <Edit3 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                    <span>Data Raport: <strong>Absensi, Kepribadian, Ekskul &amp; Catatan Wali Kelas</strong></span>
+                <div className="no-print mb-2 p-1.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-800 font-sans shadow-2xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-900">Menu Data Siswa ({student.name}):</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingStudentId(student.id);
-                      setShowInputModal(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold rounded-md text-[10px] shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>Edit Data Siswa Ini</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingStudentId(student.id);
+                        setModalSection('ekskul');
+                        setShowInputModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-md text-[10px] border border-amber-300 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Award className="w-3 h-3 text-amber-700" />
+                      <span>Edit Ekstrakurikuler</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingStudentId(student.id);
+                        setModalSection('catatan');
+                        setShowInputModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-900 font-bold rounded-md text-[10px] border border-indigo-300 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <BookOpen className="w-3 h-3 text-indigo-700" />
+                      <span>Edit Catatan Wali Kelas</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingStudentId(student.id);
+                        setModalSection('all');
+                        setShowInputModal(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-md text-[10px] border border-slate-300 shadow-2xs transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Data Lengkap</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* 4. Lower Section: 4 Compact Boxes (2x2 Grid) */}
@@ -1145,24 +1364,45 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                     </table>
 
                     {/* EKSTRAKURIKULER */}
-                    <table className="w-full border-collapse border border-black">
-                      <thead>
-                        <tr className="bg-slate-50 font-bold">
-                          <th className="border border-black px-1 py-0.5 w-6 text-center">No.</th>
-                          <th className="border border-black px-2 py-0.5 text-center">EKSTRAKURIKULER</th>
-                          <th className="border border-black px-1.5 py-0.5 w-12 text-center">NILAI</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ekskulList.slice(0, 5).map((ek, i) => (
-                          <tr key={i}>
-                            <td className="border border-black text-center py-0.5">{i + 1}.</td>
-                            <td className="border border-black px-2 py-0.5">{ek.name || '-'}</td>
-                            <td className="border border-black text-center py-0.5 font-semibold">{ek.nilai || '-'}</td>
+                    <div>
+                      <div className="no-print flex items-center justify-between pb-0.5">
+                        <span className="text-[10px] font-bold text-amber-900 flex items-center gap-1">
+                          <Award className="w-3 h-3 text-amber-600" />
+                          <span>Ekstrakurikuler</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStudentId(student.id);
+                            setModalSection('ekskul');
+                            setShowInputModal(true);
+                          }}
+                          className="inline-flex items-center gap-1 text-[9.5px] font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded border border-amber-300 cursor-pointer shadow-2xs"
+                          title="Edit nilai dan kegiatan ekstrakurikuler siswa ini"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Edit Ekskul</span>
+                        </button>
+                      </div>
+                      <table className="w-full border-collapse border border-black">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold">
+                            <th className="border border-black px-1 py-0.5 w-6 text-center">No.</th>
+                            <th className="border border-black px-2 py-0.5 text-center">EKSTRAKURIKULER</th>
+                            <th className="border border-black px-1.5 py-0.5 w-12 text-center">NILAI</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {ekskulList.slice(0, 5).map((ek, i) => (
+                            <tr key={i}>
+                              <td className="border border-black text-center py-0.5">{i + 1}.</td>
+                              <td className="border border-black px-2 py-0.5">{ek.name || '-'}</td>
+                              <td className="border border-black text-center py-0.5 font-semibold">{ek.nilai || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
 
                   {/* Right Column: Ketidakhadiran & Catatan Wali Kelas */}
@@ -1216,22 +1456,43 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                     </table>
 
                     {/* CATATAN WALI KELAS */}
-                    <table className="w-full border-collapse border border-black">
-                      <thead>
-                        <tr className="bg-slate-50 font-bold">
-                          <th className="border border-black px-1 py-0.5 w-6 text-center">No.</th>
-                          <th className="border border-black px-2 py-0.5 text-center">CATATAN WALI KELAS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {catatanList.slice(0, 5).map((note, idx) => (
-                          <tr key={idx}>
-                            <td className="border border-black text-center py-0.5">{idx + 1}.</td>
-                            <td className="border border-black px-2 py-0.5 leading-snug">{note}</td>
+                    <div>
+                      <div className="no-print flex items-center justify-between pb-0.5">
+                        <span className="text-[10px] font-bold text-indigo-900 flex items-center gap-1">
+                          <BookOpen className="w-3 h-3 text-indigo-600" />
+                          <span>Catatan Wali Kelas</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingStudentId(student.id);
+                            setModalSection('catatan');
+                            setShowInputModal(true);
+                          }}
+                          className="inline-flex items-center gap-1 text-[9.5px] font-bold text-indigo-800 bg-indigo-100 hover:bg-indigo-200 px-2 py-0.5 rounded border border-indigo-300 cursor-pointer shadow-2xs"
+                          title="Edit catatan wali kelas untuk siswa ini"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Edit Catatan</span>
+                        </button>
+                      </div>
+                      <table className="w-full border-collapse border border-black">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold">
+                            <th className="border border-black px-1 py-0.5 w-6 text-center">No.</th>
+                            <th className="border border-black px-2 py-0.5 text-center">CATATAN WALI KELAS</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {catatanList.slice(0, 5).map((note, idx) => (
+                            <tr key={idx}>
+                              <td className="border border-black text-center py-0.5">{idx + 1}.</td>
+                              <td className="border border-black px-2 py-0.5 leading-snug">{note}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -1241,11 +1502,33 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                   const studentClassMeta = classMetaMap[studentClass] || currentClassMeta;
                   const displayWaliName = studentClassMeta.waliKelasName || currentClassMeta.waliKelasName;
                   const displayWaliNip = studentClassMeta.waliKelasNip || currentClassMeta.waliKelasNip;
-                  const displayIssuePlace = studentClassMeta.issuePlace || raportIssuePlace || config.issuePlace || 'Bogor';
-                  const displayIssueDate = studentClassMeta.issueDate || raportIssueDate || config.issueDate || '1 Oktober 2026';
+                  const displayIssuePlace = raportIssuePlace || studentClassMeta.issuePlace || config.issuePlace || 'Bogor';
+                  const displayIssueDate = raportIssueDate || studentClassMeta.issueDate || config.issueDate || '1 Oktober 2026';
 
                   return (
                     <div className="pt-1 text-[10px]">
+                      {/* On-screen quick links for signature & titimangsa */}
+                      <div className="no-print flex items-center justify-end gap-1.5 pb-1">
+                        <button
+                          type="button"
+                          onClick={openDateModal}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[9.5px] font-bold cursor-pointer"
+                          title="Ubah Tanggal Terbit Raport"
+                        >
+                          <Calendar className="w-3 h-3" />
+                          <span>Ubah Tanggal ({displayIssueDate})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={openSettingsModal}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-[9.5px] font-bold cursor-pointer"
+                          title="Edit Nama Wali Kelas & NIP"
+                        >
+                          <Settings className="w-3 h-3" />
+                          <span>Edit Wali Kelas</span>
+                        </button>
+                      </div>
+
                       <div className="flex justify-between items-start">
                         {/* Left: Orang Tua */}
                         <div className="text-center w-52 space-y-7">
@@ -1455,6 +1738,203 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
         </div>
       )}
 
+      {/* =========================================================================
+          DEDICATED MODAL: UBAH TANGGAL & TEMPAT RAPORT (TITIMANGSA)
+          ========================================================================= */}
+      {showDateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs no-print">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-indigo-700 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base leading-tight">Ubah Tanggal Raport</h3>
+                  <p className="text-xs text-indigo-200">Tempat dan Tanggal Penerbitan (Titimangsa)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDateModal(false)}
+                className="p-1 rounded-lg text-indigo-200 hover:text-white hover:bg-indigo-600 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Tempat Terbit */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tempat Penerbitan (Kota / Kabupaten)
+                </label>
+                <input
+                  type="text"
+                  value={dateModalPlace}
+                  onChange={(e) => setDateModalPlace(e.target.value)}
+                  placeholder="Contoh: Bogor, Gresik, Jakarta"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 text-sm font-semibold focus:outline-indigo-500 focus:border-indigo-500"
+                />
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <span className="text-[10px] text-slate-400 font-medium">Pilihan cepat:</span>
+                  {['Bogor', 'Gresik', 'Jakarta', 'Bandung', 'Surabaya'].map((city) => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => setDateModalPlace(city)}
+                      className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 text-[10px] font-medium cursor-pointer"
+                    >
+                      {city}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tanggal Raport */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tanggal Raport (Teks Resmi Bahasa Indonesia)
+                </label>
+                
+                {/* 1. Freeform Text Input */}
+                <input
+                  type="text"
+                  value={dateModalDateText}
+                  onChange={(e) => {
+                    setDateModalDateText(e.target.value);
+                    const iso = parseIndonesianDateToIso(e.target.value);
+                    if (iso) setDateModalIso(iso);
+                  }}
+                  placeholder="Contoh: 1 Oktober 2026"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 text-sm font-bold focus:outline-indigo-500 focus:border-indigo-500"
+                />
+
+                {/* 2. Visual Browser Date Picker Helper */}
+                <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="text-[11px] font-medium">Atau pilih dari kalender:</span>
+                  </div>
+                  <input
+                    type="date"
+                    value={dateModalIso}
+                    onChange={(e) => {
+                      const iso = e.target.value;
+                      setDateModalIso(iso);
+                      if (iso) {
+                        const indo = formatIndonesianDate(iso);
+                        setDateModalDateText(indo);
+                      }
+                    }}
+                    className="px-2 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-slate-800 focus:outline-indigo-500 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Preset Buttons for Date */}
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  Pilihan Cepat Tanggal:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const todayStr = new Date().toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      });
+                      setDateModalDateText(todayStr);
+                      setDateModalIso(parseIndonesianDateToIso(todayStr));
+                    }}
+                    className="px-2.5 py-1 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] cursor-pointer"
+                  >
+                    Hari Ini ({new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateModalDateText('1 Oktober 2026');
+                      setDateModalIso('2026-10-01');
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] cursor-pointer"
+                  >
+                    1 Oktober 2026
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateModalDateText('28 September 2026');
+                      setDateModalIso('2026-09-28');
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] cursor-pointer"
+                  >
+                    28 September 2026
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDateModalDateText('30 September 2026');
+                      setDateModalIso('2026-09-30');
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px] cursor-pointer"
+                  >
+                    30 September 2026
+                  </button>
+                  {config.issueDate && config.issueDate !== '1 Oktober 2026' && config.issueDate !== '28 September 2026' && config.issueDate !== '30 September 2026' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDateModalDateText(config.issueDate);
+                        setDateModalIso(parseIndonesianDateToIso(config.issueDate));
+                      }}
+                      className="px-2.5 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium text-[11px] cursor-pointer"
+                    >
+                      Konfigurasi: {config.issueDate}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Checkbox Apply to All Classes */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                <input
+                  type="checkbox"
+                  id="dateApplyAllModal"
+                  checked={dateModalApplyAll}
+                  onChange={(e) => setDateModalApplyAll(e.target.checked)}
+                  className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                />
+                <label htmlFor="dateApplyAllModal" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
+                  Terapkan tempat &amp; tanggal ini ke seluruh kelas ({classList.length} Kelas)
+                </label>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowDateModal(false)}
+                  className="px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDateModal}
+                  className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-xs cursor-pointer flex items-center gap-1.5 text-xs"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Simpan &amp; Terapkan Tanggal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal Input Data Pelengkap Raport (Ketidakhadiran, Kepribadian, Ekskul, Catatan) */}
       <RaportExtrasInputModal
         isOpen={showInputModal}
@@ -1464,7 +1944,16 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
         initialStudentId={editingStudentId || selectedStudentId}
         extraDataMap={extraDataMap}
         onSaveExtraData={handleSaveExtraData}
+        initialSection={modalSection}
       />
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700 text-xs font-medium animate-in fade-in slide-in-from-bottom-4 duration-200 no-print">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{toastMsg}</span>
+        </div>
+      )}
     </div>
   );
 };
