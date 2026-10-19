@@ -1,4 +1,5 @@
 import express from 'express';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -258,6 +259,8 @@ app.get('/api/health', (req, res) => {
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
   const distDir = path.resolve(__dirname, 'dist');
+  const PORT = Number(process.env.PORT) || 3000;
+  const httpServer = http.createServer(app);
 
   if (isProduction && fs.existsSync(distDir)) {
     app.use(express.static(distDir));
@@ -265,16 +268,18 @@ async function startServer() {
       res.sendFile(path.resolve(distDir, 'index.html'));
     });
   } else {
-    // In dev, mount Vite middleware mode
+    // In dev, mount Vite middleware mode with HMR bound to httpServer or disabled if DISABLE_HMR is true
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   }
 
-  const PORT = Number(process.env.PORT) || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`Server is running at http://0.0.0.0:${PORT}`);
   });
 }

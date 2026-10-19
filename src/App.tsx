@@ -28,6 +28,7 @@ import { DispensationManagementView } from './components/DispensationManagementV
 import { GradesManagementView } from './components/GradesManagementView';
 import { RaportStsPrintView } from './components/RaportStsPrintView';
 import { ScheduleManagementView } from './components/ScheduleManagementView';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { BackupRestoreView } from './components/BackupRestoreView';
 import { LoginPortal } from './components/LoginPortal';
 import { CloudSyncModal } from './components/CloudSyncModal';
@@ -1739,6 +1740,9 @@ export default function App() {
           </span>
         </div>
       </footer>
+
+      {/* Offline Connectivity Indicator */}
+      <OfflineIndicator />
     </div>
   );
 }

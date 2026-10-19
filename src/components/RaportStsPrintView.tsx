@@ -47,6 +47,7 @@ interface ClassRaportMeta {
 const STORAGE_RAPORT_EXTRA = 'sim_ujian_raport_extra_v1';
 const STORAGE_RAPORT_CLASSES = 'sim_ujian_raport_classes_v1';
 const STORAGE_RAPORT_TITIMANGSA = 'sim_ujian_raport_titimangsa_v1';
+const STORAGE_RAPORT_HEADER_SCHOOL = 'sim_ujian_raport_header_school_v1';
 
 // Helper to format ISO YYYY-MM-DD into Indonesian text "17 Oktober 2026"
 const formatIndonesianDate = (isoString: string): string => {
@@ -260,11 +261,28 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     };
   }, [selectedClass, classMetaMap, config.principalName, config.issuePlace, config.issueDate, raportIssuePlace, raportIssueDate]);
 
+  // Master School Header in Raport Title (Defaults to "MTs Manba'ul Islam")
+  const [raportSchoolHeader, setRaportSchoolHeader] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_RAPORT_HEADER_SCHOOL);
+      if (saved && saved.trim()) return saved.trim();
+    } catch (e) {}
+    if (config.schoolName && config.schoolName.trim()) {
+      const clean = config.schoolName.trim().toLowerCase().replace(/[^a-z]/g, '');
+      if (clean.includes('manbaul') || clean.includes('manba')) {
+        return "MTs Manba'ul Islam";
+      }
+      return config.schoolName;
+    }
+    return "MTs Manba'ul Islam";
+  });
+
   // Form states for Settings Modal
   const [tempWaliName, setTempWaliName] = useState('');
   const [tempWaliNip, setTempWaliNip] = useState('-');
   const [tempIssuePlace, setTempIssuePlace] = useState('');
   const [tempIssueDate, setTempIssueDate] = useState('');
+  const [tempSchoolHeader, setTempSchoolHeader] = useState('');
   const [applyDateToAllClasses, setApplyDateToAllClasses] = useState(true);
 
   // Form states for Dedicated Date Modal
@@ -290,6 +308,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     setTempWaliNip(currentClassMeta.waliKelasNip || '-');
     setTempIssuePlace(raportIssuePlace || currentClassMeta.issuePlace || config.issuePlace || 'Bogor');
     setTempIssueDate(raportIssueDate || currentClassMeta.issueDate || config.issueDate || '1 Oktober 2026');
+    setTempSchoolHeader(raportSchoolHeader || "MTs Manba'ul Islam");
     setApplyDateToAllClasses(true);
     setShowSettingsModal(true);
   };
@@ -392,24 +411,29 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     setRaportIssuePlace(cleanPlace);
     setRaportIssueDate(cleanDate);
 
+    const cleanSchoolHeader = tempSchoolHeader.trim() || "MTs Manba'ul Islam";
+    setRaportSchoolHeader(cleanSchoolHeader);
+
     try {
       localStorage.setItem(STORAGE_RAPORT_CLASSES, JSON.stringify(nextMap));
       localStorage.setItem(
         STORAGE_RAPORT_TITIMANGSA,
         JSON.stringify({ issuePlace: cleanPlace, issueDate: cleanDate })
       );
+      localStorage.setItem(STORAGE_RAPORT_HEADER_SCHOOL, cleanSchoolHeader);
     } catch (e) {}
 
     // Update parent config so all other tabs, documents, and Firestore cloud stay synced
     if (onUpdateConfig) {
       onUpdateConfig({
         ...config,
+        schoolName: cleanSchoolHeader,
         issuePlace: cleanPlace,
         issueDate: cleanDate,
       });
     }
 
-    showRaportToast(`Data wali kelas dan titimangsa berhasil disimpan!`);
+    showRaportToast(`Pengaturan raport dan kop madrasah berhasil disimpan!`);
     setShowSettingsModal(false);
   };
 
@@ -687,14 +711,8 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
   }, [titleFormat, config.examTitle]);
 
   const schoolLevelDisplay = useMemo(() => {
-    const lvl = (config.schoolLevel || '').toUpperCase();
-    if (lvl.includes('MTS')) return 'TINGKAT MADRASAH TSANAWIYAH (MTs)';
-    if (lvl.includes('MA')) return 'TINGKAT MADRASAH ALIYAH (MA)';
-    if (lvl.includes('MI')) return 'TINGKAT MADRASAH IBTIDAIYAH (MI)';
-    if (lvl.includes('SMP')) return 'TINGKAT SEKOLAH MENENGAH PERTAMA (SMP)';
-    if (lvl.includes('SMA')) return 'TINGKAT SEKOLAH MENENGAH ATAS (SMA)';
-    return 'TINGKAT MADRASAH TSANAWIYAH (MTs)';
-  }, [config.schoolLevel]);
+    return raportSchoolHeader || "MTs Manba'ul Islam";
+  }, [raportSchoolHeader]);
 
   // Determine students to display
   const studentsToRender = useMemo(() => {
@@ -1088,7 +1106,7 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                   <h2 className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wide leading-tight">
                     {titleDisplay}
                   </h2>
-                  <h3 className="text-[10px] font-bold uppercase tracking-wider leading-tight">
+                  <h3 className="text-[10px] sm:text-[11px] font-bold tracking-wider leading-tight">
                     {schoolLevelDisplay}
                   </h3>
 
@@ -1713,6 +1731,37 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
                     placeholder="Contoh: 19820514 200801 2 004 atau -"
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-medium"
                   />
+                </div>
+              </div>
+
+              {/* Header School Name Customization */}
+              <div className="pt-2 border-t border-slate-200 space-y-2">
+                <label className="block font-semibold text-slate-700">
+                  Nama Madrasah / Lembaga di Header Raport (Baris ke-3)
+                </label>
+                <input
+                  type="text"
+                  value={tempSchoolHeader}
+                  onChange={(e) => setTempSchoolHeader(e.target.value)}
+                  placeholder="Contoh: MTs Manba'ul Islam"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-indigo-500 font-semibold"
+                />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] text-slate-400 font-medium">Pilihan cepat:</span>
+                  <button
+                    type="button"
+                    onClick={() => setTempSchoolHeader("MTs Manba'ul Islam")}
+                    className="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10.5px] font-bold cursor-pointer"
+                  >
+                    MTs Manba'ul Islam
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTempSchoolHeader("MTS MANBAUL ISLAM")}
+                    className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10.5px] font-medium cursor-pointer"
+                  >
+                    MTS MANBAUL ISLAM
+                  </button>
                 </div>
               </div>
 

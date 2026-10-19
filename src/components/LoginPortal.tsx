@@ -24,6 +24,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { STANDARD_SCHOOL_SUBJECTS } from '../utils/gradeUtils';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface LoginPortalProps {
   config: ExamConfig;
@@ -350,8 +351,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
           </div>
         </div>
 
-        {/* Date & Time Widget & Cloud Status */}
+        {/* Date & Time Widget & Cloud Status & Install Button */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Tombol Instal di HP */}
+          <PWAInstallButton variant="portal" />
+
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/70 border border-emerald-500/40 text-[11px] text-emerald-300 font-medium">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -869,6 +873,11 @@ export const LoginPortal: React.FC<LoginPortalProps> = ({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Banner Instal di HP */}
+        <div className="mt-4">
+          <PWAInstallButton variant="banner" />
         </div>
       </main>
 

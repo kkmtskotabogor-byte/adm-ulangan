@@ -23,6 +23,7 @@ import {
   Award,
   BookOpen
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   config: ExamConfig;
@@ -191,6 +192,9 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
 
+              {/* Tombol Instal di HP (PWA) */}
+              <PWAInstallButton variant="header" />
+
               {typeof window !== 'undefined' && window.self !== window.top && (
                 <a
                   href={window.location.href}
@@ -274,16 +278,19 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </div>
 
-          {onLogout && (
-            <button
-              type="button"
-              onClick={onLogout}
-              className="py-1 px-2.5 my-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-md shrink-0 flex items-center gap-1"
-            >
-              <LogOut className="w-3 h-3 text-rose-600" />
-              <span>Keluar</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <PWAInstallButton variant="compact" />
+            {onLogout && (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="py-1 px-2.5 my-1 text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-md shrink-0 flex items-center gap-1"
+              >
+                <LogOut className="w-3 h-3 text-rose-600" />
+                <span>Keluar</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </header>

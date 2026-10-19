@@ -3,7 +3,7 @@ import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
 import { MTS_MANBAUL_ISLAM_STS_SCHEDULE } from './schedulePresets';
 
 export const initialConfig: ExamConfig = {
-  schoolName: 'MTS MANBAUL ISLAM',
+  schoolName: "MTs Manba'ul Islam",
   npsn: '20278910',
   address: 'Jl. Raya Manbaul Islam No. 12, Kompleks Pesantren & Madrasah',
   subdistrict: 'Kec. Cigombong',
