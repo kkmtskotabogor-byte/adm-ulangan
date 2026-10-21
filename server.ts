@@ -268,11 +268,11 @@ async function startServer() {
       res.sendFile(path.resolve(distDir, 'index.html'));
     });
   } else {
-    // In dev, mount Vite middleware mode with HMR bound to httpServer or disabled if DISABLE_HMR is true
+    // In dev, mount Vite middleware mode with HMR disabled to prevent WebSocket errors on proxy
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+        hmr: false,
       },
       appType: 'spa',
     });

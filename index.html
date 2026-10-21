@@ -18,6 +18,79 @@
     <meta name="apple-mobile-web-app-title" content="SIM Ujian" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+
+    <!-- AI Studio Proxy & HMR WebSocket Guard -->
+    <script>
+      (function() {
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          var OriginalWebSocket = window.WebSocket;
+          window.WebSocket = function(url, protocols) {
+            var isViteHmr = 
+              protocols === 'vite-hmr' || 
+              (Array.isArray(protocols) && protocols.indexOf('vite-hmr') !== -1) ||
+              (typeof url === 'string' && (url.indexOf('token=') !== -1 && url.indexOf('vite') !== -1));
+
+            if (isViteHmr) {
+              var emitter = new EventTarget();
+              var fakeSocket = {
+                CONNECTING: 0,
+                OPEN: 1,
+                CLOSING: 2,
+                CLOSED: 3,
+                readyState: 1,
+                url: String(url),
+                protocol: 'vite-hmr',
+                extensions: '',
+                bufferedAmount: 0,
+                binaryType: 'blob',
+                onopen: null,
+                onclose: null,
+                onerror: null,
+                onmessage: null,
+                send: function() {},
+                close: function() {
+                  fakeSocket.readyState = 3;
+                },
+                addEventListener: function(type, listener, options) {
+                  emitter.addEventListener(type, listener, options);
+                },
+                removeEventListener: function(type, listener, options) {
+                  emitter.removeEventListener(type, listener, options);
+                },
+                dispatchEvent: function(event) {
+                  return emitter.dispatchEvent(event);
+                }
+              };
+
+              setTimeout(function() {
+                fakeSocket.readyState = 1;
+                var openEvt = new Event('open');
+                if (typeof fakeSocket.onopen === 'function') {
+                  fakeSocket.onopen(openEvt);
+                }
+                emitter.dispatchEvent(openEvt);
+              }, 10);
+
+              return fakeSocket;
+            }
+
+            return new OriginalWebSocket(url, protocols);
+          };
+          window.WebSocket.prototype = OriginalWebSocket.prototype;
+          window.WebSocket.CONNECTING = OriginalWebSocket.CONNECTING;
+          window.WebSocket.OPEN = OriginalWebSocket.OPEN;
+          window.WebSocket.CLOSING = OriginalWebSocket.CLOSING;
+          window.WebSocket.CLOSED = OriginalWebSocket.CLOSED;
+        }
+
+        window.addEventListener('unhandledrejection', function(e) {
+          if (e && e.reason && (e.reason.message || '').indexOf('WebSocket closed without opened') !== -1) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

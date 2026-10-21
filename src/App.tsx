@@ -77,6 +77,12 @@ import {
 } from './lib/api';
 import { mergeGradesIntelligently } from './utils/gradeUtils';
 import { ProctorAttendanceRecord } from './types';
+import {
+  safeSetLocalStorage,
+  persistGradesReliably,
+  loadGradesReliably,
+  idbDelete,
+} from './utils/idbStorage';
 
 const STORAGE_KEYS = {
   CONFIG: 'sim_ujian_config_mts_v3',
@@ -311,15 +317,25 @@ export default function App() {
         console.warn('Cloud database check note:', err);
       });
 
+    // 0. Initial load from local IndexedDB (handles datasets exceeding 5MB limit)
+    loadGradesReliably().then((idbGrades) => {
+      if (idbGrades && idbGrades.length > 0) {
+        setGrades((prev) => {
+          if (prev.length < idbGrades.length) {
+            return mergeGradesIntelligently(prev, idbGrades);
+          }
+          return prev;
+        });
+      }
+    });
+
     // 1. Initial active fetch from Cloud Firestore (Crucial for Multi-Device & Mobile/GitHub Pages!)
     getCloudGrades()
       .then((cloudGrades) => {
         if (cloudGrades && cloudGrades.length > 0) {
           setGrades((prev) => {
             const merged = mergeGradesIntelligently(prev, cloudGrades);
-            try {
-              localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
-            } catch {}
+            persistGradesReliably(merged).catch(() => {});
             return merged;
           });
           setLastGradeCloudSyncedAt(new Date());
@@ -340,9 +356,7 @@ export default function App() {
       if (serverGrades && serverGrades.length > 0) {
         setGrades((prev) => {
           const merged = mergeGradesIntelligently(prev, serverGrades);
-          try {
-            localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
-          } catch {}
+          persistGradesReliably(merged).catch(() => {});
           return merged;
         });
         setLastGradeCloudSyncedAt(new Date());
@@ -363,9 +377,7 @@ export default function App() {
         if (serverGrades && serverGrades.length > 0) {
           setGrades((prevLocal) => {
             const merged = mergeGradesIntelligently(prevLocal, serverGrades);
-            try {
-              localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
-            } catch (e) {}
+            persistGradesReliably(merged).catch(() => {});
             return merged;
           });
           setLastGradeCloudSyncedAt(new Date());
@@ -463,9 +475,7 @@ export default function App() {
             if (cloudGrades && cloudGrades.length > 0) {
               setGrades((prevLocal) => {
                 const merged = mergeGradesIntelligently(prevLocal, cloudGrades);
-                try {
-                  localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(merged));
-                } catch (e) {}
+                persistGradesReliably(merged).catch(() => {});
                 return merged;
               });
               setLastGradeCloudSyncedAt(new Date());
@@ -1073,6 +1083,7 @@ export default function App() {
       localStorage.removeItem(STORAGE_KEYS.DISPENSATIONS);
       localStorage.removeItem(STORAGE_KEYS.GRADES);
       localStorage.removeItem(STORAGE_KEYS.GRADING_CONFIGS);
+      idbDelete('sim_ujian_grades_v1').catch(() => {});
 
       // Force push to cloud
       saveExamConfigToCloud(initialConfig).catch(() => {});
@@ -1091,11 +1102,7 @@ export default function App() {
   const handleUpdateGrades = (updatedGrades: ExamGradeItem[], immediateSubject?: string) => {
     setGrades(updatedGrades);
     setIsGradeSyncing(true);
-    try {
-      localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(updatedGrades));
-    } catch (e) {
-      console.error(e);
-    }
+    persistGradesReliably(updatedGrades).catch(() => {});
 
     // Debounce server & cloud sync (300ms so rapid keystrokes feel instantaneous while preventing spam)
     if (gradesSyncTimerRef.current) {
@@ -1156,9 +1163,7 @@ export default function App() {
       if (remoteGrades.length > 0) {
         mergedGrades = mergeGradesIntelligently(grades, remoteGrades);
         setGrades(mergedGrades);
-        try {
-          localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(mergedGrades));
-        } catch {}
+        persistGradesReliably(mergedGrades).catch(() => {});
       }
 
       // 3. Extract grades for this subject
@@ -1247,37 +1252,38 @@ export default function App() {
     try {
       if (backupData.config) {
         setConfig(backupData.config);
-        localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(backupData.config));
-        await saveExamConfigToCloud(backupData.config);
+        safeSetLocalStorage(STORAGE_KEYS.CONFIG, JSON.stringify(backupData.config));
+        await saveExamConfigToCloud(backupData.config).catch(() => {});
       }
       if (backupData.rooms && Array.isArray(backupData.rooms)) {
         setRooms(backupData.rooms);
-        localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(backupData.rooms));
-        await syncRoomsToCloud(backupData.rooms);
+        safeSetLocalStorage(STORAGE_KEYS.ROOMS, JSON.stringify(backupData.rooms));
+        await syncRoomsToCloud(backupData.rooms).catch(() => {});
       }
       if (backupData.students && Array.isArray(backupData.students)) {
         setStudents(backupData.students);
-        localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(backupData.students));
-        await syncStudentsToCloud(backupData.students);
+        safeSetLocalStorage(STORAGE_KEYS.STUDENTS, JSON.stringify(backupData.students));
+        await syncStudentsToCloud(backupData.students).catch(() => {});
       }
       if (backupData.proctors && Array.isArray(backupData.proctors)) {
         setProctors(backupData.proctors);
-        localStorage.setItem(STORAGE_KEYS.PROCTORS, JSON.stringify(backupData.proctors));
-        await syncProctorsToCloud(backupData.proctors);
+        safeSetLocalStorage(STORAGE_KEYS.PROCTORS, JSON.stringify(backupData.proctors));
+        await syncProctorsToCloud(backupData.proctors).catch(() => {});
       }
       if (backupData.schedules && Array.isArray(backupData.schedules)) {
         setSchedules(backupData.schedules);
-        localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(backupData.schedules));
-        await syncSchedulesToCloud(backupData.schedules);
+        safeSetLocalStorage(STORAGE_KEYS.SCHEDULES, JSON.stringify(backupData.schedules));
+        await syncSchedulesToCloud(backupData.schedules).catch(() => {});
       }
       if (backupData.dispensations && Array.isArray(backupData.dispensations)) {
         setDispensations(backupData.dispensations);
-        localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(backupData.dispensations));
+        safeSetLocalStorage(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(backupData.dispensations));
       }
       if (backupData.grades && Array.isArray(backupData.grades)) {
         setGrades(backupData.grades);
-        localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(backupData.grades));
-        await syncAllGradesToCloud(backupData.grades);
+        await persistGradesReliably(backupData.grades);
+        await saveServerGrades(backupData.grades).catch(() => {});
+        await syncAllGradesToCloud(backupData.grades).catch(() => {});
       }
       if (backupData.gradingConfigs && Array.isArray(backupData.gradingConfigs)) {
         const confMap: Record<string, SubjectGradingConfig> = {};
@@ -1285,17 +1291,17 @@ export default function App() {
           if (c.subject) confMap[c.subject] = c;
         });
         setGradingConfigs(confMap);
-        localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
-        await saveGradingConfigsToCloud(confMap);
+        safeSetLocalStorage(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
+        await saveGradingConfigsToCloud(confMap).catch(() => {});
       }
       if (backupData.raportExtras && typeof backupData.raportExtras === 'object') {
-        localStorage.setItem('sim_ujian_raport_extra_v1', JSON.stringify(backupData.raportExtras));
-        await saveRaportExtraDataToCloud(backupData.raportExtras);
+        safeSetLocalStorage('sim_ujian_raport_extra_v1', JSON.stringify(backupData.raportExtras));
+        await saveRaportExtraDataToCloud(backupData.raportExtras).catch(() => {});
       }
       if (backupData.customSubjects && Array.isArray(backupData.customSubjects)) {
         setSubjects(backupData.customSubjects);
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(backupData.customSubjects));
-        await saveCustomSubjectsToCloud(backupData.customSubjects);
+        safeSetLocalStorage(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(backupData.customSubjects));
+        await saveCustomSubjectsToCloud(backupData.customSubjects).catch(() => {});
       }
       showToast('Seluruh data berhasil dipulihkan dan disinkronkan ke Cloud!');
     } catch (err) {
@@ -1312,37 +1318,38 @@ export default function App() {
     try {
       if (data.config) {
         setConfig(data.config);
-        localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(data.config));
-        await saveExamConfigToCloud(data.config);
+        safeSetLocalStorage(STORAGE_KEYS.CONFIG, JSON.stringify(data.config));
+        await saveExamConfigToCloud(data.config).catch(() => {});
       }
       if (data.rooms && Array.isArray(data.rooms)) {
         setRooms(data.rooms);
-        localStorage.setItem(STORAGE_KEYS.ROOMS, JSON.stringify(data.rooms));
-        await syncRoomsToCloud(data.rooms);
+        safeSetLocalStorage(STORAGE_KEYS.ROOMS, JSON.stringify(data.rooms));
+        await syncRoomsToCloud(data.rooms).catch(() => {});
       }
       if (data.students && Array.isArray(data.students)) {
         setStudents(data.students);
-        localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(data.students));
-        await syncStudentsToCloud(data.students);
+        safeSetLocalStorage(STORAGE_KEYS.STUDENTS, JSON.stringify(data.students));
+        await syncStudentsToCloud(data.students).catch(() => {});
       }
       if (data.proctors && Array.isArray(data.proctors)) {
         setProctors(data.proctors);
-        localStorage.setItem(STORAGE_KEYS.PROCTORS, JSON.stringify(data.proctors));
-        await syncProctorsToCloud(data.proctors);
+        safeSetLocalStorage(STORAGE_KEYS.PROCTORS, JSON.stringify(data.proctors));
+        await syncProctorsToCloud(data.proctors).catch(() => {});
       }
       if (data.schedules && Array.isArray(data.schedules)) {
         setSchedules(data.schedules);
-        localStorage.setItem(STORAGE_KEYS.SCHEDULES, JSON.stringify(data.schedules));
-        await syncSchedulesToCloud(data.schedules);
+        safeSetLocalStorage(STORAGE_KEYS.SCHEDULES, JSON.stringify(data.schedules));
+        await syncSchedulesToCloud(data.schedules).catch(() => {});
       }
       if (data.dispensations && Array.isArray(data.dispensations)) {
         setDispensations(data.dispensations);
-        localStorage.setItem(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(data.dispensations));
+        safeSetLocalStorage(STORAGE_KEYS.DISPENSATIONS, JSON.stringify(data.dispensations));
       }
       if (data.grades && Array.isArray(data.grades)) {
         setGrades(data.grades);
-        localStorage.setItem(STORAGE_KEYS.GRADES, JSON.stringify(data.grades));
-        await syncAllGradesToCloud(data.grades);
+        await persistGradesReliably(data.grades);
+        await saveServerGrades(data.grades).catch(() => {});
+        await syncAllGradesToCloud(data.grades).catch(() => {});
       }
       if (data.gradingConfigs && Array.isArray(data.gradingConfigs)) {
         const confMap: Record<string, SubjectGradingConfig> = {};
@@ -1350,17 +1357,17 @@ export default function App() {
           if (c.subject) confMap[c.subject] = c;
         });
         setGradingConfigs(confMap);
-        localStorage.setItem(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
-        await saveGradingConfigsToCloud(confMap);
+        safeSetLocalStorage(STORAGE_KEYS.GRADING_CONFIGS, JSON.stringify(confMap));
+        await saveGradingConfigsToCloud(confMap).catch(() => {});
       }
       if (data.raportExtras && typeof data.raportExtras === 'object') {
-        localStorage.setItem('sim_ujian_raport_extra_v1', JSON.stringify(data.raportExtras));
-        await saveRaportExtraDataToCloud(data.raportExtras);
+        safeSetLocalStorage('sim_ujian_raport_extra_v1', JSON.stringify(data.raportExtras));
+        await saveRaportExtraDataToCloud(data.raportExtras).catch(() => {});
       }
       if (data.customSubjects && Array.isArray(data.customSubjects)) {
         setSubjects(data.customSubjects);
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(data.customSubjects));
-        await saveCustomSubjectsToCloud(data.customSubjects);
+        safeSetLocalStorage(STORAGE_KEYS.CUSTOM_SUBJECTS, JSON.stringify(data.customSubjects));
+        await saveCustomSubjectsToCloud(data.customSubjects).catch(() => {});
       }
       showToast(`Data terpilih (${selectedParts.join(', ')}) berhasil dipulihkan!`);
     } catch (err) {
@@ -1388,6 +1395,7 @@ export default function App() {
 
       setGrades([]);
       localStorage.removeItem(STORAGE_KEYS.GRADES);
+      idbDelete('sim_ujian_grades_v1').catch(() => {});
 
       showToast('Data peserta & jadwal telah dikosongkan untuk persiapan ujian semester baru.');
     } catch (err) {
