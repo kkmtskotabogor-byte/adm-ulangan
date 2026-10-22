@@ -1,0 +1,461 @@
+[
+  {
+    "coachQuery": "Raditya (9F)",
+    "studentId": "std-167",
+    "fullName": "RADITIA ALVARO",
+    "className": "IX F",
+    "nis": "R-261667167",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Irsyad (9F)✅",
+    "studentId": "std-154",
+    "fullName": "IRSYAD ZAINUL MUTTAQIN",
+    "className": "IX F",
+    "nis": "I-261537154",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Haidar (7D)",
+    "studentId": "std-261",
+    "fullName": "Haidar Mutadjib",
+    "className": "VII D",
+    "nis": "H-262607261",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Wildan (7B)",
+    "studentId": "std-220",
+    "fullName": "Muhammad Wildan Abdurrahman",
+    "className": "VII B",
+    "nis": "M-26217229",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Dika (7C)",
+    "studentId": "std-232",
+    "fullName": "Aldian Mahar Dika",
+    "className": "VII C",
+    "nis": "A-262317232",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Asep (7B)",
+    "studentId": "std-208",
+    "fullName": "Asep Saepudin",
+    "className": "VII B",
+    "nis": "A-26207278",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Riski maulana (8E)",
+    "studentId": "std-456",
+    "fullName": "RIZKI MAULANA ADITYA",
+    "className": "VIII E",
+    "nis": "R-264567457",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Farhan akbar (8E)✅",
+    "studentId": "std-440",
+    "fullName": "FARHAN AKBAR RAMADHAN",
+    "className": "VIII E",
+    "nis": "F-264407441",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Fahmi (9F)✅",
+    "studentId": "std-150",
+    "fullName": "FAHMI FABIAN YUSUF",
+    "className": "IX F",
+    "nis": "F-26147159",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Celvino (8E)✅",
+    "studentId": "std-436",
+    "fullName": "CELVINO AZKA FABIAN",
+    "className": "VIII E",
+    "nis": "C-264367437",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Haikal el sarawi (8E)",
+    "studentId": "std-452",
+    "fullName": "MUHAMMAD HAIKAL ELSHARAWY",
+    "className": "VIII E",
+    "nis": "M-264527453",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.aldi nur (7A)",
+    "studentId": "std-188",
+    "fullName": "M. Aldi Nur Rizki",
+    "className": "VII A",
+    "nis": "M-261877188",
+    "nisn": "-",
+    "gender": "P"
+  },
+  {
+    "coachQuery": "M.satria alfaraz (8B)✅",
+    "studentId": "std-363",
+    "fullName": "MUHAMMAD SATRIA AL'FARAZ",
+    "className": "VIII B",
+    "nis": "M-263627363",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.rafa (9F)✅",
+    "studentId": "std-158",
+    "fullName": "MUHAMAD RAFA",
+    "className": "IX F",
+    "nis": "M-261577158",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Albi (7C)",
+    "studentId": "std-231",
+    "fullName": "Albi Yansyah",
+    "className": "VII C",
+    "nis": "A-262307231",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Fajar maulana (9F)✅",
+    "studentId": "std-151",
+    "fullName": "FAJAR M.",
+    "className": "IX F",
+    "nis": "F-261507151",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Fatarul (9C)",
+    "studentId": "std-57",
+    "fullName": "AKBAR FATTAHRUL AWWAL",
+    "className": "IX C",
+    "nis": "A-2657657",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.adni (7D)",
+    "studentId": "std-266",
+    "fullName": "Muhammad Adni",
+    "className": "VII D",
+    "nis": "M-262657266",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Farhat putra (9C)",
+    "studentId": "std-66",
+    "fullName": "FARHAT PUTRA KUSUMAH",
+    "className": "IX C",
+    "nis": "F-2667566",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Dafa nafiz (8B)",
+    "studentId": "std-346",
+    "fullName": "DAFA NAFIS MUAZAM",
+    "className": "VIII B",
+    "nis": "D-263457346",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Abam (7B)",
+    "studentId": "std-202",
+    "fullName": "Abrar Azizi Lutfi",
+    "className": "VII B",
+    "nis": "A-26207212",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Irfan (8A)",
+    "studentId": "std-321",
+    "fullName": "MUHAMMAD IRFAN SAPUTRA",
+    "className": "VIII A",
+    "nis": "M-263207321",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Abizar (7D) - 1",
+    "studentId": "std-257",
+    "fullName": "Abizar Kurniawan",
+    "className": "VII D",
+    "nis": "A-262567257",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Abizar (7D) - 2",
+    "studentId": "std-265",
+    "fullName": "Muhammad Abizar Maulana",
+    "className": "VII D",
+    "nis": "M-262647265",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Alo (9F)✅",
+    "studentId": "std-153",
+    "fullName": "IKRAR ALO",
+    "className": "IX F",
+    "nis": "I-261527153",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Sultan (7E)✅",
+    "studentId": "std-304",
+    "fullName": "Sultan Arkhan Abdillah",
+    "className": "VII E",
+    "nis": "S-26307334",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Khadafi (9E)✅",
+    "studentId": "std-132",
+    "fullName": "MUHAMMAD KHADAFY ALFINO",
+    "className": "IX E",
+    "nis": "M-261317132",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Riza tri saputra (8D)✅",
+    "studentId": "std-423",
+    "fullName": "RIZA TRI SAPUTRA",
+    "className": "VIII D",
+    "nis": "R-264237424",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Hisyam dwi rabani (8D)✅",
+    "studentId": "std-409",
+    "fullName": "HISYAM DWI RABBANI",
+    "className": "VIII D",
+    "nis": "H-26407489",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Arya nugraha (7A)",
+    "studentId": "std-178",
+    "fullName": "Arya Nugraha",
+    "className": "VII A",
+    "nis": "A-261777178",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.fahrorozi (9A -> 9E)",
+    "studentId": "std-130",
+    "fullName": "MUHAMMAD FACHRURROZI ISHAQ",
+    "className": "IX E",
+    "nis": "M-26127139",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.haikal basir (8E)✅",
+    "studentId": "std-447",
+    "fullName": "MUHAMAD HAIKAL AL BAHSYIR",
+    "className": "VIII E",
+    "nis": "M-264477448",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Zamzam (8D)✅",
+    "studentId": "std-430",
+    "fullName": "YUSUF ZAMZAMI",
+    "className": "VIII D",
+    "nis": "Y-264307431",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Muhaimin (7E)",
+    "studentId": "std-298",
+    "fullName": "Muhaymin",
+    "className": "VII E",
+    "nis": "M-262977298",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Rifqi (9A)",
+    "studentId": "std-21",
+    "fullName": "RIFKI RAMADHAN",
+    "className": "IX A",
+    "nis": "R-2627021",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Abdul mugni (8D)",
+    "studentId": "std-402",
+    "fullName": "ABDUL MUGNI",
+    "className": "VIII D",
+    "nis": "A-26407412",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Nabily (8D)✅",
+    "studentId": "std-416",
+    "fullName": "MUHAMMAD NABILLY SYAHDAN",
+    "className": "VIII D",
+    "nis": "M-264157416",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Kiar huda (7B)",
+    "studentId": "std-216",
+    "fullName": "Kiaryuda",
+    "className": "VII B",
+    "nis": "K-262157216",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.alif (8C)✅",
+    "studentId": "std-392",
+    "fullName": "MUHAMMAD ALIF AL HAKIM",
+    "className": "VIII C",
+    "nis": "M-263917392",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.azam (9B)✅",
+    "studentId": "std-44",
+    "fullName": "MUHAMAD AZAM AL RIFKI",
+    "className": "IX B",
+    "nis": "M-2647344",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.raihan saputra (9F)",
+    "studentId": "std-159",
+    "fullName": "MUHAMAD REYHAN SYAPUTRA",
+    "className": "IX F",
+    "nis": "M-261587159",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "M.ilham (9A)✅",
+    "studentId": "std-10",
+    "fullName": "M. ILHAM",
+    "className": "IX A",
+    "nis": "M-2607019",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Dimas (7A)",
+    "studentId": "std-180",
+    "fullName": "Dimas Alfiand Ramadhan",
+    "className": "VII A",
+    "nis": "D-26177189",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Afiansyah (7A)",
+    "studentId": "std-190",
+    "fullName": "Muhammad Alfiansyah",
+    "className": "VII A",
+    "nis": "M-26187199",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Dapi (8C)",
+    "studentId": "std-382",
+    "fullName": "FADEL MOHAMMAD DEVIRZHA",
+    "className": "VIII C",
+    "nis": "F-263817382",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Farel",
+    "studentId": "std-36",
+    "fullName": "FAREL RADITYA",
+    "className": "IX B",
+    "nis": "F-2637536",
+    "nisn": "-",
+    "gender": "L"
+  },
+  {
+    "coachQuery": "Kiraina(8B) - 1",
+    "studentId": "std-357",
+    "fullName": "KIREINA LULU MUTMAINAH",
+    "className": "VIII B",
+    "nis": "K-263567357",
+    "nisn": "-",
+    "gender": "P"
+  },
+  {
+    "coachQuery": "Kiraina(8B) - 2",
+    "studentId": "std-356",
+    "fullName": "KIRANI SASKIA RAMADHANIA",
+    "className": "VIII B",
+    "nis": "K-263557356",
+    "nisn": "-",
+    "gender": "P"
+  },
+  {
+    "coachQuery": "Gisel (8B)",
+    "studentId": "std-354",
+    "fullName": "GISELA PUTRI",
+    "className": "VIII B",
+    "nis": "G-263537354",
+    "nisn": "-",
+    "gender": "P"
+  },
+  {
+    "coachQuery": "Siren ( 8 )",
+    "studentId": "std-427",
+    "fullName": "SIREN FEBRIANI",
+    "className": "VIII D",
+    "nis": "S-264277428",
+    "nisn": "-",
+    "gender": "P"
+  },
+  {
+    "coachQuery": "Widya ( 9 )",
+    "studentId": "std-54",
+    "fullName": "WIDYANI DWI AGUSTINA",
+    "className": "IX B",
+    "nis": "W-2657354",
+    "nisn": "-",
+    "gender": "P"
+  }
+]

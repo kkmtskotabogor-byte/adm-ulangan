@@ -31,12 +31,14 @@ const GRADES_FILE = path.resolve(DATA_DIR, 'grades.json');
 const CONFIGS_FILE = path.resolve(DATA_DIR, 'grading_configs.json');
 const SUBJECTS_FILE = path.resolve(DATA_DIR, 'custom_subjects.json');
 const DISPENSATIONS_FILE = path.resolve(DATA_DIR, 'dispensations.json');
+const RAPORT_EXTRAS_FILE = path.resolve(DATA_DIR, 'raport_extras.json');
 
 // In-memory cache for ultra-fast access
 let cachedGrades: any[] = [];
 let cachedConfigs: Record<string, any> = {};
 let cachedSubjects: string[] = [];
 let cachedDispensations: any[] = [];
+let cachedRaportExtras: Record<string, any> = {};
 
 // Load initial data from disk
 try {
@@ -71,6 +73,14 @@ try {
   console.error('Error loading dispensations from file:', e);
 }
 
+try {
+  if (fs.existsSync(RAPORT_EXTRAS_FILE)) {
+    cachedRaportExtras = JSON.parse(fs.readFileSync(RAPORT_EXTRAS_FILE, 'utf-8'));
+  }
+} catch (e) {
+  console.error('Error loading raport extras from file:', e);
+}
+
 function persistGrades() {
   try {
     fs.writeFileSync(GRADES_FILE, JSON.stringify(cachedGrades, null, 2), 'utf-8');
@@ -92,6 +102,14 @@ function persistSubjects() {
     fs.writeFileSync(SUBJECTS_FILE, JSON.stringify(cachedSubjects, null, 2), 'utf-8');
   } catch (err) {
     console.error('Failed to persist subjects:', err);
+  }
+}
+
+function persistRaportExtras() {
+  try {
+    fs.writeFileSync(RAPORT_EXTRAS_FILE, JSON.stringify(cachedRaportExtras, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Failed to persist raport extras:', err);
   }
 }
 
@@ -241,6 +259,24 @@ app.post('/api/custom-subjects', (req, res) => {
     res.json({ success: true, subjects: cachedSubjects });
   } catch (e) {
     res.status(500).json({ error: 'Failed to save subjects' });
+  }
+});
+
+// 6. Raport Extras (Ekskul, Catatan, Absensi) API
+app.get('/api/raport-extras', (req, res) => {
+  res.json({ success: true, records: cachedRaportExtras });
+});
+
+app.post('/api/raport-extras', (req, res) => {
+  try {
+    const { records } = req.body;
+    if (records && typeof records === 'object') {
+      cachedRaportExtras = { ...cachedRaportExtras, ...records };
+      persistRaportExtras();
+    }
+    res.json({ success: true, records: cachedRaportExtras });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to save raport extras' });
   }
 });
 

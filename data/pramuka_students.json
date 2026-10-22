@@ -1,0 +1,130 @@
+[
+  {
+    "no": 1,
+    "coachInput": "fahdanar raya al-fath 7a",
+    "id": "std-183",
+    "name": "Fahdanar",
+    "class": "VII A",
+    "grade": "Baik"
+  },
+  {
+    "no": 2,
+    "coachInput": "muhammad bayu syahidan 7c",
+    "id": "std-246",
+    "name": "Muhammad Bayu Syahidan",
+    "class": "VII C",
+    "grade": "Baik"
+  },
+  {
+    "no": 3,
+    "coachInput": "suniyya rana putri 7c",
+    "id": "std-254",
+    "name": "Suniyya Rana Putri",
+    "class": "VII C",
+    "grade": "Baik"
+  },
+  {
+    "no": 4,
+    "coachInput": "Siti sarah 7c",
+    "id": "std-253",
+    "name": "Siti Sarah",
+    "class": "VII C",
+    "grade": "Baik"
+  },
+  {
+    "no": 5,
+    "coachInput": "rafa syaputra 7c",
+    "id": "std-249",
+    "name": "Rafa Syahputra",
+    "class": "VII C",
+    "grade": "Baik"
+  },
+  {
+    "no": 6,
+    "coachInput": "nova riani 7e",
+    "id": "std-299",
+    "name": "Nova Riani",
+    "class": "VII E",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 7,
+    "coachInput": "Devin al fauzan 7a",
+    "id": "std-189",
+    "name": "M. Devin Alfauzan",
+    "class": "VII A",
+    "grade": "Baik"
+  },
+  {
+    "no": 8,
+    "coachInput": "dhisti naura anjani 8b",
+    "id": "std-347",
+    "name": "DHISTI NAURA ANJANI",
+    "class": "VIII B",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 9,
+    "coachInput": "syahda amelia putri 8b",
+    "id": "std-370",
+    "name": "SYAHDA AMELIA PUTRI",
+    "class": "VIII B",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 10,
+    "coachInput": "gisela putri 8b",
+    "id": "std-354",
+    "name": "GISELA PUTRI",
+    "class": "VIII B",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 11,
+    "coachInput": "sabila aulia 8b",
+    "id": "std-367",
+    "name": "SABILA AULIA",
+    "class": "VIII B",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 12,
+    "coachInput": "city el fatimah kela natasya 8c",
+    "id": "std-380",
+    "name": "CITYEL FATIMAH KHELA NATASYA",
+    "class": "VIII C",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 13,
+    "coachInput": "radya nadin 8c",
+    "id": "std-397",
+    "name": "RADYA NADIN",
+    "class": "VIII C",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 14,
+    "coachInput": "hanabi al khairi 8c",
+    "id": "std-386",
+    "name": "HANABI ALKHAIRI",
+    "class": "VIII C",
+    "grade": "Baik"
+  },
+  {
+    "no": 15,
+    "coachInput": "aditya ramadhan 8b",
+    "id": "std-360",
+    "name": "MUHAMMAD ADITYA RAMADHAN",
+    "class": "VIII B",
+    "grade": "Sangat Baik"
+  },
+  {
+    "no": 16,
+    "coachInput": "tasya afrilia 8a",
+    "id": "std-335",
+    "name": "TASYA AFRILIA",
+    "class": "VIII A",
+    "grade": "Sangat Baik"
+  }
+]

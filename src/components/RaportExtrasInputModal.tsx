@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Student, StudentRaportExtraData } from '../types';
+import { initialRaportExtras } from '../data/initialData';
+import { isPramukaStudent } from '../utils/ekskulUtils';
 
 export interface RaportExtrasInputModalProps {
   isOpen: boolean;
@@ -123,11 +125,12 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
 
   // Working copy of data map to avoid unintended live mutations until user clicks save
   const [localMap, setLocalMap] = useState<Record<string, StudentRaportExtraData>>(() => ({
+    ...initialRaportExtras,
     ...extraDataMap,
   }));
 
   useEffect(() => {
-    setLocalMap({ ...extraDataMap });
+    setLocalMap({ ...initialRaportExtras, ...extraDataMap });
   }, [extraDataMap, isOpen]);
 
   // Excel Import Review State
@@ -177,17 +180,33 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
   const currentIndex = classStudents.findIndex((s) => s.id === activeStudentId);
 
   // Current student extra data
+  const currentNormName = currentStudent?.name?.toUpperCase().trim() || '';
+  const currentMasterExtra = currentStudent
+    ? initialRaportExtras[currentStudent.id] ||
+      (currentNormName ? initialRaportExtras[currentNormName] : undefined)
+    : undefined;
+
   const currentExtra: StudentRaportExtraData = currentStudent
-    ? localMap[currentStudent.id] || {
+    ? localMap[currentStudent.id] ||
+      (currentNormName ? localMap[currentNormName] : undefined) ||
+      currentMasterExtra || {
         keperibadian: { ...DEFAULT_KEPRIBADIAN },
         absensi: { sakit: '-', izin: '-', alpa: '-' },
-        ekskul: [
-          { name: 'Pramuka', nilai: 'Baik' },
-          { name: 'Marawis', nilai: '-' },
-          { name: 'Hadrah', nilai: '-' },
-          { name: '', nilai: '-' },
-          { name: '', nilai: '-' },
-        ],
+        ekskul: isPramukaStudent(currentStudent?.id, currentStudent?.name).allowed
+          ? [
+              { name: 'Pramuka', nilai: isPramukaStudent(currentStudent?.id, currentStudent?.name).grade || 'Baik' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+            ]
+          : [
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+              { name: '', nilai: '-' },
+            ],
         catatanWaliKelas: [
           'Rajinlah Terus Belajar di Rumah',
           'Tingkatkan dan pertahankan prestasi',
@@ -202,27 +221,15 @@ export const RaportExtrasInputModal: React.FC<RaportExtrasInputModalProps> = ({
   const updateCurrentStudentExtra = (updater: (prev: StudentRaportExtraData) => StudentRaportExtraData) => {
     if (!currentStudent) return;
     setLocalMap((prev) => {
-      const existing = prev[currentStudent.id] || {
-        keperibadian: { ...DEFAULT_KEPRIBADIAN },
-        absensi: { sakit: '-', izin: '-', alpa: '-' },
-        ekskul: [
-          { name: 'Pramuka', nilai: 'Baik' },
-          { name: 'Marawis', nilai: '-' },
-          { name: 'Hadrah', nilai: '-' },
-          { name: '', nilai: '-' },
-          { name: '', nilai: '-' },
-        ],
-        catatanWaliKelas: [
-          'Rajinlah Terus Belajar di Rumah',
-          'Tingkatkan dan pertahankan prestasi',
-          'Pergunakanlah waktu belajar sebaik mungkin',
-          'Disiplin dan sopan santun dalam belajar',
-          'Tingkatkan motivasi dan semangat belajar',
-        ],
-      };
+      const existing =
+        prev[currentStudent.id] ||
+        (currentNormName ? prev[currentNormName] : undefined) ||
+        currentExtra;
+      const updated = updater(existing);
       return {
         ...prev,
-        [currentStudent.id]: updater(existing),
+        [currentStudent.id]: updated,
+        ...(currentNormName ? { [currentNormName]: updated } : {}),
       };
     });
   };

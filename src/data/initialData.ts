@@ -1,4 +1,4 @@
-import { ExamConfig, ExamDispensation, ExamRoom, ExamScheduleItem, Proctor, Student } from '../types';
+import { ExamConfig, ExamDispensation, ExamRoom, ExamScheduleItem, Proctor, Student, StudentRaportExtraData } from '../types';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
 import { MTS_MANBAUL_ISLAM_STS_SCHEDULE } from './schedulePresets';
 
@@ -5230,3 +5230,1526 @@ export const initialDispensations: ExamDispensation[] = [
     allowedSubjects: ['Semua Mata Pelajaran']
   }
 ];
+
+export const initialRaportExtras: Record<string, StudentRaportExtraData> = {
+  "std-167": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RADITIA ALVARO": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-154": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "IRSYAD ZAINUL MUTTAQIN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-261": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "HAIDAR MUTADJIB": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-220": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD WILDAN ABDURRAHMAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-232": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ALDIAN MAHAR DIKA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-208": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ASEP SAEPUDIN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-456": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RIZKI MAULANA ADITYA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-440": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FARHAN AKBAR RAMADHAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-150": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FAHMI FABIAN YUSUF": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-436": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "CELVINO AZKA FABIAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-452": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD HAIKAL ELSHARAWY": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-188": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "M. ALDI NUR RIZKI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-363": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD SATRIA AL'FARAZ": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-158": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMAD RAFA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-231": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ALBI YANSYAH": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-151": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FAJAR M.": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-57": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "AKBAR FATTAHRUL AWWAL": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-266": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD ADNI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-66": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FARHAT PUTRA KUSUMAH": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-346": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "DAFA NAFIS MUAZAM": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-202": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ABRAR AZIZI LUTFI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-321": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD IRFAN SAPUTRA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-257": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ABIZAR KURNIAWAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-265": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD ABIZAR MAULANA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-153": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "IKRAR ALO": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-304": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SULTAN ARKHAN ABDILLAH": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-132": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD KHADAFY ALFINO": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-423": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RIZA TRI SAPUTRA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-409": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "HISYAM DWI RABBANI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-178": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ARYA NUGRAHA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-130": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD FACHRURROZI ISHAQ": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-447": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMAD HAIKAL AL BAHSYIR": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-430": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "YUSUF ZAMZAMI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-298": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAYMIN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-21": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RIFKI RAMADHAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-402": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ABDUL MUGNI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-416": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD NABILLY SYAHDAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-216": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "KIARYUDA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-392": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD ALIF AL HAKIM": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-44": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMAD AZAM AL RIFKI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-159": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMAD REYHAN SYAPUTRA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-10": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "M. ILHAM": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-180": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "DIMAS ALFIAND RAMADHAN": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-190": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD ALFIANSYAH": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-382": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FADEL MOHAMMAD DEVIRZHA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-36": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FAREL RADITYA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-357": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "KIREINA LULU MUTMAINAH": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-356": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "KIRANI SASKIA RAMADHANIA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-354": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "GISELA PUTRI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-427": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SIREN FEBRIANI": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-54": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "WIDYANI DWI AGUSTINA": {
+    "ekskul": [
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-344": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ASYIFAH SYEHLENA FITRI": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-342": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "AHMALIA KHOERUNNISA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-177": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ARFA MUHAMMAD ATTHAYA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-174": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "AHMAD NIZAM MUHARAM": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-341": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "AHMAD FATONI AL-AMIN": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-345": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ATHIFAH VIRLIA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-122": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "BILQIST ZAHIRA RAMADHANI": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-189": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "M. DEVIN ALFAUZAN": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-237": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "DANISH SAFWAN": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-38": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "HANIFA KARTIKA SARI": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-410": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "INAYAH MAULIDYA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-186": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "KEISYA ADELIA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-355": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "KHOIRUNISSA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-19": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RASTY ANASTASYANA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-397": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "RADYA NADIN": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-182": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "DZULVA ARVANZAKY": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-457": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SABRINA AQILA RAHADATUL AISY": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-368": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SITI SYAKIRA BAHRI": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-367": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "SABILA AULIA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-280": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "TAMASHII ANDING": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-194": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "PANDU JULIAN": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-143": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ZAHRA ASYIFA": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-198": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SITI NUR RAHMAH": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-175": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "ALDI KOSASIH": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-78": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RANI QANITAH": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-193": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "NURUL AINI": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-89": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "AURELIA AGUSTINA RAMADHANI": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-441": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "HABIBATUS SYADIYAH": {
+    "ekskul": [
+      {
+        "name": "Taekwondo",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-183": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "FAHDANAR": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-246": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "MUHAMMAD BAYU SYAHIDAN": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-254": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SUNIYYA RANA PUTRI": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-253": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "SITI SARAH": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-249": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "RAFA SYAHPUTRA": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-299": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "NOVA RIANI": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-347": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "DHISTI NAURA ANJANI": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-370": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "SYAHDA AMELIA PUTRI": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-380": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "CITYEL FATIMAH KHELA NATASYA": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-386": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "HANABI ALKHAIRI": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      }
+    ]
+  },
+  "std-360": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "MUHAMMAD ADITYA RAMADHAN": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "std-335": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  },
+  "TASYA AFRILIA": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Sangat Baik"
+      }
+    ]
+  }
+};

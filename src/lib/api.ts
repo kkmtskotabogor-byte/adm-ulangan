@@ -166,3 +166,38 @@ export async function saveServerGradingConfigs(configs: Record<string, SubjectGr
     clearTimeout(timer);
   }
 }
+
+// Raport Extras API helpers (Ekskul, Catatan, Absensi)
+export async function fetchServerRaportExtras(): Promise<Record<string, any>> {
+  if (isStaticHosting) return {};
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch('/api/raport-extras', { signal: controller.signal });
+    if (!res.ok) return {};
+    const data = await res.json();
+    return data.records || {};
+  } catch {
+    return {};
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function saveServerRaportExtras(records: Record<string, any>): Promise<void> {
+  if (isStaticHosting) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    await fetch('/api/raport-extras', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ records }),
+      signal: controller.signal,
+    });
+  } catch {
+    // ignore
+  } finally {
+    clearTimeout(timer);
+  }
+}

@@ -19,10 +19,13 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { ExamConfig, ExamGradeItem, Student, SubjectGradingConfig, StudentRaportExtraData } from '../types';
+import { initialRaportExtras } from '../data/initialData';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
 import { terbilang, DEFAULT_KKM } from '../utils/gradeUtils';
 import { RaportExtrasInputModal } from './RaportExtrasInputModal';
 import { subscribeToRaportExtraData, saveRaportExtraDataToCloud } from '../lib/firebase';
+import { fetchServerRaportExtras, saveServerRaportExtras } from '../lib/api';
+import { isPramukaStudent } from '../utils/ekskulUtils';
 
 export interface RaportStsPrintViewProps {
   config: ExamConfig;
@@ -169,13 +172,57 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
 
   // Extra per-student data (Keperibadian, Absensi, Ekskul, Catatan)
   const [extraDataMap, setExtraDataMap] = useState<Record<string, StudentRaportExtraData>>(() => {
+    let localData: Record<string, StudentRaportExtraData> = {};
     try {
       const saved = localStorage.getItem(STORAGE_RAPORT_EXTRA);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        localData = JSON.parse(saved);
+      }
     } catch (e) {
       console.warn('Error loading raport extra data:', e);
     }
-    return {};
+
+    const merged = { ...initialRaportExtras, ...localData };
+    // For students with ekskul entries in initialRaportExtras (Futsal, Taekwondo, Pramuka), ensure they are merged cleanly
+    for (const [sId, initEx] of Object.entries(initialRaportExtras)) {
+      if (!localData[sId]) {
+        merged[sId] = initEx;
+      } else {
+        const curEkskul = localData[sId].ekskul || [];
+        const initEkskuls = initEx.ekskul || [];
+        const nextEkskul = [...curEkskul];
+        for (const ie of initEkskuls) {
+          if (ie.name && ie.nilai !== '-' && !nextEkskul.some((e) => e.name && e.name.toLowerCase() === ie.name.toLowerCase())) {
+            // Replace placeholder or push
+            const emptyIdx = nextEkskul.findIndex((e) => !e.name || e.nilai === '-');
+            if (emptyIdx !== -1) {
+              nextEkskul.splice(emptyIdx, 1, ie);
+            } else {
+              nextEkskul.push(ie);
+            }
+          }
+        }
+        merged[sId] = {
+          ...localData[sId],
+          ekskul: nextEkskul,
+        };
+      }
+    }
+
+    // Strip out leftover default Pramuka from any student not enrolled in official Pramuka roster
+    for (const [key, extra] of Object.entries(merged)) {
+      if (extra && extra.ekskul && Array.isArray(extra.ekskul)) {
+        const check = isPramukaStudent(key, key);
+        if (!check.allowed && extra.ekskul.some((e) => e.name && e.name.toLowerCase() === 'pramuka')) {
+          merged[key] = {
+            ...extra,
+            ekskul: extra.ekskul.filter((e) => e.name && e.name.toLowerCase() !== 'pramuka'),
+          };
+        }
+      }
+    }
+
+    return merged;
   });
 
   // Global Titimangsa (Tempat & Tanggal Penerbitan Raport)
@@ -201,8 +248,22 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     return config.issueDate || '1 Oktober 2026';
   });
 
-  // Subscribe to real-time Cloud updates for Raport Extra Data
+  // Subscribe to real-time Cloud updates & backend server for Raport Extra Data
   useEffect(() => {
+    // 1. Initial fetch from high-speed backend server
+    fetchServerRaportExtras().then((serverData) => {
+      if (serverData && typeof serverData === 'object' && Object.keys(serverData).length > 0) {
+        setExtraDataMap((prev) => {
+          const merged = { ...prev, ...serverData };
+          try {
+            localStorage.setItem(STORAGE_RAPORT_EXTRA, JSON.stringify(merged));
+          } catch (e) {}
+          return merged;
+        });
+      }
+    });
+
+    // 2. Real-time Cloud listener
     const unsub = subscribeToRaportExtraData((cloudData) => {
       if (cloudData && typeof cloudData === 'object' && Object.keys(cloudData).length > 0) {
         setExtraDataMap((prev) => {
@@ -217,12 +278,13 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     return () => unsub();
   }, []);
 
-  // Save handler that updates local state, localStorage, and Firestore cloud
+  // Save handler that updates local state, localStorage, backend server, and Firestore cloud
   const handleSaveExtraData = (newMap: Record<string, StudentRaportExtraData>) => {
     setExtraDataMap(newMap);
     try {
       localStorage.setItem(STORAGE_RAPORT_EXTRA, JSON.stringify(newMap));
     } catch (e) {}
+    saveServerRaportExtras(newMap).catch(() => {});
     saveRaportExtraDataToCloud(newMap).catch((err) => {
       console.warn('Failed to sync raport extra data to cloud:', err);
     });
@@ -1023,26 +1085,80 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
           </div>
         ) : (
           studentsToRender.map((student, studentIndex) => {
-            const studentExtra = extraDataMap[student.id] || {};
+            const normName = (student.name || '').toUpperCase().trim();
+            const masterExtra =
+              initialRaportExtras[student.id] ||
+              (normName ? initialRaportExtras[normName] : undefined) ||
+              {};
+
+            const studentExtra =
+              extraDataMap[student.id] ||
+              (normName ? extraDataMap[normName] : undefined) ||
+              masterExtra ||
+              {};
+
             const keperibadian = {
-              kelakuan: studentExtra.keperibadian?.kelakuan || 'Baik',
-              kerajinan: studentExtra.keperibadian?.kerajinan || 'Baik',
-              kerapihan: studentExtra.keperibadian?.kerapihan || 'Baik',
-              kebersihan: studentExtra.keperibadian?.kebersihan || 'Baik',
+              kelakuan: studentExtra.keperibadian?.kelakuan || masterExtra.keperibadian?.kelakuan || 'Baik',
+              kerajinan: studentExtra.keperibadian?.kerajinan || masterExtra.keperibadian?.kerajinan || 'Baik',
+              kerapihan: studentExtra.keperibadian?.kerapihan || masterExtra.keperibadian?.kerapihan || 'Baik',
+              kebersihan: studentExtra.keperibadian?.kebersihan || masterExtra.keperibadian?.kebersihan || 'Baik',
             };
             const absensi = {
-              sakit: studentExtra.absensi?.sakit ?? '-',
-              izin: studentExtra.absensi?.izin ?? '-',
-              alpa: studentExtra.absensi?.alpa ?? '-',
+              sakit: studentExtra.absensi?.sakit ?? masterExtra.absensi?.sakit ?? '-',
+              izin: studentExtra.absensi?.izin ?? masterExtra.absensi?.izin ?? '-',
+              alpa: studentExtra.absensi?.alpa ?? masterExtra.absensi?.alpa ?? '-',
             };
-            const ekskulList = studentExtra.ekskul || [
-              { name: 'Pramuka', nilai: 'Baik' },
-              { name: 'Marawis', nilai: '-' },
-              { name: 'Hadrah', nilai: '-' },
-              { name: '', nilai: '-' },
-              { name: '', nilai: '-' },
-            ];
-            const catatanList = studentExtra.catatanWaliKelas || [
+
+            // Smart ekskul list: combine any known master ekskul (e.g. Futsal, Taekwondo) with student's ekskuls
+            const rawEkskul = (studentExtra.ekskul && Array.isArray(studentExtra.ekskul)) ? studentExtra.ekskul : [];
+            const masterEkskul = (masterExtra.ekskul && Array.isArray(masterExtra.ekskul)) ? masterExtra.ekskul : [];
+
+            const activeEkskulMap = new Map<string, string>();
+
+            // 1. Pramuka is ONLY added if student belongs to the official 16-student Pramuka list
+            const pramukaCheck = isPramukaStudent(student.id, student.name);
+            if (pramukaCheck.allowed) {
+              activeEkskulMap.set('Pramuka', pramukaCheck.grade || 'Baik');
+            }
+
+            // 2. Add master ekskuls (Futsal, Taekwondo, etc.)
+            masterEkskul.forEach((me) => {
+              if (me.name && me.name.trim() !== '' && me.name !== '-' && !me.name.includes('Marawis') && me.nilai !== '-') {
+                if (me.name.toLowerCase() === 'pramuka') {
+                  if (pramukaCheck.allowed) {
+                    activeEkskulMap.set('Pramuka', pramukaCheck.grade || me.nilai || 'Baik');
+                  }
+                } else {
+                  activeEkskulMap.set(me.name.trim(), me.nilai || 'Baik');
+                }
+              }
+            });
+
+            // 3. Add any user-customized ekskuls (filtering out Pramuka if not enrolled)
+            rawEkskul.forEach((re) => {
+              if (re.name && re.name.trim() !== '' && re.name !== '-' && re.nilai !== '-') {
+                if (re.name.toLowerCase() === 'pramuka') {
+                  if (pramukaCheck.allowed) {
+                    activeEkskulMap.set('Pramuka', pramukaCheck.grade || re.nilai || 'Baik');
+                  }
+                } else {
+                  activeEkskulMap.set(re.name.trim(), re.nilai || 'Baik');
+                }
+              }
+            });
+
+            const combinedEkskuls: Array<{ name: string; nilai: string }> = [];
+            activeEkskulMap.forEach((nilai, name) => {
+              combinedEkskuls.push({ name, nilai });
+            });
+
+            // Pad up to 5 lines with empty row placeholders
+            while (combinedEkskuls.length < 5) {
+              combinedEkskuls.push({ name: '', nilai: '-' });
+            }
+
+            const ekskulList = combinedEkskuls;
+            const catatanList = studentExtra.catatanWaliKelas || masterExtra.catatanWaliKelas || [
               'Rajinlah Terus Belajar di Rumah',
               'Tingkatkan dan pertahankan prestasi',
               'Pergunakanlah waktu belajar sebaik mungkin',

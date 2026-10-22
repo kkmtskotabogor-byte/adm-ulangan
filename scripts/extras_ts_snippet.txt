@@ -1,0 +1,819 @@
+
+export const initialRaportExtras: Record<string, StudentRaportExtraData> = {
+  "std-167": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-154": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-261": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-220": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-232": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-208": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-456": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-440": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-150": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-436": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-452": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-188": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-363": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-158": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-231": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-151": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-57": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-266": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-66": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-346": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-202": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-321": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-257": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-265": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-153": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-304": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-132": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-423": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-409": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-178": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-130": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-447": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-430": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-298": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-21": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-402": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-416": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-216": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-392": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-44": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-159": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-10": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-180": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-190": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-382": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-36": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-357": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-356": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-354": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-427": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  },
+  "std-54": {
+    "ekskul": [
+      {
+        "name": "Pramuka",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Futsal",
+        "nilai": "Baik"
+      },
+      {
+        "name": "Marawis / Hadrah",
+        "nilai": "-"
+      }
+    ]
+  }
+};
