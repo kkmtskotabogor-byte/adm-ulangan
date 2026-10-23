@@ -21,7 +21,7 @@ import {
 import { ExamConfig, ExamGradeItem, Student, SubjectGradingConfig, StudentRaportExtraData } from '../types';
 import { initialRaportExtras } from '../data/initialData';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
-import { terbilang, DEFAULT_KKM } from '../utils/gradeUtils';
+import { terbilang, DEFAULT_KKM, isSameOrAliasSubject } from '../utils/gradeUtils';
 import { RaportExtrasInputModal } from './RaportExtrasInputModal';
 import { subscribeToRaportExtraData, saveRaportExtraDataToCloud } from '../lib/firebase';
 import { fetchServerRaportExtras, saveServerRaportExtras } from '../lib/api';
@@ -526,133 +526,88 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     window.open(url, '_blank');
   };
 
-  // Helper to extract score for student & subject
+  // Helper to extract score for student & subject with strict priority matching
   const getSubjectScore = (student: Student, subjectTitle: string): number | null => {
-    const cleanTarget = subjectTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+    // 1. Filter grades that match this subject (handles all curriculum aliases: IPA, Alquran Hadist, PKn, Fikih, etc.)
+    const candidates = grades.filter((g) => isSameOrAliasSubject(g.subject, subjectTitle));
+    if (candidates.length === 0) return null;
 
-    const found = grades.find((g) => {
-      // 1. Student match: prioritize exact studentId, non-dash examNumber, clean student name, or valid non-dash NISN
-      const isIdMatch = Boolean(g.studentId && student.id && g.studentId === student.id);
-      const isExamMatch = Boolean(
-        student.examNumber &&
-        student.examNumber.trim() !== '' &&
-        student.examNumber.trim() !== '-' &&
-        g.examNumber &&
-        g.examNumber.trim() !== '' &&
-        g.examNumber.trim() !== '-' &&
-        g.examNumber.trim().toLowerCase() === student.examNumber.trim().toLowerCase()
-      );
-      const isNisnMatch = Boolean(
-        student.nisn &&
-        student.nisn.trim() !== '' &&
-        student.nisn.trim() !== '-' &&
-        student.nisn.trim() !== '0' &&
-        student.nisn.trim().length > 3 &&
-        g.nisn &&
-        g.nisn.trim() !== '' &&
-        g.nisn.trim() !== '-' &&
-        g.nisn.trim() !== '0' &&
-        g.nisn.trim().length > 3 &&
-        g.nisn.trim() === student.nisn.trim()
-      );
-      const isNameMatch = Boolean(
-        student.name &&
-        g.studentName &&
-        (() => {
-          const sClean = student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          const gClean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (sClean.length > 2 && sClean === gClean) {
-            if (g.className && student.className) {
-              const gClass = g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-              const sClass = student.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-              return gClass === sClass;
-            }
-            return true;
-          }
-          return false;
-        })()
-      );
+    // 2. Strict Student Matching Hierarchy:
+    // Tier 1: Exact studentId match (Highest authority, e.g. std-import-...)
+    const byId = candidates.filter((g) => Boolean(g.studentId && student.id && g.studentId === student.id));
 
-      const studentMatch = isIdMatch || isExamMatch || isNameMatch || isNisnMatch;
+    // Tier 2: Exact non-dash examNumber match
+    const cleanExam = student.examNumber && student.examNumber.trim() !== '' && student.examNumber.trim() !== '-'
+      ? student.examNumber.trim().toLowerCase()
+      : null;
+    const byExam = cleanExam
+      ? candidates.filter((g) => g.examNumber && g.examNumber.trim().toLowerCase() === cleanExam)
+      : [];
 
-      if (!studentMatch) return false;
+    // Tier 3: Valid non-dash NISN match
+    const cleanNisn = student.nisn && student.nisn.trim() !== '' && student.nisn.trim() !== '-' && student.nisn.trim() !== '0' && student.nisn.trim().length > 3
+      ? student.nisn.trim()
+      : null;
+    const byNisn = cleanNisn
+      ? candidates.filter((g) => g.nisn && g.nisn.trim() === cleanNisn)
+      : [];
 
-      // 2. Subject match
-      const gSubClean = (g.subject || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (gSubClean === cleanTarget) return true;
-      if (cleanTarget.includes(gSubClean) || gSubClean.includes(cleanTarget)) return true;
+    // Tier 4: Matching student name AND class
+    const sNameClean = student.name ? student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const sClassClean = student.className ? student.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+    const byNameAndClass = (sNameClean.length > 2 && sClassClean)
+      ? candidates.filter((g) => {
+          const gName = g.studentName ? g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+          const gClass = g.className ? g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+          return gName === sNameClean && gClass === sClassClean;
+        })
+      : [];
 
-      // Smart curriculum aliases with strict disambiguation
-      // BTQ (Baca Tulis Al-Qur'an)
-      if (cleanTarget.includes('btq') || cleanTarget.includes('bacatulis') || cleanTarget.includes('tulisquran') || cleanTarget.includes('bacaquran')) {
-        return gSubClean.includes('btq') || gSubClean.includes('bacatulis') || gSubClean.includes('tulisquran') || gSubClean.includes('bacaquran');
-      }
+    // Tier 5: Matching student name alone (fallback if class missing in imported grade record)
+    const byName = (sNameClean.length > 2)
+      ? candidates.filter((g) => {
+          const gName = g.studentName ? g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+          return gName === sNameClean;
+        })
+      : [];
 
-      // Al-Qur'an Hadits (must NOT match BTQ)
-      if (cleanTarget.includes('hadis') || cleanTarget.includes('hadits') || (cleanTarget.includes('quran') && !cleanTarget.includes('btq') && !cleanTarget.includes('bacatulis'))) {
-        return (gSubClean.includes('hadis') || gSubClean.includes('hadits') || gSubClean.includes('quran')) && !gSubClean.includes('btq') && !gSubClean.includes('bacatulis');
-      }
+    // Select the highest priority match tier that has records
+    const matchedPool = byId.length > 0 ? byId
+      : byExam.length > 0 ? byExam
+      : byNisn.length > 0 ? byNisn
+      : byNameAndClass.length > 0 ? byNameAndClass
+      : byName.length > 0 ? byName
+      : [];
 
-      if (cleanTarget.includes('akidah') || cleanTarget.includes('akhlak')) {
-        return gSubClean.includes('akidah') || gSubClean.includes('akhlak');
-      }
-      if (cleanTarget === 'fikih' || cleanTarget === 'fiqih') {
-        return gSubClean.includes('fikih') || gSubClean.includes('fiqih');
-      }
-      if (cleanTarget.includes('ski') || cleanTarget.includes('sejarahkebudayaan')) {
-        return gSubClean.includes('ski') || gSubClean.includes('sejarahkebudayaan');
-      }
-      if (cleanTarget.includes('kewarganegaraan') || cleanTarget.includes('pkn') || cleanTarget.includes('pancasila')) {
-        return gSubClean.includes('kewarganegaraan') || gSubClean.includes('pkn') || gSubClean.includes('pancasila');
-      }
-      if (cleanTarget.includes('ipa') || (cleanTarget.includes('alam') && !cleanTarget.includes('sosial'))) {
-        return gSubClean.includes('ipa') || (gSubClean.includes('alam') && !gSubClean.includes('sosial'));
-      }
-      if (cleanTarget.includes('ips') || cleanTarget.includes('sosial')) {
-        return gSubClean.includes('ips') || gSubClean.includes('sosial');
-      }
-      if (cleanTarget.includes('penjas') || cleanTarget.includes('pjok') || cleanTarget.includes('olahraga')) {
-        return gSubClean.includes('penjas') || gSubClean.includes('pjok') || gSubClean.includes('olahraga');
-      }
+    if (matchedPool.length === 0) return null;
 
-      // TIK / Informatika
-      if (cleanTarget.includes('tik') || cleanTarget.includes('informatika') || cleanTarget.includes('komputer') || cleanTarget.includes('teknologiinformasi')) {
-        return gSubClean.includes('tik') || gSubClean.includes('informatika') || gSubClean.includes('komputer') || gSubClean.includes('teknologiinformasi');
-      }
+    // Within matchedPool, sort to pick the most authentic entered score:
+    // 1. Records with actual score (scoreFinal > 0 or has entered parts)
+    // 2. Records with real studentId (std-import-) over dummy placeholder (std-)
+    // 3. Newest updatedAt timestamp
+    matchedPool.sort((a, b) => {
+      const aHasScore = (typeof a.scoreFinal === 'number' && !isNaN(a.scoreFinal) && a.scoreFinal > 0);
+      const bHasScore = (typeof b.scoreFinal === 'number' && !isNaN(b.scoreFinal) && b.scoreFinal > 0);
+      if (aHasScore && !bHasScore) return -1;
+      if (!aHasScore && bHasScore) return 1;
 
-      // Prakarya (distinct from TIK)
-      if (cleanTarget.includes('prakarya')) {
-        return gSubClean.includes('prakarya') && !gSubClean.includes('informatika') && !gSubClean.includes('tik');
-      }
+      const aIsReal = Boolean(a.studentId && a.studentId.startsWith('std-import-'));
+      const bIsReal = Boolean(b.studentId && b.studentId.startsWith('std-import-'));
+      if (aIsReal && !bIsReal) return -1;
+      if (!aIsReal && bIsReal) return 1;
 
-      if (cleanTarget.includes('sunda')) {
-        return gSubClean.includes('sunda');
-      }
-      if (cleanTarget.includes('arab')) {
-        return gSubClean.includes('arab');
-      }
-      if (cleanTarget.includes('inggris')) {
-        return gSubClean.includes('inggris');
-      }
-      if (cleanTarget.includes('indonesia')) {
-        return gSubClean.includes('indonesia');
-      }
-      if (cleanTarget.includes('seni') || cleanTarget.includes('budaya')) {
-        return gSubClean.includes('seni') || gSubClean.includes('budaya');
-      }
-      if (cleanTarget.includes('matematika') || cleanTarget === 'mtk') {
-        return gSubClean.includes('matematika') || gSubClean === 'mtk';
-      }
-
-      return false;
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return bTime - aTime;
     });
 
-    if (found) {
-      if (found.remedialScore !== undefined && found.remedialScore !== null && !isNaN(found.remedialScore)) {
-        return Math.max(found.scoreFinal, found.remedialScore);
+    const best = matchedPool[0];
+    if (best) {
+      if (best.remedialScore !== undefined && best.remedialScore !== null && !isNaN(best.remedialScore)) {
+        return Math.max(best.scoreFinal, best.remedialScore);
       }
-      if (typeof found.scoreFinal === 'number' && !isNaN(found.scoreFinal)) {
-        return found.scoreFinal;
+      if (typeof best.scoreFinal === 'number' && !isNaN(best.scoreFinal)) {
+        return best.scoreFinal;
       }
     }
 

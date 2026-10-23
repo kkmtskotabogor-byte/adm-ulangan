@@ -64,7 +64,8 @@ import {
   ClassParsedGroup,
   DEFAULT_KKM, 
   STANDARD_SCHOOL_SUBJECTS,
-  generateSampleGrades
+  generateSampleGrades,
+  isSameOrAliasSubject
 } from '../utils/gradeUtils';
 import { SubjectPickerModal } from './SubjectPickerModal';
 import { AdminSubjectsManager } from './AdminSubjectsManager';
@@ -421,29 +422,47 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
     const byName = new Map<string, ExamGradeItem>();
     const byNameWithClass = new Map<string, ExamGradeItem>();
 
-    grades
-      .filter((g) => g.subject === selectedSubject)
-      .forEach((g) => {
-        if (g.studentId && g.studentId !== '-') {
-          map.set(g.studentId, g);
-        }
-        if (g.examNumber && g.examNumber.trim() !== '' && g.examNumber.trim() !== '-') {
-          byExamNo.set(g.examNumber.trim().toLowerCase(), g);
-        }
-        if (g.nisn && g.nisn.trim() !== '' && g.nisn.trim() !== '-' && g.nisn.trim() !== '0' && g.nisn.trim().length > 3) {
-          byNisn.set(g.nisn.trim().toLowerCase(), g);
-        }
-        if (g.studentName && g.studentName.trim() !== '' && g.studentName.trim() !== '-') {
-          const clean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (clean && clean.length > 2) {
-            byName.set(clean, g);
-            if (g.className) {
-              const cleanCls = g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (cleanCls) byNameWithClass.set(`${clean}__${cleanCls}`, g);
-            }
+    // Candidate grades matching selected subject or recognized curriculum alias
+    const matching = grades.filter((g) => isSameOrAliasSubject(g.subject, selectedSubject));
+
+    // Sort matching grades so that authentic scores, real student IDs, and newest timestamps take precedence in map.set
+    matching.sort((a, b) => {
+      const aHasScore = (typeof a.scoreFinal === 'number' && !isNaN(a.scoreFinal) && a.scoreFinal > 0);
+      const bHasScore = (typeof b.scoreFinal === 'number' && !isNaN(b.scoreFinal) && b.scoreFinal > 0);
+      if (aHasScore && !bHasScore) return 1;
+      if (!aHasScore && bHasScore) return -1;
+
+      const aIsReal = Boolean(a.studentId && a.studentId.startsWith('std-import-'));
+      const bIsReal = Boolean(b.studentId && b.studentId.startsWith('std-import-'));
+      if (aIsReal && !bIsReal) return 1;
+      if (!aIsReal && bIsReal) return -1;
+
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return aTime - bTime;
+    });
+
+    matching.forEach((g) => {
+      if (g.studentId && g.studentId !== '-') {
+        map.set(g.studentId, g);
+      }
+      if (g.examNumber && g.examNumber.trim() !== '' && g.examNumber.trim() !== '-') {
+        byExamNo.set(g.examNumber.trim().toLowerCase(), g);
+      }
+      if (g.nisn && g.nisn.trim() !== '' && g.nisn.trim() !== '-' && g.nisn.trim() !== '0' && g.nisn.trim().length > 3) {
+        byNisn.set(g.nisn.trim().toLowerCase(), g);
+      }
+      if (g.studentName && g.studentName.trim() !== '' && g.studentName.trim() !== '-') {
+        const clean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (clean && clean.length > 2) {
+          byName.set(clean, g);
+          if (g.className) {
+            const cleanCls = g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (cleanCls) byNameWithClass.set(`${clean}__${cleanCls}`, g);
           }
         }
-      });
+      }
+    });
 
     // Also populate student.id mapping if student matches by examNumber, name (with class preference), or valid nisn
     students.forEach((s) => {
@@ -602,7 +621,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         notes: value,
         updatedAt: new Date().toISOString(),
       };
-      const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+      const otherGrades = grades.filter((g) => !(
+        (g.studentId === student.id || (
+          student.name && g.studentName &&
+          g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') &&
+          (g.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === (student.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+        )) && isSameOrAliasSubject(g.subject, selectedSubject)
+      ));
       onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
       return;
     }
@@ -628,7 +653,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
         remedialScore: updatedRemedial,
         updatedAt: new Date().toISOString(),
       };
-      const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+      const otherGrades = grades.filter((g) => !(
+        (g.studentId === student.id || (
+          student.name && g.studentName &&
+          g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') &&
+          (g.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === (student.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+        )) && isSameOrAliasSubject(g.subject, selectedSubject)
+      ));
       onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
       return;
     }
@@ -677,7 +708,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+    const otherGrades = grades.filter((g) => !(
+      (g.studentId === student.id || (
+        student.name && g.studentName &&
+        g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') &&
+        (g.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === (student.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      )) && isSameOrAliasSubject(g.subject, selectedSubject)
+    ));
     onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
   };
 
@@ -688,7 +725,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
 
     if (value.trim() === '') {
       // Jika dikosongkan, hapus data penilaian siswa pada mapel ini
-      const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+      const otherGrades = grades.filter((g) => !(
+        (g.studentId === student.id || (
+          student.name && g.studentName &&
+          g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') &&
+          (g.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === (student.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+        )) && isSameOrAliasSubject(g.subject, selectedSubject)
+      ));
       onUpdateGrades(otherGrades, selectedSubject);
       return;
     }
@@ -724,7 +767,13 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    const otherGrades = grades.filter((g) => !(g.studentId === student.id && g.subject === selectedSubject));
+    const otherGrades = grades.filter((g) => !(
+      (g.studentId === student.id || (
+        student.name && g.studentName &&
+        g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') === student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') &&
+        (g.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '') === (student.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '')
+      )) && isSameOrAliasSubject(g.subject, selectedSubject)
+    ));
     onUpdateGrades([...otherGrades, newGradeItem], selectedSubject);
   };
 

@@ -23,6 +23,126 @@ export const STANDARD_SCHOOL_SUBJECTS = [
   'Bahasa Sunda',
 ];
 
+/**
+ * Canonical subject matcher that recognizes curriculum aliases and abbreviations:
+ * - "IPA" <-> "Ilmu Pengetahuan Alam (IPA)"
+ * - "IPS" <-> "Ilmu Pengetahuan Sosial (IPS)"
+ * - "Al-Qur'an Hadis" <-> "Alquran Hadist" <-> "Al-Qur'an Hadits"
+ * - "Akidah Akhlak" <-> "Aqidah Akhlak"
+ * - "Fikih" <-> "Fiqih"
+ * - "SKI" <-> "Sejarah Kebudayaan Islam (SKI)"
+ * - "Pendidikan Pancasila" <-> "Pendidikan Pancasila / PKn" <-> "PKn" <-> "PPKn"
+ * - "Penjasorkes" <-> "PJOK" <-> "Pendidikan Jasmani (PJOK)"
+ * - "TIK" <-> "TIK / Informatika" <-> "Informatika"
+ * - "BTQ" <-> "BTQ (Baca Tulis Al-Qur'an)" <-> "Baca Tulis Al-Qur'an"
+ * - "Bahasa Sunda" <-> "B. Sunda"
+ * - "Bahasa Arab" <-> "B. Arab"
+ * - "Bahasa Inggris" <-> "B. Inggris"
+ * - "Bahasa Indonesia" <-> "B. Indonesia"
+ * - "Prakarya"
+ * - "Seni Budaya"
+ * - "Matematika" <-> "MTK"
+ */
+export function isSameOrAliasSubject(subA?: string | null, subB?: string | null): boolean {
+  if (!subA || !subB) return false;
+  const aClean = subA.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const bClean = subB.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!aClean || !bClean) return false;
+  if (aClean === bClean) return true;
+
+  // BTQ (Baca Tulis Al-Qur'an)
+  const isA_Btq = aClean.includes('btq') || aClean.includes('bacatulis') || aClean.includes('tulisquran');
+  const isB_Btq = bClean.includes('btq') || bClean.includes('bacatulis') || bClean.includes('tulisquran');
+  if (isA_Btq || isB_Btq) return isA_Btq && isB_Btq;
+
+  // Al-Qur'an Hadits (strictly distinct from BTQ)
+  const isA_QuranHadits = (aClean.includes('hadis') || aClean.includes('hadits') || (aClean.includes('quran') && !isA_Btq));
+  const isB_QuranHadits = (bClean.includes('hadis') || bClean.includes('hadits') || (bClean.includes('quran') && !isB_Btq));
+  if (isA_QuranHadits || isB_QuranHadits) return isA_QuranHadits && isB_QuranHadits;
+
+  // Akidah Akhlak
+  const isA_Akidah = aClean.includes('akidah') || aClean.includes('aqidah') || aClean.includes('akhlak');
+  const isB_Akidah = bClean.includes('akidah') || bClean.includes('aqidah') || bClean.includes('akhlak');
+  if (isA_Akidah || isB_Akidah) return isA_Akidah && isB_Akidah;
+
+  // Fikih / Fiqih
+  const isA_Fikih = aClean === 'fikih' || aClean === 'fiqih';
+  const isB_Fikih = bClean === 'fikih' || bClean === 'fiqih';
+  if (isA_Fikih || isB_Fikih) return isA_Fikih && isB_Fikih;
+
+  // SKI
+  const isA_Ski = aClean.includes('ski') || aClean.includes('sejarahkebudayaan');
+  const isB_Ski = bClean.includes('ski') || bClean.includes('sejarahkebudayaan');
+  if (isA_Ski || isB_Ski) return isA_Ski && isB_Ski;
+
+  // Pendidikan Pancasila / PKn
+  const isA_Pkn = aClean.includes('pancasila') || aClean.includes('pkn') || aClean.includes('ppkn') || aClean.includes('kewarganegaraan');
+  const isB_Pkn = bClean.includes('pancasila') || bClean.includes('pkn') || bClean.includes('ppkn') || bClean.includes('kewarganegaraan');
+  if (isA_Pkn || isB_Pkn) return isA_Pkn && isB_Pkn;
+
+  // IPA
+  const isA_Ipa = aClean === 'ipa' || (aClean.includes('alam') && !aClean.includes('sosial')) || aClean.includes('ilmapengetahuanalam');
+  const isB_Ipa = bClean === 'ipa' || (bClean.includes('alam') && !bClean.includes('sosial')) || bClean.includes('ilmapengetahuanalam');
+  if (isA_Ipa || isB_Ipa) return isA_Ipa && isB_Ipa;
+
+  // IPS
+  const isA_Ips = aClean === 'ips' || aClean.includes('sosial');
+  const isB_Ips = bClean === 'ips' || bClean.includes('sosial');
+  if (isA_Ips || isB_Ips) return isA_Ips && isB_Ips;
+
+  // Bahasa Indonesia
+  const isA_Indo = aClean.includes('indonesia');
+  const isB_Indo = bClean.includes('indonesia');
+  if (isA_Indo || isB_Indo) return isA_Indo && isB_Indo;
+
+  // Bahasa Inggris
+  const isA_Inggris = aClean.includes('inggris');
+  const isB_Inggris = bClean.includes('inggris');
+  if (isA_Inggris || isB_Inggris) return isA_Inggris && isB_Inggris;
+
+  // Bahasa Arab
+  const isA_Arab = aClean.includes('arab');
+  const isB_Arab = bClean.includes('arab');
+  if (isA_Arab || isB_Arab) return isA_Arab && isB_Arab;
+
+  // Bahasa Sunda
+  const isA_Sunda = aClean.includes('sunda');
+  const isB_Sunda = bClean.includes('sunda');
+  if (isA_Sunda || isB_Sunda) return isA_Sunda && isB_Sunda;
+
+  // Matematika
+  const isA_Mtk = aClean.includes('matematika') || aClean === 'mtk';
+  const isB_Mtk = bClean.includes('matematika') || bClean === 'mtk';
+  if (isA_Mtk || isB_Mtk) return isA_Mtk && isB_Mtk;
+
+  // Penjas / PJOK
+  const isA_Pjok = aClean.includes('penjas') || aClean.includes('pjok') || aClean.includes('olahraga');
+  const isB_Pjok = bClean.includes('penjas') || bClean.includes('pjok') || bClean.includes('olahraga');
+  if (isA_Pjok || isB_Pjok) return isA_Pjok && isB_Pjok;
+
+  // TIK / Informatika
+  const isA_Tik = aClean.includes('tik') || aClean.includes('informatika') || aClean.includes('komputer');
+  const isB_Tik = bClean.includes('tik') || bClean.includes('informatika') || bClean.includes('komputer');
+  if (isA_Tik || isB_Tik) return isA_Tik && isB_Tik;
+
+  // Prakarya
+  const isA_Prakarya = aClean.includes('prakarya');
+  const isB_Prakarya = bClean.includes('prakarya');
+  if (isA_Prakarya || isB_Prakarya) return isA_Prakarya && isB_Prakarya;
+
+  // Seni Budaya
+  const isA_Seni = aClean.includes('seni') || aClean.includes('budaya');
+  const isB_Seni = bClean.includes('seni') || bClean.includes('budaya');
+  if (isA_Seni || isB_Seni) return isA_Seni && isB_Seni;
+
+  // Fallback: substring matching if at least 4 characters long
+  if (aClean.length >= 4 && bClean.length >= 4) {
+    if (aClean.includes(bClean) || bClean.includes(aClean)) return true;
+  }
+
+  return false;
+}
+
 export function getSubjectCategory(subject: string): string {
   const s = subject.toLowerCase();
   if (
@@ -1795,61 +1915,97 @@ export function mergeGradesIntelligently(
 
   const getScorePresence = (g: ExamGradeItem): boolean => {
     return (
-      (typeof g.scoreFinal === 'number' && !isNaN(g.scoreFinal)) ||
-      (typeof g.correctPg === 'number' && !isNaN(g.correctPg)) ||
-      (typeof g.correctEssay === 'number' && !isNaN(g.correctEssay)) ||
-      (typeof g.remedialScore === 'number' && !isNaN(g.remedialScore))
+      (typeof g.scoreFinal === 'number' && !isNaN(g.scoreFinal) && g.scoreFinal > 0) ||
+      (typeof g.correctPg === 'number' && !isNaN(g.correctPg) && g.correctPg > 0) ||
+      (typeof g.correctEssay === 'number' && !isNaN(g.correctEssay) && g.correctEssay > 0) ||
+      (typeof g.remedialScore === 'number' && !isNaN(g.remedialScore) && g.remedialScore > 0)
     );
   };
 
   const getCleanKey = (g: ExamGradeItem): string => {
-    if (g.studentId && g.subject) {
-      return `${g.studentId}__${g.subject.trim().toLowerCase()}`;
+    // Canonical subject normalization
+    const subClean = (g.subject || 'unknown').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Prefer studentId if it is a real student ID (e.g. std-import-)
+    if (g.studentId && g.studentId.startsWith('std-import-')) {
+      return `${g.studentId}__${subClean}`;
     }
-    const idPart = (g.examNumber || g.nisn || g.studentName || 'anon')
+
+    // Secondary fallback: normalized student name + class to bridge studentId re-imports
+    if (g.studentName && g.studentName.trim().length > 2) {
+      const nameClean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      const classClean = (g.className || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+      return `${nameClean}__${classClean}__${subClean}`;
+    }
+
+    if (g.studentId) {
+      return `${g.studentId}__${subClean}`;
+    }
+
+    const idPart = (g.examNumber || g.nisn || 'anon')
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '');
-    const subPart = (g.subject || 'unknown').trim().toLowerCase();
-    return `${idPart}__${subPart}`;
+    return `${idPart}__${subClean}`;
+  };
+
+  const isDummyGrade = (g: ExamGradeItem): boolean => {
+    return Boolean(
+      g.studentId &&
+      g.studentId.startsWith('std-') &&
+      !g.studentId.startsWith('std-import-') &&
+      g.examNumber &&
+      g.examNumber.startsWith('M-26')
+    );
   };
 
   const map = new Map<string, ExamGradeItem>();
 
-  // 1. Populate map with local grades
-  localGrades.forEach((g) => {
-    map.set(getCleanKey(g), g);
-  });
+  const processGrade = (item: ExamGradeItem) => {
+    const key = getCleanKey(item);
+    if (!map.has(key)) {
+      map.set(key, item);
+      return;
+    }
+
+    const existing = map.get(key)!;
+    const existingIsDummy = isDummyGrade(existing);
+    const itemIsDummy = isDummyGrade(item);
+
+    // If one is dummy and one is real, ALWAYS keep the real one!
+    if (existingIsDummy && !itemIsDummy) {
+      map.set(key, item);
+      return;
+    }
+    if (!existingIsDummy && itemIsDummy) {
+      return; // Keep existing real item
+    }
+
+    const existingHasScore = getScorePresence(existing);
+    const itemHasScore = getScorePresence(item);
+
+    if (!existingHasScore && itemHasScore) {
+      map.set(key, item);
+      return;
+    }
+    if (existingHasScore && !itemHasScore) {
+      return; // Keep existing with score
+    }
+
+    // Both have scores or neither has scores -> compare updatedAt timestamps
+    const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+    const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+
+    if (itemTime >= existingTime) {
+      map.set(key, item);
+    }
+  };
+
+  // 1. Process local grades
+  localGrades.forEach(processGrade);
 
   // 2. Intelligently merge remote grades
-  remoteGrades.forEach((remoteItem) => {
-    const key = getCleanKey(remoteItem);
-    if (!map.has(key)) {
-      map.set(key, remoteItem);
-    } else {
-      const localItem = map.get(key)!;
-      const localHasScore = getScorePresence(localItem);
-      const remoteHasScore = getScorePresence(remoteItem);
-
-      if (!localHasScore && remoteHasScore) {
-        // Remote has actual score data while local is empty -> remote wins
-        map.set(key, remoteItem);
-      } else if (localHasScore && !remoteHasScore) {
-        // Local has actual score data while remote is empty -> local wins
-        map.set(key, localItem);
-      } else {
-        // Both have scores or neither has scores -> compare updatedAt timestamps
-        const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
-        const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt).getTime() : 0;
-
-        if (remoteTime >= localTime) {
-          map.set(key, remoteItem);
-        } else {
-          map.set(key, localItem);
-        }
-      }
-    }
-  });
+  remoteGrades.forEach(processGrade);
 
   return Array.from(map.values());
 }
