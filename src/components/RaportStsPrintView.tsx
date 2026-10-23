@@ -531,12 +531,49 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     const cleanTarget = subjectTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const found = grades.find((g) => {
-      // 1. Student match
-      const studentMatch =
-        g.studentId === student.id ||
-        (student.examNumber && g.examNumber && g.examNumber.toLowerCase() === student.examNumber.toLowerCase()) ||
-        (student.nisn && g.nisn && g.nisn === student.nisn) ||
-        (student.name && g.studentName && g.studentName.toLowerCase().replace(/[^a-z0-9]/g, '') === student.name.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      // 1. Student match: prioritize exact studentId, non-dash examNumber, clean student name, or valid non-dash NISN
+      const isIdMatch = Boolean(g.studentId && student.id && g.studentId === student.id);
+      const isExamMatch = Boolean(
+        student.examNumber &&
+        student.examNumber.trim() !== '' &&
+        student.examNumber.trim() !== '-' &&
+        g.examNumber &&
+        g.examNumber.trim() !== '' &&
+        g.examNumber.trim() !== '-' &&
+        g.examNumber.trim().toLowerCase() === student.examNumber.trim().toLowerCase()
+      );
+      const isNisnMatch = Boolean(
+        student.nisn &&
+        student.nisn.trim() !== '' &&
+        student.nisn.trim() !== '-' &&
+        student.nisn.trim() !== '0' &&
+        student.nisn.trim().length > 3 &&
+        g.nisn &&
+        g.nisn.trim() !== '' &&
+        g.nisn.trim() !== '-' &&
+        g.nisn.trim() !== '0' &&
+        g.nisn.trim().length > 3 &&
+        g.nisn.trim() === student.nisn.trim()
+      );
+      const isNameMatch = Boolean(
+        student.name &&
+        g.studentName &&
+        (() => {
+          const sClean = student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          const gClean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (sClean.length > 2 && sClean === gClean) {
+            if (g.className && student.className) {
+              const gClass = g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+              const sClass = student.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+              return gClass === sClass;
+            }
+            return true;
+          }
+          return false;
+        })()
+      );
+
+      const studentMatch = isIdMatch || isExamMatch || isNameMatch || isNisnMatch;
 
       if (!studentMatch) return false;
 

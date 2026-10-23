@@ -413,36 +413,56 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
   };
 
   // Grade Map for fast O(1) lookup with multi-key resolution (studentId, examNumber, nisn, name)
+  // Grade Map for fast O(1) lookup with multi-key resolution (studentId, examNumber, nisn, name)
   const currentSubjectGradeMap = useMemo(() => {
     const map = new Map<string, ExamGradeItem>();
     const byExamNo = new Map<string, ExamGradeItem>();
     const byNisn = new Map<string, ExamGradeItem>();
     const byName = new Map<string, ExamGradeItem>();
+    const byNameWithClass = new Map<string, ExamGradeItem>();
 
     grades
       .filter((g) => g.subject === selectedSubject)
       .forEach((g) => {
-        if (g.studentId) map.set(g.studentId, g);
-        if (g.examNumber) byExamNo.set(g.examNumber.trim().toLowerCase(), g);
-        if (g.nisn) byNisn.set(g.nisn.trim().toLowerCase(), g);
-        if (g.studentName) {
+        if (g.studentId && g.studentId !== '-') {
+          map.set(g.studentId, g);
+        }
+        if (g.examNumber && g.examNumber.trim() !== '' && g.examNumber.trim() !== '-') {
+          byExamNo.set(g.examNumber.trim().toLowerCase(), g);
+        }
+        if (g.nisn && g.nisn.trim() !== '' && g.nisn.trim() !== '-' && g.nisn.trim() !== '0' && g.nisn.trim().length > 3) {
+          byNisn.set(g.nisn.trim().toLowerCase(), g);
+        }
+        if (g.studentName && g.studentName.trim() !== '' && g.studentName.trim() !== '-') {
           const clean = g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (clean) byName.set(clean, g);
+          if (clean && clean.length > 2) {
+            byName.set(clean, g);
+            if (g.className) {
+              const cleanCls = g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (cleanCls) byNameWithClass.set(`${clean}__${cleanCls}`, g);
+            }
+          }
         }
       });
 
-    // Also populate student.id mapping if student matches by examNumber, nisn, or name
+    // Also populate student.id mapping if student matches by examNumber, name (with class preference), or valid nisn
     students.forEach((s) => {
       if (!map.has(s.id)) {
-        if (s.examNumber && byExamNo.has(s.examNumber.trim().toLowerCase())) {
-          map.set(s.id, byExamNo.get(s.examNumber.trim().toLowerCase())!);
-        } else if (s.nisn && byNisn.has(s.nisn.trim().toLowerCase())) {
-          map.set(s.id, byNisn.get(s.nisn.trim().toLowerCase())!);
-        } else if (s.name) {
-          const clean = s.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (clean && byName.has(clean)) {
-            map.set(s.id, byName.get(clean)!);
-          }
+        const cleanName = s.name ? s.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+        const cleanClass = s.className ? s.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+        const cleanExam = s.examNumber && s.examNumber.trim() !== '' && s.examNumber.trim() !== '-' ? s.examNumber.trim().toLowerCase() : '';
+        const cleanNisn = s.nisn && s.nisn.trim() !== '' && s.nisn.trim() !== '-' && s.nisn.trim() !== '0' && s.nisn.trim().length > 3 ? s.nisn.trim().toLowerCase() : '';
+
+        const nameWithClassKey = cleanName && cleanClass ? `${cleanName}__${cleanClass}` : '';
+
+        if (cleanExam && byExamNo.has(cleanExam)) {
+          map.set(s.id, byExamNo.get(cleanExam)!);
+        } else if (nameWithClassKey && byNameWithClass.has(nameWithClassKey)) {
+          map.set(s.id, byNameWithClass.get(nameWithClassKey)!);
+        } else if (cleanName && byName.has(cleanName)) {
+          map.set(s.id, byName.get(cleanName)!);
+        } else if (cleanNisn && byNisn.has(cleanNisn)) {
+          map.set(s.id, byNisn.get(cleanNisn)!);
         }
       }
     });
