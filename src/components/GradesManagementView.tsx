@@ -65,7 +65,8 @@ import {
   DEFAULT_KKM, 
   STANDARD_SCHOOL_SUBJECTS,
   generateSampleGrades,
-  isSameOrAliasSubject
+  isSameOrAliasSubject,
+  getStudentSubjectScore
 } from '../utils/gradeUtils';
 import { SubjectPickerModal } from './SubjectPickerModal';
 import { AdminSubjectsManager } from './AdminSubjectsManager';
@@ -2924,16 +2925,11 @@ export const GradesManagementView: React.FC<GradesManagementViewProps> = ({
                     let count = 0;
 
                     const studentSubjectScores = availableSubjects.map((sub) => {
-                      const cleanSub = sub.toLowerCase().replace(/[^a-z0-9]/g, '');
-                      const g = grades.find((gr) => {
-                        if (gr.studentId !== student.id) return false;
-                        const grClean = (gr.subject || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                        return grClean === cleanSub || grClean.includes(cleanSub) || cleanSub.includes(grClean);
-                      });
-                      if (g && typeof g.scoreFinal === 'number') {
-                        total += g.scoreFinal;
+                      const score = getStudentSubjectScore(student, sub, grades);
+                      if (typeof score === 'number') {
+                        total += score;
                         count++;
-                        return g.scoreFinal;
+                        return score;
                       }
                       return null;
                     });

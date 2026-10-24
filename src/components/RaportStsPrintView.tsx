@@ -21,7 +21,7 @@ import {
 import { ExamConfig, ExamGradeItem, Student, SubjectGradingConfig, StudentRaportExtraData } from '../types';
 import { initialRaportExtras } from '../data/initialData';
 import { PRESET_LOGO_KEMENAG } from '../utils/logoUtils';
-import { terbilang, DEFAULT_KKM, isSameOrAliasSubject } from '../utils/gradeUtils';
+import { terbilang, DEFAULT_KKM, isSameOrAliasSubject, getStudentSubjectScore } from '../utils/gradeUtils';
 import { RaportExtrasInputModal } from './RaportExtrasInputModal';
 import { subscribeToRaportExtraData, saveRaportExtraDataToCloud } from '../lib/firebase';
 import { fetchServerRaportExtras, saveServerRaportExtras } from '../lib/api';
@@ -526,92 +526,9 @@ export const RaportStsPrintView: React.FC<RaportStsPrintViewProps> = ({
     window.open(url, '_blank');
   };
 
-  // Helper to extract score for student & subject with strict priority matching
+  // Helper to extract official score for student & subject using shared canonical resolver
   const getSubjectScore = (student: Student, subjectTitle: string): number | null => {
-    // 1. Filter grades that match this subject (handles all curriculum aliases: IPA, Alquran Hadist, PKn, Fikih, etc.)
-    const candidates = grades.filter((g) => isSameOrAliasSubject(g.subject, subjectTitle));
-    if (candidates.length === 0) return null;
-
-    // 2. Strict Student Matching Hierarchy:
-    // Tier 1: Exact studentId match (Highest authority, e.g. std-import-...)
-    const byId = candidates.filter((g) => Boolean(g.studentId && student.id && g.studentId === student.id));
-
-    // Tier 2: Exact non-dash examNumber match
-    const cleanExam = student.examNumber && student.examNumber.trim() !== '' && student.examNumber.trim() !== '-'
-      ? student.examNumber.trim().toLowerCase()
-      : null;
-    const byExam = cleanExam
-      ? candidates.filter((g) => g.examNumber && g.examNumber.trim().toLowerCase() === cleanExam)
-      : [];
-
-    // Tier 3: Valid non-dash NISN match
-    const cleanNisn = student.nisn && student.nisn.trim() !== '' && student.nisn.trim() !== '-' && student.nisn.trim() !== '0' && student.nisn.trim().length > 3
-      ? student.nisn.trim()
-      : null;
-    const byNisn = cleanNisn
-      ? candidates.filter((g) => g.nisn && g.nisn.trim() === cleanNisn)
-      : [];
-
-    // Tier 4: Matching student name AND class
-    const sNameClean = student.name ? student.name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-    const sClassClean = student.className ? student.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-    const byNameAndClass = (sNameClean.length > 2 && sClassClean)
-      ? candidates.filter((g) => {
-          const gName = g.studentName ? g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-          const gClass = g.className ? g.className.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-          return gName === sNameClean && gClass === sClassClean;
-        })
-      : [];
-
-    // Tier 5: Matching student name alone (fallback if class missing in imported grade record)
-    const byName = (sNameClean.length > 2)
-      ? candidates.filter((g) => {
-          const gName = g.studentName ? g.studentName.trim().toLowerCase().replace(/[^a-z0-9]/g, '') : '';
-          return gName === sNameClean;
-        })
-      : [];
-
-    // Select the highest priority match tier that has records
-    const matchedPool = byId.length > 0 ? byId
-      : byExam.length > 0 ? byExam
-      : byNisn.length > 0 ? byNisn
-      : byNameAndClass.length > 0 ? byNameAndClass
-      : byName.length > 0 ? byName
-      : [];
-
-    if (matchedPool.length === 0) return null;
-
-    // Within matchedPool, sort to pick the most authentic entered score:
-    // 1. Records with actual score (scoreFinal > 0 or has entered parts)
-    // 2. Records with real studentId (std-import-) over dummy placeholder (std-)
-    // 3. Newest updatedAt timestamp
-    matchedPool.sort((a, b) => {
-      const aHasScore = (typeof a.scoreFinal === 'number' && !isNaN(a.scoreFinal) && a.scoreFinal > 0);
-      const bHasScore = (typeof b.scoreFinal === 'number' && !isNaN(b.scoreFinal) && b.scoreFinal > 0);
-      if (aHasScore && !bHasScore) return -1;
-      if (!aHasScore && bHasScore) return 1;
-
-      const aIsReal = Boolean(a.studentId && a.studentId.startsWith('std-import-'));
-      const bIsReal = Boolean(b.studentId && b.studentId.startsWith('std-import-'));
-      if (aIsReal && !bIsReal) return -1;
-      if (!aIsReal && bIsReal) return 1;
-
-      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-      return bTime - aTime;
-    });
-
-    const best = matchedPool[0];
-    if (best) {
-      if (best.remedialScore !== undefined && best.remedialScore !== null && !isNaN(best.remedialScore)) {
-        return Math.max(best.scoreFinal, best.remedialScore);
-      }
-      if (typeof best.scoreFinal === 'number' && !isNaN(best.scoreFinal)) {
-        return best.scoreFinal;
-      }
-    }
-
-    return null;
+    return getStudentSubjectScore(student, subjectTitle, grades);
   };
 
   // Helper to resolve KKM with fallback across alias subject names (e.g. Pendidikan Pancasila / PKn)

@@ -27,7 +27,7 @@ import {
   TableProperties
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { DEFAULT_KKM, getSubjectCategory } from '../utils/gradeUtils';
+import { DEFAULT_KKM, getSubjectCategory, getStudentSubjectScore } from '../utils/gradeUtils';
 
 export type GradeLevel = 'all' | '7' | '8' | '9';
 
@@ -153,17 +153,9 @@ const computeItemsForStudentList = (
     const kkm = gradingConfigs[sub]?.kkm || DEFAULT_KKM;
     const category = getSubjectCategory(sub);
 
-    const subGrades = grades.filter(
-      (g) => g.subject === sub && scopeStudentIds.has(g.studentId)
-    );
-
-    const scores = subGrades
-      .map((g) =>
-        g.remedialScore !== null && g.remedialScore !== undefined
-          ? Math.max(g.scoreFinal, g.remedialScore)
-          : g.scoreFinal
-      )
-      .filter((s) => typeof s === 'number' && !isNaN(s));
+    const scores = scopeStudents
+      .map((student) => getStudentSubjectScore(student, sub, grades))
+      .filter((s): s is number => typeof s === 'number' && !isNaN(s));
 
     const studentsWithGrades = scores.length;
 
